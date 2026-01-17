@@ -4,12 +4,11 @@ import com.google.gson.GsonBuilder;
 import dev.candycup.lifestealutils.features.timers.BasicTimerManager;
 import dev.candycup.lifestealutils.interapi.MessagingUtils;
 import dev.isxander.yacl3.api.*;
-import dev.isxander.yacl3.api.controller.ColorControllerBuilder;
-import dev.isxander.yacl3.api.controller.StringControllerBuilder;
-import dev.isxander.yacl3.api.controller.TickBoxControllerBuilder;
+import dev.isxander.yacl3.api.controller.*;
 import dev.isxander.yacl3.config.v2.api.ConfigClassHandler;
 import dev.isxander.yacl3.config.v2.api.SerialEntry;
 import dev.isxander.yacl3.config.v2.api.serializer.GsonConfigSerializerBuilder;
+import dev.isxander.yacl3.gui.controllers.slider.FloatSliderController;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -71,6 +70,12 @@ public class Config {
 
    @SerialEntry(comment = "Per-timer format overrides keyed by timer id")
    public static Map<String, String> basicTimerFormatOverrides = new HashMap<>();
+
+   @SerialEntry(comment = "Enable increased scale for rare items such as neth and custom enchants.")
+   public static boolean rareItemScaleEnabled = true;
+
+   @SerialEntry(comment = "Increased scale of the rare items.")
+   public static float rareItemScale = 2.0f;
 
    private static OptionDescription descriptionWithRemoteReasoning(String baseMiniMessage, String featureKey) {
       OptionDescription.Builder builder = OptionDescription.createBuilder()
@@ -227,6 +232,24 @@ public class Config {
       HANDLER.save();
    }
 
+   public static boolean isRareItemScaling() {
+      return Config.rareItemScaleEnabled;
+   }
+
+   public static void toggleRareItemScaling(boolean enabled) {
+      Config.rareItemScaleEnabled = enabled;
+      HANDLER.save();
+   }
+
+   public static float getRareItemScaling() {
+      return Config.rareItemScale;
+   }
+
+   public static void setRareItemScaling(float scale) {
+      Config.rareItemScale = scale;
+      HANDLER.save();
+   }
+
    public static boolean isBasicTimerEnabled(String id) {
       return basicTimerEnabled.getOrDefault(id, false);
    }
@@ -359,6 +382,35 @@ public class Config {
                                               .build())
                                       .binding(true, Config::getCustomSplashes, Config::setCustomSplashes)
                                       .controller(TickBoxControllerBuilder::create)
+                                      .build()
+                              )
+                              .build()
+                      )
+                      .group(OptionGroup.createBuilder()
+                              .name(Component.translatable("lsu.group.rareScale"))
+                              .option(Option.<Boolean>createBuilder()
+                                      .name(Component.translatable("lsu.option.rareScaleEnabled.name"))
+                                      .description(OptionDescription.createBuilder()
+                                              .text(MessagingUtils.miniMessage(
+                                                      "Enable increased scale for rare items such as neth and custom enchants."
+                                              ))
+                                              .build())
+                                      .binding(true, Config::isRareItemScaling, Config::toggleRareItemScaling)
+                                      .controller(TickBoxControllerBuilder::create)
+                                      .build()
+                              )
+                              .option(Option.<Float>createBuilder()
+                                      .name(Component.translatable("lsu.option.rareScale.name"))
+                                      .description(OptionDescription.createBuilder()
+                                              .text(MessagingUtils.miniMessage(
+                                                      "Increased scale of the rare items."
+                                              ))
+                                              .build())
+                                      .binding(2.0f, Config::getRareItemScaling, Config::setRareItemScaling)
+                                      .controller(opt -> FloatSliderControllerBuilder.create(opt)
+                                              .range(0.5f, 5.0f)
+                                              .step(0.1f)
+                                              .valueFormatter(val -> Component.literal(val + "x")))
                                       .build()
                               )
                               .build()

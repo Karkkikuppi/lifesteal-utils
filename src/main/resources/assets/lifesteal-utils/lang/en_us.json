@@ -16,5 +16,8 @@
   "lsu.group.alliances": "Alliances",
   "lsu.option.enableAlliances.name": "Enable Alliances",
   "lsu.option.allianceNameColor.name": "Alliance Name Color",
-  "key.lifesteal-utils.add_alliance_target": "Add Looked-at Player to Alliance"
+  "key.lifesteal-utils.add_alliance_target": "Add Looked-at Player to Alliance",
+  "lsu.group.rareScale": "Rare Item Scaling",
+  "lsu.option.rareScaleEnabled.name": "Rare Scale Enabled",
+  "lsu.option.rareScale.name": "Rare Item Scale"
 }

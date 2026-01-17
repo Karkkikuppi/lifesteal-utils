@@ -9,7 +9,9 @@
     "NameTagSubmitMixin",
     "SplashManagerMixin",
     "TabListMixin",
-    "TitleScreenMixin"
+    "TitleScreenMixin",
+    "ItemRendererMixin",
+    "ItemClusterMixin"
   ],
   "injectors": {
     "defaultRequire": 1
