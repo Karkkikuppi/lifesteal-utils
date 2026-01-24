@@ -16,6 +16,11 @@ public class TitleScreenMixin extends Screen {
       super(title);
    }
 
+   /**
+    * Dispatches a TitleScreenInitEvent on the global EventBus after the title screen finishes initialization.
+    *
+    * @param ci the mixin CallbackInfo supplied to injected methods (unused)
+    */
    @Inject(method = "init", at = @At("TAIL"))
    public void init(CallbackInfo ci) {
       TitleScreenInitEvent event = new TitleScreenInitEvent((TitleScreen) (Object) this);

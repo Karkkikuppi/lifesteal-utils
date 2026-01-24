@@ -21,16 +21,33 @@ import net.minecraft.resources.Identifier;
  */
 public final class QuickJoinButton implements UIEventListener {
 
+    /**
+     * Determines whether the quick-join button should be shown based on configuration.
+     *
+     * @return true if the quick-join button is enabled in the configuration, false otherwise.
+     */
     @Override
     public boolean isEnabled() {
         return Config.getQuickJoinButtonEnabled();
     }
 
+    /**
+     * Specifies the event priority used by this listener.
+     *
+     * @return the listener's event priority, `EventPriority.NORMAL`
+     */
     @Override
     public EventPriority getPriority() {
         return EventPriority.NORMAL;
     }
 
+    /**
+     * Adds a quick-join button to the title screen that opens the multiplayer screen and initiates a connection to the Lifesteal network.
+     *
+     * When invoked, this method injects a clickable button into the title screen UI; activating the button transitions to the multiplayer join screen and starts connecting to "lifesteal.net" with a ServerData entry for "Lifesteal Network".
+     *
+     * @param event the title screen initialization event providing access to the TitleScreen to modify
+     */
     @Override
     public void onTitleScreenInit(TitleScreenInitEvent event) {
         TitleScreen screen = event.getTitleScreen();

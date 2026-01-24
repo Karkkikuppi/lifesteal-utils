@@ -11,23 +11,23 @@ import dev.candycup.lifestealutils.event.events.PlayerDamagedEvent;
 public interface CombatEventListener extends LifestealEventListener {
 
     /**
-     * called when the local player initiates an attack on an entity.
-     *
-     * @param event the attack event
-     */
+ * Invoked when the local player initiates an attack against an entity.
+ *
+ * @param event details of the client-side attack event
+ */
     default void onClientAttack(ClientAttackEvent event) {}
 
     /**
-     * called when the server confirms damage to an entity.
-     *
-     * @param event the damage confirmation event
-     */
+ * Invoked when the server confirms that an entity has taken damage.
+ *
+ * @param event the damage confirmation event containing details about the confirmed damage
+ */
     default void onDamageConfirmed(DamageConfirmedEvent event) {}
 
     /**
-     * called when the local player receives damage.
-     *
-     * @param event the player damaged event
-     */
+ * Invoked when the local player receives damage.
+ *
+ * @param event the event describing the damage applied to the local player
+ */
     default void onPlayerDamaged(PlayerDamagedEvent event) {}
 }

@@ -56,6 +56,15 @@ public final class LifestealUtils implements ClientModInitializer {
    private static QuickJoinButton quickJoinButton;
    private static CustomSplashes customSplashes;
 
+   /**
+    * Initializes client-side components for the mod: loads configuration, registers HUD elements
+    * and feature instances with the event bus, creates key bindings, attaches HUD layers, and
+    * registers tick and client command handlers.
+    *
+    * <p>As part of initialization this method also posts per-tick ClientTickEvent via the tick
+    * handler, manages deferred opening of configuration and HUD editor screens, handles keybinding
+    * actions (open HUD editor, toggle alliance target), and registers the "lsu" client commands.
+    */
    @Override
    public void onInitializeClient() {
       LOGGER.info("Lifesteal Utils initializing. I LOVE FABRIC !!!!!!");
@@ -270,6 +279,11 @@ public final class LifestealUtils implements ClientModInitializer {
       });
    }
 
+   /**
+    * Provides access to the application's BasicTimerManager instance.
+    *
+    * @return the shared BasicTimerManager instance, or `null` if it has not been initialized
+    */
    public static BasicTimerManager getBasicTimerManager() {
       return basicTimerManager;
    }

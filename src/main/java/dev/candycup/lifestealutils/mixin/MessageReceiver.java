@@ -19,6 +19,12 @@ public class MessageReceiver {
    @Final
    private static Logger LOGGER;
 
+   /**
+    * Intercepts incoming chat components, posts a ChatMessageReceivedEvent to the EventBus, and conditionally suppresses or replaces the original message based on the event state.
+    *
+    * @param component the incoming chat Component delivered to listeners; listeners may modify or cancel this message
+    * @param ci the mixin CallbackInfo used to cancel the original addMessage invocation when the event is cancelled or when a modified message is re-inserted
+    */
    @Inject(at = @At("HEAD"), method = "addMessage(Lnet/minecraft/network/chat/Component;)V", cancellable = true)
    private void addMessage(Component component, CallbackInfo ci) {
       if (!LifestealServerDetector.isOnLifestealServer()) {

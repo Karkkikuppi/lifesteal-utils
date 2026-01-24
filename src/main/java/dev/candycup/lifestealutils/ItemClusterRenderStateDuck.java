@@ -3,11 +3,31 @@ package dev.candycup.lifestealutils;
 import net.minecraft.world.item.ItemStack;
 
 public interface ItemClusterRenderStateDuck {
-   boolean lifestealutils$isRare();
+   /**
+ * Indicates whether the associated item cluster render state is flagged as rare.
+ *
+ * @return `true` if the associated item cluster render state is rare, `false` otherwise.
+ */
+boolean lifestealutils$isRare();
 
-   void lifestealutils$setRare(boolean rare);
+   /**
+ * Sets whether the associated item cluster render state is considered rare.
+ *
+ * @param rare true to mark the render state as rare, false to mark it as not rare
+ */
+void lifestealutils$setRare(boolean rare);
 
-   ItemStack lifestealutils$getItemStack();
+   /**
+ * Retrieves the ItemStack associated with the item cluster render state.
+ *
+ * @return the associated ItemStack
+ */
+ItemStack lifestealutils$getItemStack();
 
-   void lifestealutils$setItemStack(ItemStack stack);
+   /**
+ * Sets the ItemStack associated with this item cluster render state.
+ *
+ * @param stack the ItemStack to associate with the render state
+ */
+void lifestealutils$setItemStack(ItemStack stack);
 }

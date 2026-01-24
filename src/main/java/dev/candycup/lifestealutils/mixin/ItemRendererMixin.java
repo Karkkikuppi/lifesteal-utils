@@ -21,7 +21,15 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(ItemEntityRenderer.class)
 public class ItemRendererMixin {
-   //? if > 1.21.8 {
+   /**
+    * Dispatches an ItemRenderEvent containing the item's ItemStack, the active PoseStack, and the item's rarity to the global EventBus during item submission.
+    *
+    * @param state        the render state providing the item stack and rarity
+    * @param poseStack    the current pose stack used for rendering transforms
+    * @param collector    the submit node collector in the render pipeline
+    * @param cameraState  the current camera render state
+    * @param ci           callback info for the injected method
+    */
 
    @Inject(method = "submit(Lnet/minecraft/client/renderer/entity/state/ItemEntityRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;Lnet/minecraft/client/renderer/state/CameraRenderState;)V", at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/vertex/PoseStack;mulPose(Lorg/joml/Quaternionfc;)V"))
    private void dispatchItemRenderEvent(ItemEntityRenderState state, PoseStack poseStack, SubmitNodeCollector collector, CameraRenderState cameraState, CallbackInfo ci) {

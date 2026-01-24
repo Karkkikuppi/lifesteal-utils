@@ -23,16 +23,31 @@ public final class CustomSplashes implements UIEventListener {
         add("Buff Drunken");
     }};
 
+    /**
+     * Indicates whether custom title-screen splash texts are enabled.
+     *
+     * @return `true` if custom splash texts are enabled, `false` otherwise.
+     */
     @Override
     public boolean isEnabled() {
         return Config.getCustomSplashes();
     }
 
+    /**
+     * Specifies the priority at which this UI event listener runs.
+     *
+     * @return the listener's event priority, `EventPriority.NORMAL`
+     */
     @Override
     public EventPriority getPriority() {
         return EventPriority.NORMAL;
     }
 
+    /**
+     * Selects a random custom splash text and applies it to the provided splash text request event.
+     *
+     * @param event the splash text request event to set the selected splash text on
+     */
     @Override
     public void onSplashTextRequest(SplashTextRequestEvent event) {
         String splash = SPLASH_TEXTS.get((int) (Math.random() * SPLASH_TEXTS.size()));

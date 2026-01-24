@@ -10,6 +10,12 @@ import org.spongepowered.asm.mixin.injection.At;
 
 @Mixin(Player.class)
 public abstract class PlayerEntityMixin {
+   /**
+    * Modifies a player's display name by dispatching a PlayerNameRenderEvent and returning the event's modified component.
+    *
+    * @param original the original display name component provided by the player
+    * @return the display name component after event listeners may have modified it, or `null` if `original` is `null`
+    */
    @ModifyReturnValue(method = "getDisplayName", at = @At("RETURN"))
    public Component appendWithAllianceColor(Component original) {
       if (original == null) return null;

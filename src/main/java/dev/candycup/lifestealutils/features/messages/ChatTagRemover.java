@@ -19,16 +19,33 @@ public class ChatTagRemover implements ChatEventListener {
     private static final Logger LOGGER = LoggerFactory.getLogger("lifestealutils/chattag");
     private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
 
+    /**
+     * Indicates whether the chat-tag removal feature is enabled by configuration.
+     *
+     * @return `true` if chat tag removal is enabled via configuration, `false` otherwise.
+     */
     @Override
     public boolean isEnabled() {
         return Config.getDisableChatTags();
     }
 
+    /**
+     * Specifies this listener's execution priority within the event dispatch order.
+     *
+     * @return {@link EventPriority#NORMAL} indicating the listener runs at normal priority
+     */
     @Override
     public EventPriority getPriority() {
         return EventPriority.NORMAL;
     }
 
+    /**
+     * Removes a secondary bracketed chat tag (e.g., a second `[tag]`) from the event's modified message when detected and updates the event with the filtered message.
+     *
+     * If filtering changes the serialized message, the method replaces the event's modified message with a new Component containing the filtered content.
+     *
+     * @param event the chat message event whose modified message may be filtered and updated
+     */
     @Override
     public void onChatMessageReceived(ChatMessageReceivedEvent event) {
         Component original = event.getModifiedMessage();
@@ -46,7 +63,12 @@ public class ChatTagRemover implements ChatEventListener {
     }
 
     /**
-     * remove the chat tag (second bracket) from messages.
+     * Remove the second square-bracket tag from a chat message when the message contains
+     * at least two bracketed tags and a colon follows the second tag within 50 characters.
+     *
+     * @param message the raw chat message to inspect; if null or empty it is returned unchanged
+     * @return the message with the second bracketed tag removed and surrounding whitespace normalized,
+     *         or the original message if the removal conditions are not met
      */
     private String removeChatTag(String message) {
         if (message == null || message.isEmpty()) {

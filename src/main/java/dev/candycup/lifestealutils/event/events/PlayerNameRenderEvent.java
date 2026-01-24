@@ -16,6 +16,12 @@ public class PlayerNameRenderEvent extends LSUEvent {
     private final Component originalDisplayName;
     private Component modifiedDisplayName;
 
+    /**
+     * Creates a PlayerNameRenderEvent for a player's display name rendering.
+     *
+     * @param playerName the player's plain username
+     * @param originalDisplayName the original, unmodified display name; the event's modified display name is initialized to this value
+     */
     public PlayerNameRenderEvent(String playerName, Component originalDisplayName) {
         this.playerName = playerName;
         this.originalDisplayName = originalDisplayName;
@@ -23,30 +29,36 @@ public class PlayerNameRenderEvent extends LSUEvent {
     }
 
     /**
-     * @return the plain username of the player
+     * Retrieve the player's plain username.
+     *
+     * @return the player's plain username
      */
     public String getPlayerName() {
         return playerName;
     }
 
     /**
-     * @return the original unmodified display name
+     * Original display name before any listener modifications.
+     *
+     * @return the original, unmodified display name
      */
     public Component getOriginalDisplayName() {
         return originalDisplayName;
     }
 
     /**
-     * @return the current display name (may be modified by previous listeners)
+     * Gets the display name currently used for the player.
+     *
+     * @return the display name currently in use; may reflect modifications applied by previous listeners
      */
     public Component getModifiedDisplayName() {
         return modifiedDisplayName;
     }
 
     /**
-     * set a modified display name. subsequent listeners will see this modified version.
+     * Set the display name to be used by subsequent listeners.
      *
-     * @param displayName the new display name
+     * @param displayName the new display name Component to present to downstream listeners
      */
     public void setModifiedDisplayName(Component displayName) {
         this.modifiedDisplayName = displayName;

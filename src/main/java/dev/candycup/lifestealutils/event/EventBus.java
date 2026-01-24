@@ -17,17 +17,27 @@ public class EventBus {
 
     private final Map<Class<? extends LSUEvent>, List<LifestealEventListener>> listeners = new ConcurrentHashMap<>();
 
-    private EventBus() {}
+    /**
+ * Prevents external instantiation to enforce the singleton pattern for EventBus.
+ */
+private EventBus() {}
 
+    /**
+     * Provide access to the global EventBus singleton.
+     *
+     * @return the singleton EventBus instance
+     */
     public static EventBus getInstance() {
         return INSTANCE;
     }
 
     /**
-     * register a listener to receive events.
-     * the listener will receive all events it has handler methods for.
+     * Register a LifestealEventListener so it receives all LSUEvent types it handles.
      *
-     * @param listener the listener to register
+     * Listeners registered for a given event type are invoked in priority order (high to low)
+     * when that event is posted.
+     *
+     * @param listener the listener to register; the bus will discover which event types it handles
      */
     public void register(LifestealEventListener listener) {
         // discover which event types this listener handles
@@ -46,9 +56,9 @@ public class EventBus {
     }
 
     /**
-     * unregister a listener from receiving events.
+     * Remove a listener so it no longer receives dispatched events.
      *
-     * @param listener the listener to unregister
+     * @param listener the LifestealEventListener to remove from all registered event lists
      */
     public void unregister(LifestealEventListener listener) {
         listeners.values().forEach(list -> list.remove(listener));
@@ -56,12 +66,14 @@ public class EventBus {
     }
 
     /**
-     * post an event to all registered listeners.
-     * listeners are called in priority order (high to low).
-     * if the event is cancelled, remaining listeners are still notified.
+     * Dispatches an LSUEvent to all registered listeners.
      *
-     * @param event the event to post
-     * @param <T> the event type
+     * Listeners are invoked in priority order (high to low). Disabled listeners are skipped.
+     * Exceptions thrown by listeners are caught and logged and do not stop dispatch to remaining listeners.
+     * If the event supports cancellation, remaining listeners are still notified.
+     *
+     * @param event the event to dispatch
+     * @param <T>   the concrete event type
      */
     public <T extends LSUEvent> void post(T event) {
         List<LifestealEventListener> eventListeners = listeners.get(event.getClass());
@@ -86,10 +98,10 @@ public class EventBus {
     }
 
     /**
-     * discover which event types a listener can handle based on implemented interfaces.
+     * Determine which LSUEvent types the given listener handles by inspecting its implemented interfaces.
      *
-     * @param listener the listener to check
-     * @return list of event types the listener handles
+     * @param listener the listener to inspect
+     * @return a list of LSUEvent classes the listener can handle; an empty list if none are discovered
      */
     private List<Class<? extends LSUEvent>> discoverEventTypes(LifestealEventListener listener) {
         List<Class<? extends LSUEvent>> eventTypes = new ArrayList<>();
@@ -107,10 +119,10 @@ public class EventBus {
     }
 
     /**
-     * map listener interface to event types it handles.
+     * Map a listener interface to the LSUEvent classes it handles.
      *
-     * @param listenerInterface the listener interface
-     * @return list of event types
+     * @param listenerInterface the listener interface Class to map (for example `CombatEventListener`)
+     * @return a list of LSUEvent classes associated with the provided listener interface; empty if the interface has no mapped event types
      */
     private List<Class<? extends LSUEvent>> getEventTypesForInterface(Class<?> listenerInterface) {
         List<Class<? extends LSUEvent>> eventTypes = new ArrayList<>();
@@ -140,7 +152,9 @@ public class EventBus {
     }
 
     /**
-     * clear all registered listeners. useful for testing.
+     * Clears all registered listeners from the event bus.
+     *
+     * Primarily intended for tests to reset the global listener state.
      */
     public void clearAllListeners() {
         listeners.clear();

@@ -14,7 +14,10 @@ import org.spongepowered.asm.mixin.gen.Invoker;
 public interface ScreenAccessor {
 
     /**
-     * invokes the protected {@link Screen#addRenderableWidget(GuiEventListener)} method.
+     * Invokes the protected {@link Screen#addRenderableWidget(GuiEventListener)} to add a GUI widget to the screen.
+     *
+     * @param widget the widget to add; must implement {@link GuiEventListener}, {@link Renderable}, and {@link NarratableEntry}
+     * @return the same widget instance after being added to the screen
      */
     @Invoker("addRenderableWidget")
     <T extends GuiEventListener & Renderable & NarratableEntry> T invokeAddRenderableWidget(T widget);

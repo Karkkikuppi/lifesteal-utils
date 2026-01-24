@@ -9,21 +9,28 @@ import dev.candycup.lifestealutils.event.LSUEvent;
 public class SplashTextRequestEvent extends LSUEvent {
     private String splashText;
 
+    /**
+     * Creates a new SplashTextRequestEvent with no splash text set.
+     */
     public SplashTextRequestEvent() {
         this.splashText = null;
     }
 
     /**
-     * @return the custom splash text, or null if no feature provided one
+     * Gets the current custom splash text for the title screen.
+     *
+     * @return the custom splash text, or `null` if none was set
      */
     public String getSplashText() {
         return splashText;
     }
 
     /**
-     * set a custom splash text. if multiple features set this, the last one wins.
+     * Set the custom splash text for the title screen.
      *
-     * @param splashText the splash text to display
+     * If multiple features set a value, the last one wins.
+     *
+     * @param splashText the splash text to display, or `null` to clear any custom splash text
      */
     public void setSplashText(String splashText) {
         this.splashText = splashText;

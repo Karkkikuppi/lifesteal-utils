@@ -8,17 +8,19 @@ public abstract class LSUEvent {
     private boolean cancelled = false;
 
     /**
-     * @return true if this event has been cancelled
+     * Checks whether the event has been cancelled.
+     *
+     * @return true if the event is cancelled, false otherwise
      */
     public boolean isCancelled() {
         return cancelled;
     }
 
     /**
-     * set whether this event should be cancelled.
-     * cancelling an event prevents it from being processed further.
-     * 
-     * @param cancelled true to cancel the event
+     * Mark this event as cancelled or not.
+     *
+     * @param cancelled true to mark the event cancelled, false to clear cancellation
+     * @throws UnsupportedOperationException if this event does not support cancellation
      */
     public void setCancelled(boolean cancelled) {
         if (!isCancellable()) {
@@ -28,7 +30,9 @@ public abstract class LSUEvent {
     }
 
     /**
-     * @return true if this event can be cancelled
+     * Indicates whether this event supports cancellation.
+     *
+     * @return `true` if the event supports cancellation, `false` otherwise.
      */
     public boolean isCancellable() {
         return false;

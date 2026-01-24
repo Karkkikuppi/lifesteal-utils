@@ -32,16 +32,31 @@ import java.util.function.Consumer;
 public final class Alliances implements RenderEventListener {
    private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
 
+   /**
+    * Indicates whether the alliances feature is enabled in configuration.
+    *
+    * @return `true` if alliances are enabled, `false` otherwise.
+    */
    @Override
    public boolean isEnabled() {
       return Config.getEnableAlliances();
    }
 
+   /**
+    * Specifies the listener's processing priority within the render event dispatch order.
+    *
+    * @return the listener priority, EventPriority.NORMAL
+    */
    @Override
    public EventPriority getPriority() {
       return EventPriority.NORMAL;
    }
 
+   /**
+    * Listens for player name render events and applies alliance colorization to the rendered name when the player is an alliance member.
+    *
+    * @param event the render event whose modified display name will be replaced with a colorized component if the player is allied
+    */
    @Override
    public void onPlayerNameRender(PlayerNameRenderEvent event) {
       // short-circuit if not an alliance member
@@ -52,7 +67,13 @@ public final class Alliances implements RenderEventListener {
       event.setModifiedDisplayName(modified);
    }
 
-   // ===== static API for commands and management =====
+   /**
+    * Displays the current alliance member list in chat using MiniMessage formatting.
+    *
+    * Builds a formatted message containing alliance display names (or "None" when empty),
+    * adds command hints for managing alliances, appends a disabled warning if the feature
+    * is turned off, and sends the resulting MiniMessage to the player.
+    */
 
    public static void showAllianceList() {
       List<String> entries = getAllianceDisplayNames();
@@ -188,6 +209,12 @@ public final class Alliances implements RenderEventListener {
       Config.setAllianceUuids(new ArrayList<>());
    }
 
+   /**
+    * Determines whether the player identified by the given username is in the alliance list.
+    *
+    * @param username the player's username to check; null or blank values are treated as not allied
+    * @return true if the player's current online UUID is present in the alliance list, false otherwise
+    */
    public static boolean isAlliedName(String username) {
       if (username == null || username.isBlank()) return false;
       UUID uuid = UuidResolver.resolveOnlineUuidCached(username);
@@ -195,6 +222,16 @@ public final class Alliances implements RenderEventListener {
       return Config.getAllianceUuids().contains(uuid.toString());
    }
 
+   /**
+    * Applies the configured alliance color to the last visible word of a name-tag component.
+    *
+    * If the serialized representation is unchanged after attempting to color the last word,
+    * the original component is returned. Otherwise a mutable component with the color applied
+    * to the last visible word is returned.
+    *
+    * @param original the original name-tag component
+    * @return the original component if no change was made, or a mutable component with the last visible word colorized
+    */
    private static Component colorizeNameTag(Component original) {
       String serialized = MiniMessage.miniMessage().serialize(MinecraftClientAudiences.of().asAdventure(original));
       String updated = applyColorToLastWord(serialized);

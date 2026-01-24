@@ -17,6 +17,15 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(ClientPacketListener.class)
 public abstract class DamageListenerMixin {
 
+   /**
+    * Processes a server damage packet and posts lifesteal-specific events to the global event bus.
+    *
+    * <p>If the packet targets the local player, a {@link PlayerDamagedEvent} is posted.
+    * If it targets another player entity, a {@link DamageConfirmedEvent} is posted.
+    * No events are posted when not connected to a Lifesteal server or when the local player or target entity is unavailable.</p>
+    *
+    * @param packet the incoming damage event packet from the server
+    */
    @Inject(method = "handleDamageEvent", at = @At("TAIL"))
    private void onDamageEvent(ClientboundDamageEventPacket packet, CallbackInfo ci) {
       if (!LifestealServerDetector.isOnLifestealServer()) return;

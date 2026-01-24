@@ -29,6 +29,16 @@ public class ItemClusterMixin implements ItemClusterRenderStateDuck {
    @Unique
    private ItemStack lifestealutils$itemStack = ItemStack.EMPTY;
 
+   /**
+    * Capture and record whether the given ItemStack should be considered rare and store a copy of it.
+    *
+    * <p>Sets the mixin's internal rare flag and saves a copy of the provided stack. The stack is marked
+    * rare when its item is a Netherite-related item (armor, tools, blocks, ingots, scraps, ancient debris)
+    * or when its encoded NBT contains either the "lifesteal:artifact" public Bukkit value or any public
+    * Bukkit value key that starts with "enchants:".</p>
+    *
+    * @param stack the ItemStack being inspected and stored (a copy is saved) 
+    */
    @Inject(method = "extractItemGroupRenderState", at = @At("HEAD"))
 
    private void lifestealutils$captureRare(Entity entity, ItemStack stack, ItemModelResolver resolver, CallbackInfo ci) {
@@ -89,16 +99,31 @@ public class ItemClusterMixin implements ItemClusterRenderStateDuck {
       return lifestealutils$isRare;
    }
 
+   /**
+    * Set whether the current item cluster's item should be treated as rare.
+    *
+    * @param rare `true` if the current item is rare, `false` otherwise
+    */
    @Override
    public void lifestealutils$setRare(boolean rare) {
       this.lifestealutils$isRare = rare;
    }
 
+   /**
+    * Retrieve the ItemStack currently stored by the mixin.
+    *
+    * @return the stored ItemStack, or ItemStack.EMPTY if none is set
+    */
    @Override
    public ItemStack lifestealutils$getItemStack() {
       return lifestealutils$itemStack;
    }
 
+   /**
+    * Sets the ItemStack currently tracked for item cluster rendering and rare-state evaluation.
+    *
+    * @param stack the ItemStack to store (use ItemStack.EMPTY to indicate no item)
+    */
    @Override
    public void lifestealutils$setItemStack(ItemStack stack) {
       this.lifestealutils$itemStack = stack;

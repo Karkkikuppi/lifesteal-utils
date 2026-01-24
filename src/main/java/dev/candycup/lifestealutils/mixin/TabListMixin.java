@@ -45,6 +45,18 @@ public abstract class TabListMixin {
       }
    }
 
+   /**
+    * Produces the final display Component for a player tab-list entry and sets it as the method return value.
+    *
+    * <p>The method may normalize rank '+' coloring when configured and running on a Lifesteal server, then fires a
+    * PlayerNameRenderEvent to allow listeners to further modify the display name. The resulting Component is returned
+    * via the provided CallbackInfoReturnable.</p>
+    *
+    * @param playerInfo       the PlayerInfo describing the player whose name is being decorated
+    * @param mutableComponent the current mutable display Component for the player's name
+    * @param cir              the callback used to set the method's return value
+    * @return the Component that will be used as the player's display name in the tab list
+    */
    @Inject(method = "decorateName", at = @At("HEAD"), cancellable = true)
    private void decorateNameHead(PlayerInfo playerInfo, MutableComponent mutableComponent, CallbackInfoReturnable<Component> cir) {
       Component result = mutableComponent;

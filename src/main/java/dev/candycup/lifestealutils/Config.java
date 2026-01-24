@@ -96,6 +96,16 @@ public class Config {
       return builder.build();
    }
 
+   /**
+    * Builds an OptionGroup containing configuration options for basic timers.
+    *
+    * <p>For each registered timer this creates:
+    * - a boolean toggle option to enable/disable the timer, and
+    * - a string option to configure the timer's display format.
+    * The method ensures each timer and its format are known before adding options.
+    *
+    * @return an OptionGroup with per-timer toggle and format options; an empty group if the timer manager is not initialized
+    */
    private static OptionGroup buildTimerOptions() {
       OptionGroup.Builder group = OptionGroup.createBuilder()
               .name(Component.literal("Timers"));
@@ -137,6 +147,14 @@ public class Config {
       return group.build();
    }
 
+   /**
+    * Builds the configuration option group for the unbroken chain counter.
+    *
+    * Ensures a default display format exists and provides options to enable the chain counter
+    * and to customize its on-screen format.
+    *
+    * @return an OptionGroup containing a toggle to enable the chain counter and a string option for its display format
+    */
    private static OptionGroup buildChainCounterOptions() {
       String defaultFormat = "<gray>Chain:</gray> <gold>{{count}}</gold> <gray>(+{{bonus}}% dmg)</gray>";
       ensureChainCounterFormat(defaultFormat);

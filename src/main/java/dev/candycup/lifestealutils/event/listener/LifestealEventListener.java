@@ -11,22 +11,29 @@ import dev.candycup.lifestealutils.event.LSUEvent;
 public interface LifestealEventListener {
 
     /**
-     * @return the priority of this listener (higher priority executes first)
+     * Specifies the execution priority of this listener.
+     *
+     * @return the EventPriority that determines listener execution order; higher priority listeners run before lower priority ones
      */
     default EventPriority getPriority() {
         return EventPriority.NORMAL;
     }
 
     /**
-     * @return true if this listener should receive events (checks config)
-     */
+ * Indicates whether this listener is active and should receive events.
+ *
+ * @return true if the listener is enabled and should receive events, false otherwise.
+ */
     boolean isEnabled();
 
     /**
-     * internal method to dispatch events to the appropriate handler.
-     * do not override this method - implement specific listener interfaces instead.
+     * Dispatches a generic LSUEvent to the matching typed handler method implemented by this listener.
      *
-     * @param event the event to handle
+     * <p>This is an internal dispatch method; do not override it. Instead implement the specific
+     * typed listener interfaces (for example, CombatEventListener, ChatEventListener) and their
+     * handler methods to receive events.</p>
+     *
+     * @param event the LSUEvent to dispatch to the appropriate typed handler
      */
     default void handleEvent(LSUEvent event) {
         // dispatch to specific handler based on event type
