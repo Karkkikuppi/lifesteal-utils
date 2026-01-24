@@ -33,7 +33,7 @@ public class TitleScreenQuickJoin {
               true
       ).width(20).sprite(
               Identifier.fromNamespaceAndPath(
-                      "lifesteal-utils",
+                      "lifestealutils",
                       "icon/lsn"
               ),
               22,

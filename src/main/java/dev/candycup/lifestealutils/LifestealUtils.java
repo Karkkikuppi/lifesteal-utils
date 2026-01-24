@@ -6,6 +6,7 @@ import dev.candycup.lifestealutils.features.alliances.Alliances;
 import dev.candycup.lifestealutils.hud.HudDisplayLayer;
 import dev.candycup.lifestealutils.hud.HudElementDefinition;
 import dev.candycup.lifestealutils.hud.HudElementManager;
+import dev.candycup.lifestealutils.features.combat.UnbrokenChainTracker;
 import dev.candycup.lifestealutils.features.timers.BasicTimerManager;
 import dev.candycup.lifestealutils.interapi.MessagingUtils;
 import dev.candycup.lifestealutils.ui.HudElementEditor;
@@ -29,11 +30,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public final class LifestealUtils implements ClientModInitializer {
-   private static final Logger LOGGER = LoggerFactory.getLogger("lifesteal-utils");
+   private static final Logger LOGGER = LoggerFactory.getLogger("lifestealutils");
    //? if >1.21.8
    private static KeyMapping.Category LIFESTEAL_UTIL_BINDS;
    private static KeyMapping openHudEditorKeyBinding;
    private static KeyMapping addAllianceTargetKeyBinding;
+   private static int pendingConfigOpenTicks = -1;
+   private static int pendingHudEditorOpenTicks = -1;
 
    @Override
    public void onInitializeClient() {
@@ -45,6 +48,9 @@ public final class LifestealUtils implements ClientModInitializer {
       for (HudElementDefinition definition : BasicTimerManager.hudDefinitions()) {
          HudElementManager.register(definition);
       }
+
+      UnbrokenChainTracker.init();
+      HudElementManager.register(UnbrokenChainTracker.hudDefinition());
 
       HudElementRegistry.attachElementAfter(
               VanillaHudElements.CHAT,
@@ -60,7 +66,7 @@ public final class LifestealUtils implements ClientModInitializer {
 
       //? if >1.21.8 {
       LIFESTEAL_UTIL_BINDS = KeyMapping.Category.register(
-              Identifier.fromNamespaceAndPath("lifesteal-utils", "lifesteal_utils")
+              Identifier.fromNamespaceAndPath("lifestealutils", "lifesteal_utils")
       );
 
       openHudEditorKeyBinding = KeyBindingHelper.registerKeyBinding(new KeyMapping(
@@ -90,11 +96,29 @@ public final class LifestealUtils implements ClientModInitializer {
 
       ClientTickEvents.END_CLIENT_TICK.register(client -> {
          if (client.player == null) return;
+         if (pendingConfigOpenTicks >= 0) {
+            if (pendingConfigOpenTicks == 0) {
+               client.setScreen(Config.getConfigScreen(client.screen));
+               pendingConfigOpenTicks = -1;
+            } else {
+               pendingConfigOpenTicks--;
+            }
+         }
+         if (pendingHudEditorOpenTicks >= 0) {
+            if (pendingHudEditorOpenTicks == 0) {
+               if (client.screen == null) {
+                  client.setScreen(new HudElementEditor(
+                          net.minecraft.network.chat.Component.literal("HUD Element Editor")
+                  ));
+               }
+               pendingHudEditorOpenTicks = -1;
+            } else {
+               pendingHudEditorOpenTicks--;
+            }
+         }
          if (openHudEditorKeyBinding.consumeClick()) {
             if (client.screen != null) return;
-            client.setScreen(new HudElementEditor(
-                    net.minecraft.network.chat.Component.literal("HUD Element Editor")
-            ));
+            pendingHudEditorOpenTicks = 1;
          }
          if (addAllianceTargetKeyBinding.consumeClick()) {
             if (client.screen != null) return;
@@ -116,6 +140,7 @@ public final class LifestealUtils implements ClientModInitializer {
             }
          }
          BasicTimerManager.tick();
+         UnbrokenChainTracker.tick();
       });
 
       ClientCommandRegistrationCallback.EVENT.register((dispatcher, registry) -> {
@@ -123,21 +148,19 @@ public final class LifestealUtils implements ClientModInitializer {
                  ClientCommandManager.literal("lsu")
                          .executes(commandContext -> {
                             Minecraft client = Minecraft.getInstance();
-                            client.execute(() -> client.setScreen(Config.getConfigScreen(client.screen)));
+                            client.execute(() -> pendingConfigOpenTicks = 2);
                             return 1;
                          })
                          .then(ClientCommandManager.literal("config")
                                  .executes(commandContext -> {
                                     Minecraft client = Minecraft.getInstance();
-                                    client.execute(() -> client.setScreen(Config.getConfigScreen(client.screen)));
+                                    client.execute(() -> pendingConfigOpenTicks = 2);
                                     return 1;
                                  }))
                          .then(ClientCommandManager.literal("edit-hud")
                                  .executes(commandContext -> {
                                     Minecraft client = Minecraft.getInstance();
-                                    client.execute(() -> client.setScreen(new HudElementEditor(
-                                            net.minecraft.network.chat.Component.literal("HUD Element Editor")
-                                    )));
+                               client.execute(() -> pendingHudEditorOpenTicks = 1);
                                     return 1;
                                  }))
                          .then(ClientCommandManager.literal("alliances")
@@ -154,24 +177,28 @@ public final class LifestealUtils implements ClientModInitializer {
                                          .then(ClientCommandManager.argument("username", StringArgumentType.word())
                                                  .executes(commandContext -> {
                                                     String username = StringArgumentType.getString(commandContext, "username");
-                                                    boolean added = Alliances.addAlliance(username);
-                                                    if (added) {
-                                                       MessagingUtils.showMiniMessage(Alliances.withDisabledWarning("<green>Added <white>" + MiniMessage.miniMessage().escapeTags(username) + "</white> to your alliance.</green>"));
-                                                    } else {
-                                                       MessagingUtils.showMiniMessage(Alliances.withDisabledWarning("<red>Could not find player <white>" + MiniMessage.miniMessage().escapeTags(username) + "</white>.</red>"));
-                                                    }
+                                                    String escapedUsername = MiniMessage.miniMessage().escapeTags(username);
+                                                    Alliances.addAllianceAsync(username, added -> {
+                                                       if (added) {
+                                                          MessagingUtils.showMiniMessage(Alliances.withDisabledWarning("<green>Added <white>" + escapedUsername + "</white> to your alliance.</green>"));
+                                                       } else {
+                                                          MessagingUtils.showMiniMessage(Alliances.withDisabledWarning("<red>Could not find player <white>" + escapedUsername + "</white>.</red>"));
+                                                       }
+                                                    });
                                                     return 1;
                                                  })))
                                  .then(ClientCommandManager.literal("remove")
                                          .then(ClientCommandManager.argument("username", StringArgumentType.word())
                                                  .executes(commandContext -> {
                                                     String username = StringArgumentType.getString(commandContext, "username");
-                                                    boolean removed = Alliances.removeAlliance(username);
-                                                    if (removed) {
-                                                       MessagingUtils.showMiniMessage(Alliances.withDisabledWarning("<yellow>Removed <white>" + MiniMessage.miniMessage().escapeTags(username) + "</white> from your alliance.</yellow>"));
-                                                    } else {
-                                                       MessagingUtils.showMiniMessage(Alliances.withDisabledWarning("<red>Could not find player <white>" + MiniMessage.miniMessage().escapeTags(username) + "</white> in your alliance.</red>"));
-                                                    }
+                                                    String escapedUsername = MiniMessage.miniMessage().escapeTags(username);
+                                                    Alliances.removeAllianceAsync(username, removed -> {
+                                                       if (removed) {
+                                                          MessagingUtils.showMiniMessage(Alliances.withDisabledWarning("<yellow>Removed <white>" + escapedUsername + "</white> from your alliance.</yellow>"));
+                                                       } else {
+                                                          MessagingUtils.showMiniMessage(Alliances.withDisabledWarning("<red>Could not find player <white>" + escapedUsername + "</white> in your alliance.</red>"));
+                                                       }
+                                                    });
                                                     return 1;
                                                  })))
                                  .then(ClientCommandManager.literal("clear")
@@ -181,6 +208,18 @@ public final class LifestealUtils implements ClientModInitializer {
                                             return 1;
                                          }))
                          )
+                         .then(ClientCommandManager.literal("support")
+                                 .then(ClientCommandManager.literal("copy-client-info-to-clipboard")
+                                         .executes(commandContext -> {
+                                            Minecraft client = Minecraft.getInstance();
+                                            boolean copied = DebugInformationController.copyBasicInfoToClipboard(client);
+                                            if (copied) {
+                                               MessagingUtils.showMiniMessage("<green>Copied basic info to clipboard.</green>");
+                                               return 1;
+                                            }
+                                            MessagingUtils.showMiniMessage("<red>Player not available.</red>");
+                                            return 0;
+                                         })))
          );
       });
    }

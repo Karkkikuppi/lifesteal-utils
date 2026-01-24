@@ -19,7 +19,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 public final class HudLayoutStorage {
-   private static final Logger LOGGER = LoggerFactory.getLogger("lifesteal-utils");
+   private static final Logger LOGGER = LoggerFactory.getLogger("lifestealutils");
    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
    private static final Type MAP_TYPE = new TypeToken<Map<String, HudPosition>>() {
    }.getType();

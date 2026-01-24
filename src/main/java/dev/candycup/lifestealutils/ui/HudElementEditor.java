@@ -14,7 +14,7 @@ import org.lwjgl.glfw.GLFW;
 import java.util.List;
 
 public class HudElementEditor extends Screen {
-   public static final Identifier EDITOR_LAYER_ID = Identifier.fromNamespaceAndPath("lifesteal-utils", "hud_editor");
+   public static final Identifier EDITOR_LAYER_ID = Identifier.fromNamespaceAndPath("lifestealutils", "hud_editor");
    private static Identifier draggingId;
    private static float dragOffsetX;
    private static float dragOffsetY;

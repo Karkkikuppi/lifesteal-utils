@@ -62,6 +62,9 @@ public class Config {
    @SerialEntry(comment = "List of allied player UUIDs")
    public static List<String> allianceUuids = new ArrayList<>();
 
+   @SerialEntry(comment = "Cache of UUID to username mappings for alliance members")
+   public static Map<String, String> uuidUsernameCache = new HashMap<>();
+
    @SerialEntry(comment = "Whether to enable custom splashes on the title screen")
    public static boolean customSplashes = true;
 
@@ -76,6 +79,12 @@ public class Config {
 
    @SerialEntry(comment = "Increased scale of the rare items.")
    public static float rareItemScale = 2.0f;
+
+   @SerialEntry(comment = "Whether to enable the unbroken chain counter HUD element")
+   public static boolean chainCounterEnabled = false;
+
+   @SerialEntry(comment = "Custom format for the unbroken chain counter display")
+   public static String chainCounterFormat = "";
 
    private static OptionDescription descriptionWithRemoteReasoning(String baseMiniMessage, String featureKey) {
       OptionDescription.Builder builder = OptionDescription.createBuilder()
@@ -121,6 +130,41 @@ public class Config {
       });
 
       return group.build();
+   }
+
+   private static OptionGroup buildChainCounterOptions() {
+      String defaultFormat = "<gray>Chain:</gray> <gold>{{count}}</gold> <gray>(+{{bonus}}% dmg)</gray>";
+      ensureChainCounterFormat(defaultFormat);
+
+      return OptionGroup.createBuilder()
+              .name(Component.literal("Unbroken Chain Counter"))
+              .option(Option.<Boolean>createBuilder()
+                      .name(Component.literal("Enable Chain Counter"))
+                      .description(OptionDescription.createBuilder()
+                              .text(MessagingUtils.miniMessage(
+                                      "Tracks consecutive hits without receiving damage.\n\n" +
+                                              "Each consecutive hit grants +5% bonus damage, capping at 50%.\n" +
+                                              "Bonus only applies after 2 consecutive hits."
+                              ))
+                              .build())
+                      .binding(false, Config::isChainCounterEnabled, Config::setChainCounterEnabled)
+                      .controller(TickBoxControllerBuilder::create)
+                      .build())
+              .option(Option.<String>createBuilder()
+                      .name(Component.literal("Chain Counter Format"))
+                      .description(OptionDescription.createBuilder()
+                              .text(MessagingUtils.miniMessage(
+                                      "Customize the chain counter display format.\n\n" +
+                                              "Placeholders:\n" +
+                                              "- <gray>{{count}}</gray> - current chain count\n" +
+                                              "- <gray>{{bonus}}</gray> - bonus damage percentage\n\n" +
+                                              "Default: " + defaultFormat
+                              ))
+                              .build())
+                      .binding(defaultFormat, () -> getChainCounterFormat(defaultFormat), Config::setChainCounterFormat)
+                      .controller(StringControllerBuilder::create)
+                      .build())
+              .build();
    }
 
    public static void setPmFormat(String format) {
@@ -223,6 +267,15 @@ public class Config {
       HANDLER.save();
    }
 
+   public static Map<String, String> getUuidUsernameCache() {
+      return Config.uuidUsernameCache;
+   }
+
+   public static void setUuidUsernameCache(Map<String, String> cache) {
+      Config.uuidUsernameCache = cache;
+      HANDLER.save();
+   }
+
    public static boolean getCustomSplashes() {
       return Config.customSplashes;
    }
@@ -280,6 +333,37 @@ public class Config {
       basicTimerFormatOverrides.putIfAbsent(id, fallback);
    }
 
+   public static boolean isChainCounterEnabled() {
+      return chainCounterEnabled;
+   }
+
+   public static void setChainCounterEnabled(boolean enabled) {
+      chainCounterEnabled = enabled;
+      HANDLER.save();
+   }
+
+   public static void ensureChainCounterKnown() {
+      // no-op, field has default value
+   }
+
+   public static String getChainCounterFormat(String fallback) {
+      if (chainCounterFormat == null || chainCounterFormat.isBlank()) {
+         return fallback;
+      }
+      return chainCounterFormat;
+   }
+
+   public static void setChainCounterFormat(String format) {
+      chainCounterFormat = format;
+      HANDLER.save();
+   }
+
+   public static void ensureChainCounterFormat(String fallback) {
+      if (chainCounterFormat == null || chainCounterFormat.isBlank()) {
+         chainCounterFormat = fallback;
+      }
+   }
+
    public static void load() {
       FeatureFlagController.ensureLoaded();
       HANDLER.load();
@@ -292,6 +376,7 @@ public class Config {
               .category(ConfigCategory.createBuilder()
                       .name(Component.translatable("lsu.category.main"))
                       .group(buildTimerOptions())
+                      .group(buildChainCounterOptions())
                       .group(OptionGroup.createBuilder()
                               .name(Component.translatable("lsu.group.alliances"))
                               .option(Option.<Boolean>createBuilder()
@@ -395,7 +480,7 @@ public class Config {
                                                       "Enable increased scale for rare items such as neth and custom enchants."
                                               ))
                                               .build())
-                                      .binding(true, Config::isRareItemScaling, Config::toggleRareItemScaling)
+                                      .binding(false, Config::isRareItemScaling, Config::toggleRareItemScaling)
                                       .controller(TickBoxControllerBuilder::create)
                                       .build()
                               )

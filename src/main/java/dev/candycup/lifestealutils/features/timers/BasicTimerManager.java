@@ -15,7 +15,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 public final class BasicTimerManager {
-   private static final Logger LOGGER = LoggerFactory.getLogger("lifesteal-utils/timers");
+   private static final Logger LOGGER = LoggerFactory.getLogger("lifestealutils/timers");
    private static final Map<String, BasicTimerDefinition> DEFINITIONS = new LinkedHashMap<>();
    private static final Map<String, TimerState> STATES = new LinkedHashMap<>();
    private static final Map<String, HudElementDefinition> HUD_DEFINITIONS = new LinkedHashMap<>();
@@ -40,7 +40,7 @@ public final class BasicTimerManager {
          Config.ensureBasicTimerKnown(id);
 
          HudElementDefinition hudDefinition = new HudElementDefinition(
-                 Identifier.fromNamespaceAndPath("lifesteal-utils", id + "_timer"),
+                 Identifier.fromNamespaceAndPath("lifestealutils", id + "_timer"),
                  definition.name(),
                  () -> textFor(id, definition),
                  HudPosition.clamp(0.5F, baseY + (stepY * index))

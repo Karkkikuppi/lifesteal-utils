@@ -75,13 +75,12 @@ public class MessageReceiver {
          // Final whitespace normalization (collapse spaces and non-breaking spaces)
          filtered = filtered.replaceAll("[\\s\\u00A0]+", " ").trim();
          boolean changed = !filtered.equals(serialized);
-         LOGGER.info("[lsu-chat] disableTags={} removePlus={} changed={} serialized='{}' filtered='{}'", disableTags, removePlus, changed, serialized, filtered);
+
          if (changed) {
             ci.cancel();
             lsuInternalAdd = true;
             // Convert back to a Component using our helper so formatting is preserved
             ((ChatComponent) (Object) this).addMessage(MessagingUtils.miniMessage(filtered));
-            return;
          }
       }
    }

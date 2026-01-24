@@ -4,15 +4,11 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.annotations.SerializedName;
 import dev.candycup.lifestealutils.features.timers.BasicTimerDefinition;
+import dev.candycup.lifestealutils.interapi.NetworkUtilsController;
 import net.fabricmc.loader.api.FabricLoader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -20,7 +16,7 @@ import java.util.Locale;
 import java.util.Map;
 
 public final class FeatureFlagController {
-   private static final Logger LOGGER = LoggerFactory.getLogger("lifesteal-utils/feature-flags");
+   private static final Logger LOGGER = LoggerFactory.getLogger("lifestealutils/feature-flags");
    private static final Gson GSON = new GsonBuilder().create();
    private static final String FEATURE_FLAG_URL = "https://gist.githubusercontent.com/Karkkikuppi/4146e00d65849ac142bbad711982c69e/raw/lsu.json";
    private static final String CURRENT_VERSION = detectModVersion();
@@ -46,23 +42,14 @@ public final class FeatureFlagController {
    }
 
    private static String fetchFeatureFlagJson() {
-      try {
-         HttpClient client = HttpClient.newBuilder()
-                 .connectTimeout(Duration.ofSeconds(5))
-                 .build();
-         HttpRequest request = HttpRequest.newBuilder()
-                 .uri(URI.create(FEATURE_FLAG_URL))
-                 .timeout(Duration.ofSeconds(5))
-                 .header("User-Agent", "lifesteal-utils/" + CURRENT_VERSION)
-                 .GET()
-                 .build();
-         HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-         if (response.statusCode() >= 200 && response.statusCode() < 300) {
-            return response.body();
-         }
-         LOGGER.warn("[lsu-flags] feature flag fetch returned non-OK status {}", response.statusCode());
-      } catch (Exception e) {
-         LOGGER.error("[lsu-flags] failed to fetch feature flags", e);
+      NetworkUtilsController.HttpResult result = NetworkUtilsController.get(FEATURE_FLAG_URL);
+      if (result.success() && result.body() != null) {
+         return result.body();
+      }
+      if (result.statusCode() > 0) {
+         LOGGER.warn("[lsu-flags] feature flag fetch returned non-OK status {}", result.statusCode());
+      } else {
+         LOGGER.error("[lsu-flags] failed to fetch feature flags: {}", result.error());
       }
       return "{}";
    }
@@ -130,7 +117,7 @@ public final class FeatureFlagController {
 
    private static String detectModVersion() {
       return FabricLoader.getInstance()
-              .getModContainer("lifesteal-utils")
+              .getModContainer("lifestealdutils")
               .map(container -> container.getMetadata().getVersion().getFriendlyString())
               .orElse("0.0.0");
    }

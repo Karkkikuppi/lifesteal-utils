@@ -7,7 +7,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.resources.Identifier;
 
 public final class HudDisplayLayer {
-   public static final Identifier LSU_HUD_LAYER_ID = Identifier.fromNamespaceAndPath("lifesteal-utils", "lsu_hud_layer");
+   public static final Identifier LSU_HUD_LAYER_ID = Identifier.fromNamespaceAndPath("lifestealutils", "lsu_hud_layer");
 
    private HudDisplayLayer() {
    }

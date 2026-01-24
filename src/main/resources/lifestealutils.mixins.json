@@ -3,10 +3,15 @@
   "package": "dev.candycup.lifestealutils.mixin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
+    "PlayerEntityMixin"
   ],
   "client": [
+    "AttackTrackerMixin",
+    "ConnectingScreenMixin",
+    "DamageListenerMixin",
+    "ItemClusterMixin",
+    "ItemRendererMixin",
     "MessageReceiver",
-    "NameTagSubmitMixin",
     "SplashManagerMixin",
     "TabListMixin",
     "TitleScreenMixin",
@@ -18,5 +23,5 @@
   },
   "overwrites": {
     "requireAnnotations": true
-	}
+  }
 }

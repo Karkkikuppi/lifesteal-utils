@@ -8,6 +8,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.entity.player.Player;
@@ -16,9 +17,8 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Locale;
-import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Consumer;
 
 public final class Alliances {
    private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
@@ -55,7 +55,17 @@ public final class Alliances {
       UUID uuid = player.getUUID();
       if (uuid == null) return false;
       boolean added = addAllianceUuid(uuid);
-      if (added) playAllianceSound();
+      if (added) {
+         // cache the username from the player
+         Component nameComponent = player.getName();
+         if (nameComponent != null) {
+            String name = nameComponent.getString();
+            if (name != null && !name.isBlank()) {
+               UuidResolver.updateCache(uuid, name);
+            }
+         }
+         playAllianceSound();
+      }
       return added;
    }
 
@@ -72,6 +82,14 @@ public final class Alliances {
       } else {
          list.add(id);
          added = true;
+         // cache the username from the player
+         Component nameComponent = player.getName();
+         if (nameComponent != null) {
+            String name = nameComponent.getString();
+            if (name != null && !name.isBlank()) {
+               UuidResolver.updateCache(uuid, name);
+            }
+         }
       }
       Config.setAllianceUuids(list);
       playAllianceSound();
@@ -79,15 +97,33 @@ public final class Alliances {
    }
 
    public static boolean addAlliance(String usernameOrUuid) {
-      UUID uuid = resolveUuid(usernameOrUuid);
+      UUID uuid = UuidResolver.resolveUuid(usernameOrUuid);
       if (uuid == null) return false;
       boolean added = addAllianceUuid(uuid);
       if (added) playAllianceSound();
       return added;
    }
 
+   /**
+    * adds an alliance asynchronously, resolving the UUID off-thread if needed.
+    *
+    * @param usernameOrUuid the username or UUID string
+    * @param callback       called on the main thread with true if added, false if not found or already exists
+    */
+   public static void addAllianceAsync(String usernameOrUuid, Consumer<Boolean> callback) {
+      UuidResolver.resolveUuidAsync(usernameOrUuid, uuid -> {
+         if (uuid == null) {
+            callback.accept(false);
+            return;
+         }
+         boolean added = addAllianceUuid(uuid);
+         if (added) playAllianceSound();
+         callback.accept(added);
+      });
+   }
+
    public static boolean removeAlliance(String usernameOrUuid) {
-      UUID uuid = resolveUuid(usernameOrUuid);
+      UUID uuid = UuidResolver.resolveUuid(usernameOrUuid);
       if (uuid == null) return false;
       List<String> list = new ArrayList<>(Config.getAllianceUuids());
       boolean removed = list.remove(uuid.toString());
@@ -98,13 +134,35 @@ public final class Alliances {
       return removed;
    }
 
+   /**
+    * removes an alliance asynchronously, resolving the UUID off-thread if needed.
+    *
+    * @param usernameOrUuid the username or UUID string
+    * @param callback       called on the main thread with true if removed, false if not found
+    */
+   public static void removeAllianceAsync(String usernameOrUuid, Consumer<Boolean> callback) {
+      UuidResolver.resolveUuidAsync(usernameOrUuid, uuid -> {
+         if (uuid == null) {
+            callback.accept(false);
+            return;
+         }
+         List<String> list = new ArrayList<>(Config.getAllianceUuids());
+         boolean removed = list.remove(uuid.toString());
+         if (removed) {
+            Config.setAllianceUuids(list);
+            playAllianceSound();
+         }
+         callback.accept(removed);
+      });
+   }
+
    public static void clearAlliances() {
       Config.setAllianceUuids(new ArrayList<>());
    }
 
    public static boolean isAlliedName(String username) {
       if (username == null || username.isBlank()) return false;
-      UUID uuid = resolveOnlineUuid(username);
+      UUID uuid = UuidResolver.resolveOnlineUuidCached(username);
       if (uuid == null) return false;
       return Config.getAllianceUuids().contains(uuid.toString());
    }
@@ -113,7 +171,14 @@ public final class Alliances {
       String serialized = MiniMessage.miniMessage().serialize(MinecraftClientAudiences.of().asAdventure(original));
       String updated = applyColorToLastWord(serialized);
       if (updated.equals(serialized)) return original;
-      return MessagingUtils.miniMessage(updated);
+      return ensureMutable(MessagingUtils.miniMessage(updated));
+   }
+
+   private static Component ensureMutable(Component component) {
+      if (component instanceof MutableComponent) return component;
+      MutableComponent wrapper = Component.literal("");
+      wrapper.append(component);
+      return wrapper;
    }
 
    public static String getLastVisibleWord(String miniMessage) {
@@ -206,45 +271,29 @@ public final class Alliances {
       return -1;
    }
 
-   private static UUID resolveUuid(String usernameOrUuid) {
-      if (usernameOrUuid == null || usernameOrUuid.isBlank()) return null;
-      try {
-         return UUID.fromString(usernameOrUuid.trim());
-      } catch (IllegalArgumentException ignored) {
-      }
-      return resolveOnlineUuid(usernameOrUuid);
-   }
-
-   private static UUID resolveOnlineUuid(String username) {
-      ClientPacketListener connection = Minecraft.getInstance().getConnection();
-      if (connection == null) return null;
-      String target = username.toLowerCase(Locale.ROOT);
-      for (PlayerInfo info : connection.getOnlinePlayers()) {
-         if (info == null || info.getProfile() == null) continue;
-         String name = getProfileName(info);
-         if (name != null && name.toLowerCase(Locale.ROOT).equals(target)) {
-            return getProfileId(info);
-         }
-      }
-      return null;
-   }
-
    private static List<String> getAllianceDisplayNames() {
       List<String> entries = new ArrayList<>();
       ClientPacketListener connection = Minecraft.getInstance().getConnection();
       for (String id : Config.getAllianceUuids()) {
          String name = null;
+         // First try to get name from online players
          if (connection != null) {
-            Optional<PlayerInfo> info = connection.getOnlinePlayers().stream()
-                    .filter(playerInfo -> playerInfo != null && playerInfo.getProfile() != null)
-                    .filter(playerInfo -> {
-                       UUID uuid = getProfileId(playerInfo);
-                       return uuid != null && id.equals(uuid.toString());
-                    })
-                    .findFirst();
-            if (info.isPresent()) {
-               name = getProfileName(info.get());
+            for (PlayerInfo info : connection.getOnlinePlayers()) {
+               if (info == null || info.getProfile() == null) continue;
+               UUID uuid = getProfileId(info);
+               if (uuid != null && id.equals(uuid.toString())) {
+                  name = getProfileName(info);
+                  // Update cache with fresh online data
+                  if (name != null) {
+                     UuidResolver.updateCache(uuid, name);
+                  }
+                  break;
+               }
             }
+         }
+         // Fall back to cached username
+         if (name == null) {
+            name = UuidResolver.getCachedUsername(id);
          }
          entries.add(name != null ? name : id);
       }

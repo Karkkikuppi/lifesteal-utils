@@ -8,6 +8,7 @@
     "Candycup"
   ],
   "contributors": [
+    "Jonnite (Code Contributions <3)",
     "_milkmc (Early Feedback & Feature Ideas)",
     "linnyflower (Contributing Custom Enchantments for Testing)"
   ],
@@ -16,7 +17,7 @@
     "sources": "https://github.com/karkkikuppi/lifesteal-utils"
   },
   "license": "MIT",
-  "icon": "assets/lifesteal-utils/icon.png",
+  "icon": "assets/lifestealutils/icon.png",
   "environment": "client",
   "entrypoints": {
     "client": [
@@ -27,7 +28,7 @@
     ]
   },
   "mixins": [
-    "lifesteal-utils.mixins.json"
+    "lifestealutils.mixins.json"
   ],
   "depends": {
     "fabricloader": ">=0.18.3",
