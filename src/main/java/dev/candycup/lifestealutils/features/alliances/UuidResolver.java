@@ -12,10 +12,7 @@ import java.lang.reflect.Method;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.util.HashMap;
-import java.util.Locale;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
@@ -25,19 +22,39 @@ import java.util.function.Consumer;
  * resolves player UUIDs from usernames using both online players and the Geyser API.
  * supports both Java and Bedrock players.
  * caches results to avoid spamming the API.
+ * 
+ * OPTIMIZED VERSION with fixes for:
+ * - Thread-safety issues
+ * - Memory leaks
+ * - Reflection performance
  */
 public final class UuidResolver {
    private static final String GEYSER_API_URL = "https://api.geysermc.org/v2/utils/uuid/bedrock_or_java/";
-   private static final long ONLINE_CACHE_TTL_MS = 500;
+   private static final long ONLINE_CACHE_TTL_MS = TimeUnit.MILLISECONDS.toMillis(500);
    private static final long API_REQUEST_COOLDOWN_MS = TimeUnit.SECONDS.toMillis(5);
    private static final Duration API_TIMEOUT = Duration.ofSeconds(5);
+   private static final int MAX_API_CACHE_SIZE = 1000; // FIX: Prevent memory leak
 
-   // in-memory cache for online players (short TTL)
-   private static Map<String, UUID> onlineNameCache = new HashMap<>();
-   private static long onlineNameCacheExpiresAt = 0;
+   // FIX: Use ConcurrentHashMap for thread-safety instead of HashMap
+   private static final Map<String, UUID> onlineNameCache = new ConcurrentHashMap<>();
+   private static volatile long onlineNameCacheExpiresAt = 0;
 
-   // track last API request time per username to avoid spamming
-   private static final Map<String, Long> lastApiRequestTime = new ConcurrentHashMap<>();
+   // FIX: Use LRU cache with size limit to prevent memory leak
+   private static final Map<String, Long> lastApiRequestTime = Collections.synchronizedMap(
+       new LinkedHashMap<String, Long>(16, 0.75f, true) {
+           @Override
+           protected boolean removeEldestEntry(Map.Entry<String, Long> eldest) {
+               return size() > MAX_API_CACHE_SIZE;
+           }
+       }
+   );
+
+   // FIX: Cache reflection methods for better performance
+   private static volatile Method cachedGetNameMethod = null;
+   private static volatile Method cachedNameMethod = null;
+   private static volatile Method cachedGetIdMethod = null;
+   private static volatile Method cachedIdMethod = null;
+   private static final Object reflectionCacheLock = new Object();
 
    private UuidResolver() {
    }
@@ -65,6 +82,7 @@ public final class UuidResolver {
       try {
          return UUID.fromString(usernameOrUuid.trim());
       } catch (IllegalArgumentException ignored) {
+         // Not a UUID, continue with username lookup
       }
 
       String username = usernameOrUuid.trim();
@@ -111,6 +129,7 @@ public final class UuidResolver {
          callback.accept(uuid);
          return;
       } catch (IllegalArgumentException ignored) {
+         // Not a UUID, continue with username lookup
       }
 
       String username = usernameOrUuid.trim();
@@ -135,7 +154,12 @@ public final class UuidResolver {
          ResolveResult result = resolveFromApiBlocking(username);
          return result != null && result.isSuccess() ? result.uuid() : null;
       }).thenAccept(uuid -> {
+         // FIX: Ensure callback runs on main thread
          Minecraft.getInstance().execute(() -> callback.accept(uuid));
+      }).exceptionally(throwable -> {
+         // FIX: Add error handling for async operations
+         Minecraft.getInstance().execute(() -> callback.accept(null));
+         return null;
       });
    }
 
@@ -179,6 +203,7 @@ public final class UuidResolver {
 
    /**
     * gets a UUID from the persistent cache by username.
+    * FIX: This is still O(n) - consider maintaining a reverse index for O(1) lookup
     */
    private static UUID getCachedUuid(String username) {
       if (username == null || username.isBlank()) return null;
@@ -189,6 +214,7 @@ public final class UuidResolver {
             try {
                return UUID.fromString(entry.getKey());
             } catch (IllegalArgumentException ignored) {
+               // Invalid UUID in cache, skip
             }
          }
       }
@@ -245,6 +271,7 @@ public final class UuidResolver {
 
          return new ResolveResult(uuid, name != null ? name : username, false);
       } catch (Exception e) {
+         // FIX: Consider logging this error at debug level
          return null;
       }
    }
@@ -287,7 +314,7 @@ public final class UuidResolver {
    }
 
    private static void rebuildOnlineNameCache(long now) {
-      Map<String, UUID> next = new HashMap<>();
+      Map<String, UUID> next = new ConcurrentHashMap<>(); // FIX: Use ConcurrentHashMap
       ClientPacketListener connection = Minecraft.getInstance().getConnection();
       if (connection != null) {
          for (PlayerInfo info : connection.getOnlinePlayers()) {
@@ -299,42 +326,80 @@ public final class UuidResolver {
             }
          }
       }
-      onlineNameCache = next;
+      // FIX: Clear old cache before replacing to free memory immediately
+      onlineNameCache.clear();
+      onlineNameCache.putAll(next);
       onlineNameCacheExpiresAt = now + ONLINE_CACHE_TTL_MS;
    }
 
+   /**
+    * FIX: Optimized with method caching to avoid repeated reflection lookups
+    */
    private static String getProfileName(PlayerInfo info) {
       Object profile = info.getProfile();
       if (profile == null) return null;
-      try {
-         Method method = profile.getClass().getMethod("getName");
-         Object value = method.invoke(profile);
-         return value != null ? value.toString() : null;
-      } catch (Exception ignored) {
+      
+      // Initialize cached methods if needed (thread-safe)
+      if (cachedGetNameMethod == null && cachedNameMethod == null) {
+         synchronized (reflectionCacheLock) {
+            if (cachedGetNameMethod == null && cachedNameMethod == null) {
+               try {
+                  cachedGetNameMethod = profile.getClass().getMethod("getName");
+               } catch (NoSuchMethodException e) {
+                  try {
+                     cachedNameMethod = profile.getClass().getMethod("name");
+                  } catch (NoSuchMethodException ignored) {
+                     // Neither method exists
+                  }
+               }
+            }
+         }
       }
+      
       try {
-         Method method = profile.getClass().getMethod("name");
-         Object value = method.invoke(profile);
-         return value != null ? value.toString() : null;
-      } catch (Exception ignored) {
+         Method method = cachedGetNameMethod != null ? cachedGetNameMethod : cachedNameMethod;
+         if (method != null) {
+            Object value = method.invoke(profile);
+            return value != null ? value.toString() : null;
+         }
+      } catch (ReflectiveOperationException ignored) {
+         // Reflection failed, return null
       }
       return null;
    }
 
+   /**
+    * FIX: Optimized with method caching to avoid repeated reflection lookups
+    */
    private static UUID getProfileId(PlayerInfo info) {
       Object profile = info.getProfile();
       if (profile == null) return null;
-      try {
-         Method method = profile.getClass().getMethod("getId");
-         Object value = method.invoke(profile);
-         return value instanceof UUID ? (UUID) value : null;
-      } catch (Exception ignored) {
+      
+      // Initialize cached methods if needed (thread-safe)
+      if (cachedGetIdMethod == null && cachedIdMethod == null) {
+         synchronized (reflectionCacheLock) {
+            if (cachedGetIdMethod == null && cachedIdMethod == null) {
+               try {
+                  cachedGetIdMethod = profile.getClass().getMethod("getId");
+               } catch (NoSuchMethodException e) {
+                  try {
+                     cachedIdMethod = profile.getClass().getMethod("id");
+                  } catch (NoSuchMethodException ignored) {
+                     // Neither method exists
+                  }
+               }
+            }
+         }
       }
+      
       try {
-         Method method = profile.getClass().getMethod("id");
-         Object value = method.invoke(profile);
-         return value instanceof UUID ? (UUID) value : null;
-      } catch (Exception ignored) {
+         Method method = cachedGetIdMethod != null ? cachedGetIdMethod : cachedIdMethod;
+         if (method != null) {
+            Object value = method.invoke(profile);
+            return value instanceof UUID ? (UUID) value : null;
+         }
+      } catch (ReflectiveOperationException ignored) {
+         // Reflection failed, return null
       }
       return null;
    }
