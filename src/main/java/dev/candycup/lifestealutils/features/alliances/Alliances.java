@@ -208,13 +208,12 @@ public final class Alliances implements RenderEventListener {
       if (miniMessage == null || miniMessage.isBlank()) return null;
       VisibleMapping mapping = VisibleMapping.fromMiniMessage(miniMessage);
       String visible = mapping.visible;
-      int end = lastNonWhitespaceIndex(visible);
-      if (end < 0) return null;
-      int start = end;
-      while (start > 0 && !Character.isWhitespace(visible.charAt(start - 1))) {
-         start--;
-      }
-      return visible.substring(start, end + 1);
+      
+      // Use the same logic as applyColorToLastWord to find the player name
+      WordBoundary playerNameBounds = findPlayerName(visible);
+      if (playerNameBounds == null) return null;
+      
+      return visible.substring(playerNameBounds.start, playerNameBounds.end + 1);
    }
 
    private static String applyColorToLastWord(String miniMessage) {
@@ -225,13 +224,13 @@ public final class Alliances implements RenderEventListener {
 
       VisibleMapping mapping = VisibleMapping.fromMiniMessage(miniMessage);
       String visible = mapping.visible;
-      int end = lastNonWhitespaceIndex(visible);
-      if (end < 0) return miniMessage;
-
-      int start = end;
-      while (start > 0 && !Character.isWhitespace(visible.charAt(start - 1))) {
-         start--;
-      }
+      
+      
+      WordBoundary playerNameBounds = findPlayerName(visible);
+      if (playerNameBounds == null) return miniMessage;
+      
+      int start = playerNameBounds.start;
+      int end = playerNameBounds.end;
 
       if (start >= mapping.visibleToRaw.size() || end >= mapping.visibleToRaw.size()) return miniMessage;
 
@@ -246,6 +245,76 @@ public final class Alliances implements RenderEventListener {
       sb.insert(rawStart, openTag);
       return sb.toString();
    }
+   
+   /**
+    * Finds the player name in the visible text, avoiding suffixes
+    * Returns the start and end indices of the player name.
+    */
+   private static WordBoundary findPlayerName(String visible) {
+      if (visible == null || visible.isBlank()) return null;
+      
+      // Split the visible text into words
+      List<WordBoundary> words = extractWords(visible);
+      if (words.isEmpty()) return null;
+      
+      
+      for (int i = words.size() - 1; i >= 0; i--) {
+         WordBoundary word = words.get(i);
+         String wordText = visible.substring(word.start, word.end + 1);
+         
+         if (wordText.startsWith("[") || wordText.endsWith("]")) continue;
+         
+         // Skip single character words (like + or -)
+         if (wordText.length() <= 1) continue;
+         
+         // Skip words ending with + (like HEROIC+, LEGEND+, etc. - these are ranks)
+         if (wordText.endsWith("+")) continue;
+         
+         // Skip words that are purely symbols
+         if (wordText.matches("[^a-zA-Z0-9_]+")) continue;
+         
+         // This looks like a player name!
+         return word;
+      }
+      
+      // Fallback to the last word if we couldn't find a good candidate
+      return words.get(words.size() - 1);
+   }
+   
+   /**
+    * Extracts word boundaries from the visible text.
+    */
+   private static List<WordBoundary> extractWords(String visible) {
+      List<WordBoundary> words = new ArrayList<>();
+      int length = visible.length();
+      int i = 0;
+      
+      while (i < length) {
+         // Skip whitespace
+         while (i < length && Character.isWhitespace(visible.charAt(i))) {
+            i++;
+         }
+         
+         if (i >= length) break;
+         
+         // Found start of a word
+         int start = i;
+         
+         // Find end of word
+         while (i < length && !Character.isWhitespace(visible.charAt(i))) {
+            i++;
+         }
+         
+         words.add(new WordBoundary(start, i - 1));
+      }
+      
+      return words;
+   }
+   
+   /**
+    * Simple record to hold word boundaries.
+    */
+   private record WordBoundary(int start, int end) {}
 
    private static String normalizeColorTag(String raw) {
       if (raw == null) return null;
