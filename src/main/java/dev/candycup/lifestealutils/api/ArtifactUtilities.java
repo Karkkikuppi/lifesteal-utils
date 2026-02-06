@@ -1,4 +1,4 @@
-package dev.candycup.lifestealutils;
+package dev.candycup.lifestealutils.api;
 
 import com.mojang.serialization.DataResult;
 import com.mojang.serialization.DynamicOps;
@@ -6,16 +6,17 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.core.component.DataComponentPatch;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtOps;
+import net.minecraft.nbt.StringTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.Optional;
 
-public final class CustomEnchantUtilities {
-   private CustomEnchantUtilities() {
+public final class ArtifactUtilities {
+   private ArtifactUtilities() {
    }
 
-   public static CompoundTag getCustomEnchantsFrom(ItemStack stack) {
+   public static String getArtifactName(ItemStack stack) {
       if (stack == null || stack.isEmpty()) {
          return null;
       }
@@ -40,29 +41,16 @@ public final class CustomEnchantUtilities {
          return null;
       }
 
-      CompoundTag enchants = new CompoundTag();
-      for (String key : pbv.get().keySet()) {
-         if (key.startsWith("enchants:")) {
-            Tag value = pbv.get().get(key);
-            if (value != null) {
-               enchants.put(key, value.copy());
-            }
-         }
+      Tag artifactTag = pbv.get().get("lifesteal:artifact");
+      if (!(artifactTag instanceof StringTag(String value))) {
+         return null;
       }
 
-      return enchants.isEmpty() ? null : enchants;
+      return value != null && !value.isBlank() ? value : null;
    }
 
-   public static boolean hasCustomEnchants(ItemStack stack) {
-      return getCustomEnchantsFrom(stack) != null;
-   }
-
-   public static boolean hasCustomEnchant(ItemStack stack, String key) {
-      CompoundTag enchants = getCustomEnchantsFrom(stack);
-      if (enchants == null || key == null || key.isBlank()) {
-         return false;
-      }
-      return enchants.contains(key);
+   public static boolean hasArtifact(ItemStack stack) {
+      return getArtifactName(stack) != null;
    }
 
    private static CompoundTag encodeStack(ItemStack stack, DynamicOps<Tag> ops) {

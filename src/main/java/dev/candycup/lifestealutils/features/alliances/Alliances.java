@@ -1,6 +1,9 @@
 package dev.candycup.lifestealutils.features.alliances;
 
 import dev.candycup.lifestealutils.Config;
+import dev.candycup.lifestealutils.event.EventPriority;
+import dev.candycup.lifestealutils.event.events.PlayerNameRenderEvent;
+import dev.candycup.lifestealutils.event.listener.RenderEventListener;
 import dev.candycup.lifestealutils.interapi.MessagingUtils;
 import net.kyori.adventure.platform.modcommon.MinecraftClientAudiences;
 import net.kyori.adventure.text.minimessage.MiniMessage;
@@ -20,10 +23,31 @@ import java.util.List;
 import java.util.UUID;
 import java.util.function.Consumer;
 
-public final class Alliances {
+/**
+ * manages alliance system and colorizes alliance member names.
+ * <p>
+ * note: this class maintains a static API for commands and management,
+ * but implements RenderEventListener for event-based name coloring.
+ */
+public final class Alliances implements RenderEventListener {
    private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
 
-   private Alliances() {
+   @Override
+   public boolean isEnabled() {
+      return Config.getEnableAlliances();
+   }
+
+   @Override
+   public EventPriority getPriority() {
+      return EventPriority.NORMAL;
+   }
+
+   @Override
+   public void onPlayerNameRender(PlayerNameRenderEvent event) {
+      if (!isAlliedName(event.getPlayerName())) return;
+
+      Component modified = colorizeNameTag(event.getModifiedDisplayName());
+      event.setModifiedDisplayName(modified);
    }
 
    public static void showAllianceList() {
@@ -56,7 +80,6 @@ public final class Alliances {
       if (uuid == null) return false;
       boolean added = addAllianceUuid(uuid);
       if (added) {
-         // cache the username from the player
          Component nameComponent = player.getName();
          if (nameComponent != null) {
             String name = nameComponent.getString();
@@ -167,7 +190,7 @@ public final class Alliances {
       return Config.getAllianceUuids().contains(uuid.toString());
    }
 
-   public static Component colorizeNameTag(Component original) {
+   private static Component colorizeNameTag(Component original) {
       String serialized = MiniMessage.miniMessage().serialize(MinecraftClientAudiences.of().asAdventure(original));
       String updated = applyColorToLastWord(serialized);
       if (updated.equals(serialized)) return original;
@@ -276,14 +299,12 @@ public final class Alliances {
       ClientPacketListener connection = Minecraft.getInstance().getConnection();
       for (String id : Config.getAllianceUuids()) {
          String name = null;
-         // First try to get name from online players
          if (connection != null) {
             for (PlayerInfo info : connection.getOnlinePlayers()) {
                if (info == null || info.getProfile() == null) continue;
                UUID uuid = getProfileId(info);
                if (uuid != null && id.equals(uuid.toString())) {
                   name = getProfileName(info);
-                  // Update cache with fresh online data
                   if (name != null) {
                      UuidResolver.updateCache(uuid, name);
                   }
@@ -291,7 +312,6 @@ public final class Alliances {
                }
             }
          }
-         // Fall back to cached username
          if (name == null) {
             name = UuidResolver.getCachedUsername(id);
          }

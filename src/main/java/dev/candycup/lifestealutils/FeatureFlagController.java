@@ -66,6 +66,12 @@ public final class FeatureFlagController {
          if (parsed.basicTimers == null) {
             parsed.basicTimers = Collections.emptyList();
          }
+         if (parsed.triggers == null) {
+            parsed.triggers = Collections.emptyMap();
+         }
+         if (parsed.splashes == null) {
+            parsed.splashes = Collections.emptyList();
+         }
          return parsed;
       } catch (Exception e) {
          LOGGER.error("[lsu-flags] failed to parse feature flag payload; using empty payload", e);
@@ -102,6 +108,59 @@ public final class FeatureFlagController {
       return timers;
    }
 
+   public static String getTrigger(String triggerKey) {
+      return payload.triggers.get(triggerKey);
+   }
+
+   /**
+    * retrieves POI definitions from the remote payload.
+    * returns an empty list if none are configured.
+    */
+   public static List<PoiDefinition> getPois() {
+      ensureLoaded();
+      List<PoiDefinition> list = new ArrayList<>();
+      for (FeatureFlagPoi p : payload.pois) {
+         if (p == null || p.id == null || p.name == null) continue;
+         boolean disabled = p.disabled != null && p.disabled;
+         if (disabled) {
+            continue;
+         }
+         double x = p.x != null ? p.x : 0.0;
+         double y = p.y != null ? p.y : 0.0;
+         double z = p.z != null ? p.z : 0.0;
+         list.add(new PoiDefinition(p.id, p.name, x, y, z, p.dimension, false));
+      }
+      return list;
+   }
+
+   /**
+    * retrieves POI definitions from the remote payload, including disabled ones.
+    *
+    * @return list of poi definitions (may include disabled entries)
+    */
+   public static List<PoiDefinition> getPoisIncludingDisabled() {
+      ensureLoaded();
+      List<PoiDefinition> list = new ArrayList<>();
+      for (FeatureFlagPoi p : payload.pois) {
+         if (p == null || p.id == null || p.name == null) continue;
+         boolean disabled = p.disabled != null && p.disabled;
+         double x = p.x != null ? p.x : 0.0;
+         double y = p.y != null ? p.y : 0.0;
+         double z = p.z != null ? p.z : 0.0;
+         list.add(new PoiDefinition(p.id, p.name, x, y, z, p.dimension, disabled));
+      }
+      return list;
+   }
+
+   /**
+    * retrieves the list of splash texts from the remote payload.
+    *
+    * @return the list of splash texts, or an empty list if none are configured
+    */
+   public static List<String> getSplashes() {
+      return new ArrayList<>(payload.splashes);
+   }
+
    private static FeatureFlagRule selectRule(String featureKey) {
       List<FeatureFlagRule> rules = payload.features.get(featureKey);
       if (rules == null || rules.isEmpty()) {
@@ -117,7 +176,7 @@ public final class FeatureFlagController {
 
    private static String detectModVersion() {
       return FabricLoader.getInstance()
-              .getModContainer("lifestealdutils")
+              .getModContainer("lifestealutils")
               .map(container -> container.getMetadata().getVersion().getFriendlyString())
               .orElse("0.0.0");
    }
@@ -190,6 +249,9 @@ public final class FeatureFlagController {
    private static final class FeatureFlagPayload {
       Map<String, List<FeatureFlagRule>> features = Collections.emptyMap();
       List<FeatureFlagTimer> basicTimers = Collections.emptyList();
+      Map<String, String> triggers = Collections.emptyMap();
+      List<String> splashes = Collections.emptyList();
+      List<FeatureFlagPoi> pois = Collections.emptyList();
    }
 
    private static final class FeatureFlagRule {
@@ -241,5 +303,19 @@ public final class FeatureFlagController {
          }
          return -1;
       }
+   }
+
+   private static final class FeatureFlagPoi {
+      String id;
+      String name;
+      Double x;
+      Double y;
+      Double z;
+      String dimension;
+      Boolean disabled;
+   }
+
+   public record PoiDefinition(String id, String name, double x, double y, double z, String dimension,
+                               boolean disabled) {
    }
 }

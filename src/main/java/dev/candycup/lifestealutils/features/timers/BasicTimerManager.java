@@ -1,6 +1,10 @@
 package dev.candycup.lifestealutils.features.timers;
 
 import dev.candycup.lifestealutils.Config;
+import dev.candycup.lifestealutils.event.events.ChatMessageReceivedEvent;
+import dev.candycup.lifestealutils.event.events.ClientTickEvent;
+import dev.candycup.lifestealutils.event.listener.ChatEventListener;
+import dev.candycup.lifestealutils.event.listener.TickEventListener;
 import dev.candycup.lifestealutils.hud.HudElementDefinition;
 import dev.candycup.lifestealutils.hud.HudPosition;
 import net.minecraft.resources.Identifier;
@@ -14,19 +18,21 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-public final class BasicTimerManager {
+public final class BasicTimerManager implements ChatEventListener, TickEventListener {
    private static final Logger LOGGER = LoggerFactory.getLogger("lifestealutils/timers");
-   private static final Map<String, BasicTimerDefinition> DEFINITIONS = new LinkedHashMap<>();
-   private static final Map<String, TimerState> STATES = new LinkedHashMap<>();
-   private static final Map<String, HudElementDefinition> HUD_DEFINITIONS = new LinkedHashMap<>();
 
-   private BasicTimerManager() {
+   private final Map<String, BasicTimerDefinition> definitions = new LinkedHashMap<>();
+   private final Map<String, TimerState> states = new LinkedHashMap<>();
+   private final Map<String, HudElementDefinition> hudDefinitions = new LinkedHashMap<>();
+
+   public BasicTimerManager(List<BasicTimerDefinition> definitions) {
+      configure(definitions);
    }
 
-   public static void configure(List<BasicTimerDefinition> definitions) {
-      DEFINITIONS.clear();
-      STATES.clear();
-      HUD_DEFINITIONS.clear();
+   private void configure(List<BasicTimerDefinition> definitions) {
+      this.definitions.clear();
+      this.states.clear();
+      this.hudDefinitions.clear();
 
       float baseY = 0.15F;
       float stepY = 0.035F;
@@ -35,8 +41,8 @@ public final class BasicTimerManager {
       for (BasicTimerDefinition definition : definitions) {
          String slug = slugify(definition.name());
          String id = ensureUniqueId(slug);
-         DEFINITIONS.put(id, definition);
-         STATES.put(id, new TimerState(0));
+         this.definitions.put(id, definition);
+         this.states.put(id, new TimerState(0));
          Config.ensureBasicTimerKnown(id);
 
          HudElementDefinition hudDefinition = new HudElementDefinition(
@@ -45,59 +51,71 @@ public final class BasicTimerManager {
                  () -> textFor(id, definition),
                  HudPosition.clamp(0.5F, baseY + (stepY * index))
          );
-         HUD_DEFINITIONS.put(id, hudDefinition);
+         this.hudDefinitions.put(id, hudDefinition);
          index++;
       }
 
-      LOGGER.info("[lsu-timers] configured {} basic timers", DEFINITIONS.size());
+      LOGGER.info("[lsu-timers] configured {} basic timers", this.definitions.size());
    }
 
-   public static List<HudElementDefinition> hudDefinitions() {
-      return new ArrayList<>(HUD_DEFINITIONS.values());
+   public List<HudElementDefinition> getHudDefinitions() {
+      return new ArrayList<>(hudDefinitions.values());
    }
 
-   public static List<TimerEntry> timerEntries() {
-      return DEFINITIONS.entrySet().stream()
+   public List<TimerEntry> getTimerEntries() {
+      return definitions.entrySet().stream()
               .map(e -> new TimerEntry(e.getKey(), e.getValue()))
               .collect(Collectors.toList());
    }
 
-   public static void handleChatMessage(String message) {
-      if (message == null || message.isBlank()) {
+   @Override
+   public boolean isEnabled() {
+      // enabled if any timer is enabled
+      return definitions.keySet().stream()
+              .anyMatch(Config::isBasicTimerEnabled);
+   }
+
+   @Override
+   public void onChatMessageReceived(ChatMessageReceivedEvent event) {
+      String message = event.getMessage().getString();
+      if (message.isBlank()) {
          return;
       }
-      for (Map.Entry<String, BasicTimerDefinition> entry : DEFINITIONS.entrySet()) {
+
+      for (Map.Entry<String, BasicTimerDefinition> entry : definitions.entrySet()) {
          BasicTimerDefinition definition = entry.getValue();
          if (definition.chatTrigger() != null && message.contains(definition.chatTrigger())) {
             if (!Config.isBasicTimerEnabled(entry.getKey())) {
                continue;
             }
             start(entry.getKey(), definition.durationSeconds());
+            LOGGER.debug("[lsu-timers] started timer '{}' from chat trigger", definition.name());
          }
       }
    }
 
-   public static void tick() {
-      for (TimerState state : STATES.values()) {
+   @Override
+   public void onClientTick(ClientTickEvent event) {
+      for (TimerState state : states.values()) {
          if (state.remainingTicks > 0) {
             state.remainingTicks--;
          }
       }
    }
 
-   private static void start(String id, int durationSeconds) {
-      TimerState state = STATES.get(id);
+   private void start(String id, int durationSeconds) {
+      TimerState state = states.get(id);
       if (state == null) {
          return;
       }
       state.remainingTicks = Math.max(durationSeconds * 20, 0);
    }
 
-   private static String textFor(String id, BasicTimerDefinition definition) {
+   private String textFor(String id, BasicTimerDefinition definition) {
       if (!Config.isBasicTimerEnabled(id)) {
          return "";
       }
-      TimerState state = STATES.get(id);
+      TimerState state = states.get(id);
       int remainingTicks = state != null ? state.remainingTicks : 0;
       String value;
       if (remainingTicks > 0) {
@@ -138,17 +156,17 @@ public final class BasicTimerManager {
       return builder.toString().trim();
    }
 
-   private static String slugify(String name) {
+   private String slugify(String name) {
       String slug = name.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", "_");
       slug = slug.replaceAll("_+", "_");
       slug = slug.replaceAll("^_+|_+$", "");
       return slug.isBlank() ? "timer" : slug;
    }
 
-   private static String ensureUniqueId(String base) {
+   private String ensureUniqueId(String base) {
       String candidate = base;
       int counter = 1;
-      while (DEFINITIONS.containsKey(candidate)) {
+      while (definitions.containsKey(candidate)) {
          candidate = base + "_" + counter;
          counter++;
       }

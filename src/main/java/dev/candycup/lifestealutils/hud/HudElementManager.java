@@ -47,6 +47,27 @@ public final class HudElementManager {
       return HudPosition.clamp(0F, 0F);
    }
 
+   /**
+    * Checks if a position is registered for the given element id.
+    *
+    * @param id the element identifier
+    * @return true if a position exists, false otherwise
+    */
+   public static boolean hasPosition(Identifier id) {
+      return POSITIONS.containsKey(id);
+   }
+
+   /**
+    * Registers a position for an element that doesn't have a full definition.
+    * This is used for standalone elements like the POI indicator.
+    *
+    * @param id       the element identifier
+    * @param position the position to register
+    */
+   public static void registerPosition(Identifier id, HudPosition position) {
+      POSITIONS.putIfAbsent(id, position);
+   }
+
    public static void updatePositionFromPixels(Identifier id, float pixelX, float pixelY, int guiWidth, int guiHeight, int textWidth, int textHeight) {
       float availableWidth = Math.max(guiWidth - textWidth, 1);
       float availableHeight = Math.max(guiHeight - textHeight, 1);

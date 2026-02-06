@@ -7,16 +7,19 @@
   ],
   "client": [
     "AttackTrackerMixin",
+    "ClientPacketListenerMixin",
     "ConnectingScreenMixin",
     "DamageListenerMixin",
     "ItemClusterMixin",
     "ItemRendererMixin",
     "MessageReceiver",
+    "PanoramaRendererMixin",
+    "ScreenAccessor",
     "SplashManagerMixin",
     "TabListMixin",
     "TitleScreenMixin",
-    "ItemRendererMixin",
-    "ItemClusterMixin"
+    "afk.GameRendererMixin",
+    "afk.GuiMixin"
   ],
   "injectors": {
     "defaultRequire": 1

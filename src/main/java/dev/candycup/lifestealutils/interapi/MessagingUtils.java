@@ -55,4 +55,20 @@ public class MessagingUtils {
    public static net.kyori.adventure.text.Component asMiniMessage(String string) {
       return MinecraftClientAudiences.of().asAdventure(Component.literal(string));
    }
+
+   /**
+    * as support for components in the splash screen was added in 1.21.11,
+    * older versions need a safe string version of minimessage (which removes formatting)
+    *
+    * @param miniMessage the minimessage formatted string
+    * @return the safe string for the current version
+    */
+   public static String miniMessageToSplashSafe(String miniMessage) {
+      //? if > 1.21.10 {
+      return miniMessage;
+      //? } else {
+      /*return miniMessage(miniMessage).getString();
+       *///? }
+   }
 }
+

@@ -1,8 +1,18 @@
 package dev.candycup.lifestealutils.features.combat;
 
 import dev.candycup.lifestealutils.Config;
+import dev.candycup.lifestealutils.api.CustomEnchantUtilities;
+import dev.candycup.lifestealutils.event.events.ClientAttackEvent;
+import dev.candycup.lifestealutils.event.events.ClientTickEvent;
+import dev.candycup.lifestealutils.event.events.DamageConfirmedEvent;
+import dev.candycup.lifestealutils.event.events.PlayerDamagedEvent;
+import dev.candycup.lifestealutils.event.events.ServerChangeEvent;
+import dev.candycup.lifestealutils.event.listener.CombatEventListener;
+import dev.candycup.lifestealutils.event.listener.ServerEventListener;
+import dev.candycup.lifestealutils.event.listener.TickEventListener;
 import dev.candycup.lifestealutils.hud.HudElementDefinition;
 import dev.candycup.lifestealutils.hud.HudPosition;
+import net.minecraft.client.Minecraft;
 import net.minecraft.resources.Identifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,74 +24,74 @@ import java.util.concurrent.ConcurrentHashMap;
  * tracks unbroken hit chains without receiving damage.
  * <p>
  * mechanic: each consecutive hit without taking damage grants +5% bonus damage,
- * capping at 50%. bonus only applies after 2 consecutive hits.
+ * capping at 50%. bonus only applies starting with the 3rd hit.
+ * the chain resets if you fail to hit anyone for 5 seconds.
  * <p>
  * tracking flow:
  * 1. client swings at an entity -> record pending hit with entity id + timestamp
  * 2. server responds with damage dealt to that entity within 500ms -> increment chain
  * 3. player receives damage -> reset chain to 0
  */
-public final class UnbrokenChainTracker {
+public final class UnbrokenChainTracker implements CombatEventListener, TickEventListener, ServerEventListener {
    private static final Logger LOGGER = LoggerFactory.getLogger("lifestealutils/chain");
 
    public static final String CONFIG_ID = "unbroken_chain";
    public static final String DEFAULT_FORMAT = "<gray>Chain:</gray> <gold>{{count}}</gold> <gray>(+{{bonus}}% dmg)</gray>";
    private static final long HIT_CONFIRMATION_TIMEOUT_MS = 500;
-   private static final int MAX_CHAIN = 10; // 10 hits = 50% cap
-   private static final int MIN_CHAIN_FOR_BONUS = 2;
+   private static final int MAX_CHAIN = 12; // max tracked chain count (allows 50% bonus)
+   private static final int BONUS_START_CHAIN = 3;
+   private static final int BONUS_START_OFFSET = 2;
    private static final int BONUS_PER_HIT = 5;
+   private static final long INACTIVE_RESET_MS = 5_000;
 
    // pending hits awaiting server confirmation: entity id -> timestamp
-   private static final Map<Integer, Long> pendingHits = new ConcurrentHashMap<>();
+   private final Map<Integer, Long> pendingHits = new ConcurrentHashMap<>();
 
    // current chain count
-   private static int chainCount = 0;
+   private int chainCount = 0;
+   private long lastConfirmedHitTimeMs = 0L;
 
-   private static HudElementDefinition hudDefinition;
+   private final HudElementDefinition hudDefinition;
 
-   private UnbrokenChainTracker() {
-   }
-
-   public static void init() {
-      Config.ensureChainCounterKnown();
+   public UnbrokenChainTracker() {
       Config.ensureChainCounterFormat(DEFAULT_FORMAT);
 
-      hudDefinition = new HudElementDefinition(
+      this.hudDefinition = new HudElementDefinition(
               Identifier.fromNamespaceAndPath("lifestealutils", CONFIG_ID + "_counter"),
               "Unbroken Chain Counter",
-              UnbrokenChainTracker::getDisplayText,
+              this::getDisplayText,
               HudPosition.clamp(0.5F, 0.25F)
       );
 
       LOGGER.info("[lsu-chain] unbroken chain tracker initialized");
    }
 
-   public static HudElementDefinition hudDefinition() {
+   public HudElementDefinition getHudDefinition() {
       return hudDefinition;
    }
 
-   /**
-    * called when the client player attacks/swings at an entity.
-    * records the entity id and timestamp for later confirmation.
-    */
-   public static void onClientAttack(int entityId) {
-      if (!Config.isChainCounterEnabled()) {
-         return;
-      }
-      long now = System.currentTimeMillis();
-      pendingHits.put(entityId, now);
-      LOGGER.debug("[lsu-chain] pending hit registered for entity {}", entityId);
+   @Override
+   public boolean isEnabled() {
+      return Config.isChainCounterEnabled();
    }
 
-   /**
-    * called when the server confirms damage dealt to an entity.
-    * if we have a pending hit for this entity within the timeout, increment chain.
-    */
-   public static void onServerDamageConfirmed(int entityId) {
-      if (!Config.isChainCounterEnabled()) {
+   @Override
+   public void onClientAttack(ClientAttackEvent event) {
+      Minecraft client = Minecraft.getInstance();
+      if (client.player == null) return;
+      if (!CustomEnchantUtilities.hasCustomEnchant(
+              client.player.getMainHandItem(), "enchants:unbroken_chain")) {
          return;
       }
-      Long hitTime = pendingHits.remove(entityId);
+
+      long now = System.currentTimeMillis();
+      pendingHits.put(event.getTargetId(), now);
+      LOGGER.debug("[lsu-chain] pending hit registered for entity {}", event.getTargetId());
+   }
+
+   @Override
+   public void onDamageConfirmed(DamageConfirmedEvent event) {
+      Long hitTime = pendingHits.remove(event.getEntityId());
       if (hitTime == null) {
          return;
       }
@@ -93,51 +103,55 @@ public final class UnbrokenChainTracker {
       }
 
       chainCount = Math.min(chainCount + 1, MAX_CHAIN);
+      lastConfirmedHitTimeMs = System.currentTimeMillis();
       LOGGER.debug("[lsu-chain] chain incremented to {}", chainCount);
    }
 
-   /**
-    * called when the local player receives damage.
-    * resets the chain to 0.
-    */
-   public static void onPlayerDamaged() {
+   @Override
+   public void onPlayerDamaged(PlayerDamagedEvent event) {
       if (chainCount > 0) {
          LOGGER.debug("[lsu-chain] chain reset from {} (player damaged)", chainCount);
          chainCount = 0;
       }
+      lastConfirmedHitTimeMs = 0L;
       // also clear any pending hits since chain is broken
       pendingHits.clear();
    }
 
-   /**
-    * called each tick to clean up stale pending hits.
-    */
-   public static void tick() {
-      if (!Config.isChainCounterEnabled()) {
-         return;
-      }
+   @Override
+   public void onClientTick(ClientTickEvent event) {
       long now = System.currentTimeMillis();
+      if (chainCount > 0 && lastConfirmedHitTimeMs > 0L && now - lastConfirmedHitTimeMs > INACTIVE_RESET_MS) {
+         LOGGER.debug("[lsu-chain] chain reset from {} (inactive for {}ms)", chainCount, INACTIVE_RESET_MS);
+         chainCount = 0;
+         lastConfirmedHitTimeMs = 0L;
+         pendingHits.clear();
+      }
       pendingHits.entrySet().removeIf(entry ->
               now - entry.getValue() > HIT_CONFIRMATION_TIMEOUT_MS
       );
    }
 
-   public static int getChainCount() {
+   @Override
+   public void onServerChange(ServerChangeEvent event) {
+      if (event.isDisconnected()) {
+         reset();
+      }
+   }
+
+   public int getChainCount() {
       return chainCount;
    }
 
-   public static int getBonusPercent() {
-      if (chainCount < MIN_CHAIN_FOR_BONUS) {
+   public int getBonusPercent() {
+      if (chainCount < BONUS_START_CHAIN) {
          return 0;
       }
-      return Math.min(chainCount * BONUS_PER_HIT, MAX_CHAIN * BONUS_PER_HIT);
+      int bonusHits = chainCount - BONUS_START_OFFSET;
+      return Math.min(bonusHits * BONUS_PER_HIT, MAX_CHAIN * BONUS_PER_HIT);
    }
 
-   private static String getDisplayText() {
-      if (!Config.isChainCounterEnabled()) {
-         return "";
-      }
-
+   private String getDisplayText() {
       int count = chainCount;
       int bonus = getBonusPercent();
 
@@ -159,8 +173,9 @@ public final class UnbrokenChainTracker {
    /**
     * resets all state - useful for world/server changes.
     */
-   public static void reset() {
+   public void reset() {
       chainCount = 0;
+      lastConfirmedHitTimeMs = 0L;
       pendingHits.clear();
       LOGGER.debug("[lsu-chain] tracker reset");
    }

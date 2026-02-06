@@ -36,8 +36,8 @@ public class TitleScreenQuickJoin {
                       "lifestealutils",
                       "icon/lsn"
               ),
-              22,
-              22
+              18,
+              18
       ).build();
    }
 }

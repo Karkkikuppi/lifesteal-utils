@@ -1,12 +1,12 @@
 package dev.candycup.lifestealutils.mixin;
 
 import dev.candycup.lifestealutils.Config;
-import dev.candycup.lifestealutils.LifestealServerDetector;
+import dev.candycup.lifestealutils.api.LifestealServerDetector;
+import dev.candycup.lifestealutils.event.EventBus;
+import dev.candycup.lifestealutils.event.events.PlayerNameRenderEvent;
 import dev.candycup.lifestealutils.interapi.MessagingUtils;
 import net.kyori.adventure.platform.modcommon.MinecraftClientAudiences;
 import net.kyori.adventure.text.minimessage.MiniMessage;
-
-import java.util.regex.Pattern;
 
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.PlayerTabOverlay;
@@ -45,24 +45,32 @@ public abstract class TabListMixin {
 
    @Inject(method = "decorateName", at = @At("HEAD"), cancellable = true)
    private void decorateNameHead(PlayerInfo playerInfo, MutableComponent mutableComponent, CallbackInfoReturnable<Component> cir) {
-      if (!Config.getRemoveUniquePlusColor()) return;
-      if (!LifestealServerDetector.isOnLifestealServer()) return;
+      Component result = mutableComponent;
 
-      String serialized = MiniMessage.miniMessage().serialize(MinecraftClientAudiences.of().asAdventure(mutableComponent));
+      if (Config.getRemoveUniquePlusColor() && LifestealServerDetector.isOnLifestealServer()) {
+         String serialized = MiniMessage.miniMessage().serialize(MinecraftClientAudiences.of().asAdventure(result));
 
-      boolean hadPlus = serialized.contains("+");
-
-      // Removes the original
-      serialized = serialized.replace("+", "");
-
-      // Re-add the + just before the first coloring block closes (</) if there was one originally
-      if (hadPlus) {
+         boolean hadPlus = serialized.contains("+");
          int index = serialized.indexOf("</");
-         if (index != -1) {
+         if (hadPlus && index != -1) {
+            serialized = serialized.replace("+", "");
             serialized = serialized.substring(0, index) + "+" + serialized.substring(index);
          }
+
+         result = MessagingUtils.miniMessage(serialized);
       }
 
-      cir.setReturnValue(MessagingUtils.miniMessage(serialized));
+      //? if > 1.21.8 {
+      String plainName = playerInfo.getProfile().name();
+      //?} else {
+      /*String plainName = playerInfo.getProfile().getName();
+       *///?}
+      if (plainName != null && !plainName.isBlank()) {
+         PlayerNameRenderEvent event = new PlayerNameRenderEvent(plainName, result);
+         EventBus.getInstance().post(event);
+         result = event.getModifiedDisplayName();
+      }
+
+      cir.setReturnValue(result);
    }
 }

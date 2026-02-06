@@ -11,7 +11,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(ConnectScreen.class)
 public class ConnectingScreenMixin {
    @Inject(method = "render", at = @At("TAIL"))
-    private void lifestealutils$render(GuiGraphics guiGraphics, int i, int j, float f, CallbackInfo ci) {
+   private void lifestealutils$render(GuiGraphics guiGraphics, int i, int j, float f, CallbackInfo ci) {
       /*
        guiGraphics.drawCenteredString(
                 ((ConnectScreen)(Object)this).getFont(),

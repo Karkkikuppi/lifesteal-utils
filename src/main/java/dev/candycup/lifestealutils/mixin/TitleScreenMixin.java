@@ -1,8 +1,7 @@
 package dev.candycup.lifestealutils.mixin;
 
-import dev.candycup.lifestealutils.Config;
-import dev.candycup.lifestealutils.features.shortcuts.TitleScreenQuickJoin;
-import net.minecraft.client.gui.components.SpriteIconButton;
+import dev.candycup.lifestealutils.event.EventBus;
+import dev.candycup.lifestealutils.event.events.TitleScreenInitEvent;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.network.chat.Component;
@@ -19,12 +18,7 @@ public class TitleScreenMixin extends Screen {
 
    @Inject(method = "init", at = @At("TAIL"))
    public void init(CallbackInfo ci) {
-      if (!Config.getQuickJoinButtonEnabled()) return;
-      int l = this.height / 4 + 48;
-      SpriteIconButton textIconButtonWidget2 =
-              this.addRenderableWidget(
-                      TitleScreenQuickJoin.getQuickJoinWidget(this)
-              );
-      textIconButtonWidget2.setPosition(this.width / 2 + 104, l);
+      TitleScreenInitEvent event = new TitleScreenInitEvent((TitleScreen) (Object) this);
+      EventBus.getInstance().post(event);
    }
 }

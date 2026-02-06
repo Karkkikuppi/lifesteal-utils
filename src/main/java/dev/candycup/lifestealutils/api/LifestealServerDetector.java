@@ -1,4 +1,4 @@
-package dev.candycup.lifestealutils;
+package dev.candycup.lifestealutils.api;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ServerData;

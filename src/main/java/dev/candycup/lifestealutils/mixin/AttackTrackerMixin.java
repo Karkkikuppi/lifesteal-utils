@@ -1,9 +1,8 @@
 package dev.candycup.lifestealutils.mixin;
 
-import dev.candycup.lifestealutils.Config;
-import dev.candycup.lifestealutils.CustomEnchantUtilities;
-import dev.candycup.lifestealutils.LifestealServerDetector;
-import dev.candycup.lifestealutils.features.combat.UnbrokenChainTracker;
+import dev.candycup.lifestealutils.api.LifestealServerDetector;
+import dev.candycup.lifestealutils.event.EventBus;
+import dev.candycup.lifestealutils.event.events.ClientAttackEvent;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.MultiPlayerGameMode;
 import net.minecraft.world.entity.Entity;
@@ -22,16 +21,18 @@ public abstract class AttackTrackerMixin {
    @Final
    private Minecraft minecraft;
 
-   @Inject(method = "attack", at = @At("HEAD"))
+   @Inject(method = "attack", at = @At("HEAD"), cancellable = true)
    private void onAttack(Player player, Entity target, CallbackInfo ci) {
       if (!LifestealServerDetector.isOnLifestealServer()) return;
-      if (!Config.isChainCounterEnabled()) return;
       if (minecraft.player == null) return;
-      // only track attacks by the local player
       if (player != minecraft.player) return;
       if (!(target instanceof Player)) return;
-      if (!CustomEnchantUtilities.hasCustomEnchant(player.getMainHandItem(), "enchants:unbroken_chain")) return;
 
-      UnbrokenChainTracker.onClientAttack(target.getId());
+      ClientAttackEvent event = new ClientAttackEvent(target, System.currentTimeMillis());
+      EventBus.getInstance().post(event);
+
+      if (event.isCancelled()) {
+         ci.cancel();
+      }
    }
 }

@@ -47,6 +47,9 @@ public class Config {
    @SerialEntry(comment = "Quick Join button on the title screen")
    public static boolean quickJoinButtonEnabled = true;
 
+   @SerialEntry(comment = "Custom panorama background on the title screen")
+   public static boolean customPanoramaEnabled = true;
+
    @SerialEntry(comment = "Disables chat tags, such as [No-Life] from appearing in messages for visual simplicity.")
    public static boolean disableChatTags = false;
 
@@ -86,6 +89,86 @@ public class Config {
    @SerialEntry(comment = "Custom format for the unbroken chain counter display")
    public static String chainCounterFormat = "";
 
+   @SerialEntry(comment = "Whether to enable the heavenly durability calculator HUD element")
+   public static boolean heavenlyDurabilityCalculatorEnabled = false;
+
+   @SerialEntry(comment = "Custom format for the heavenly durability calculator display")
+   public static String heavenlyDurabilityCalculatorFormat = "";
+
+   @SerialEntry(comment = "Enable POI waypoints (directional HUD indicator)")
+   public static boolean poiWaypointsEnabled = true;
+
+   @SerialEntry(comment = "Show directional arrow indicator pointing toward tracked POI")
+   public static boolean poiDirectionalIndicatorEnabled = true;
+
+   @SerialEntry(comment = "How the POI HUD indicator is shown (text, compass, both, or none)")
+   public static PoiHudIndicatorMode poiHudIndicatorMode = null;
+
+   @SerialEntry(comment = "Unless you've configured to track a specific POI, show the closest one")
+   public static boolean poiAlwaysShowClosest = false;
+
+   @SerialEntry(comment = "Custom format for the POI waypoint display")
+   public static String poiWaypointFormat = "<gray><bold>{{poi}}</bold>: {{distance}} blocks away";
+
+   @SerialEntry(comment = "Configured POI id to track (empty = none)")
+   public static String poiTrackedId = "";
+
+   @SerialEntry(comment = "Show Lifesteal Utils POIs as Xaero's Minimap waypoints")
+   public static boolean xaeroPoiWaypointsEnabled = true;
+
+   @SerialEntry(comment = "Automatically join the Lifesteal gamemode when connecting to the lifesteal.net hub")
+   public static boolean autoJoinLifestealOnHub = false;
+
+   @SerialEntry(comment = "Enable the custom baltop interface that replaces the server's /baltop GUI")
+   public static boolean customBaltopInterfaceEnabled = true;
+
+   /**
+    * Describes how the POI HUD indicator should be displayed.
+    */
+   public enum PoiHudIndicatorMode {
+      ONLY_TEXT("lsu.option.poiHudIndicatorMode.onlyText", true, false),
+      TEXT_AND_COMPASS("lsu.option.poiHudIndicatorMode.textAndCompass", true, true),
+      ONLY_COMPASS("lsu.option.poiHudIndicatorMode.onlyCompass", false, true),
+      NONE("lsu.option.poiHudIndicatorMode.none", false, false);
+
+      private final String translationKey;
+      private final boolean showsText;
+      private final boolean showsCompass;
+
+      PoiHudIndicatorMode(String translationKey, boolean showsText, boolean showsCompass) {
+         this.translationKey = translationKey;
+         this.showsText = showsText;
+         this.showsCompass = showsCompass;
+      }
+
+      /**
+       * Gets the translation key for this mode.
+       *
+       * @return the translation key
+       */
+      public String getTranslationKey() {
+         return translationKey;
+      }
+
+      /**
+       * Checks if this mode displays the text label.
+       *
+       * @return true if text should be shown
+       */
+      public boolean showsText() {
+         return showsText;
+      }
+
+      /**
+       * Checks if this mode displays the compass indicator.
+       *
+       * @return true if compass should be shown
+       */
+      public boolean showsCompass() {
+         return showsCompass;
+      }
+   }
+
    private static OptionDescription descriptionWithRemoteReasoning(String baseMiniMessage, String featureKey) {
       OptionDescription.Builder builder = OptionDescription.createBuilder()
               .text(MessagingUtils.miniMessage(baseMiniMessage));
@@ -96,11 +179,29 @@ public class Config {
       return builder.build();
    }
 
+   private static OptionDescription xaeroPoiWaypointDescription() {
+      OptionDescription.Builder builder = OptionDescription.createBuilder()
+              .text(Component.translatable("lsu.option.xaeroPoiWaypointsEnabled.description"));
+      if (!isXaeroMinimapInstalled()) {
+         builder.text(Component.translatable("lsu.option.xaeroPoiWaypointsEnabled.missingMod"));
+      }
+      String reasoning = FeatureFlagController.getReasoning("xaeroPoiWaypointsEnabled");
+      if (reasoning != null && !reasoning.isBlank()) {
+         builder.text(MessagingUtils.miniMessage(reasoning));
+      }
+      return builder.build();
+   }
+
    private static OptionGroup buildTimerOptions() {
       OptionGroup.Builder group = OptionGroup.createBuilder()
-              .name(Component.literal("Timers"));
+              .name(Component.translatable("lsu.group.customEnchantTimers"));
 
-      List<BasicTimerManager.TimerEntry> timers = BasicTimerManager.timerEntries();
+      BasicTimerManager timerManager = LifestealUtils.getBasicTimerManager();
+      if (timerManager == null) {
+         return group.build();
+      }
+
+      List<BasicTimerManager.TimerEntry> timers = timerManager.getTimerEntries();
 
       timers.forEach(entry -> {
          String id = entry.id();
@@ -137,21 +238,22 @@ public class Config {
       ensureChainCounterFormat(defaultFormat);
 
       return OptionGroup.createBuilder()
-              .name(Component.literal("Unbroken Chain Counter"))
+              .name(Component.translatable("lsu.group.chainCounter"))
               .option(Option.<Boolean>createBuilder()
-                      .name(Component.literal("Enable Chain Counter"))
+                      .name(Component.translatable("lsu.option.chainCounterEnabled.name"))
                       .description(OptionDescription.createBuilder()
                               .text(MessagingUtils.miniMessage(
                                       "Tracks consecutive hits without receiving damage.\n\n" +
                                               "Each consecutive hit grants +5% bonus damage, capping at 50%.\n" +
-                                              "Bonus only applies after 2 consecutive hits."
+                                              "Bonus starts on the 3rd hit and the chain resets after 5 seconds without a hit."
                               ))
                               .build())
                       .binding(false, Config::isChainCounterEnabled, Config::setChainCounterEnabled)
                       .controller(TickBoxControllerBuilder::create)
+                      .available(FeatureFlagController.isFeatureAvailable("chainCounterEnabled"))
                       .build())
               .option(Option.<String>createBuilder()
-                      .name(Component.literal("Chain Counter Format"))
+                      .name(Component.translatable("lsu.option.chainCounterFormat.name"))
                       .description(OptionDescription.createBuilder()
                               .text(MessagingUtils.miniMessage(
                                       "Customize the chain counter display format.\n\n" +
@@ -162,6 +264,38 @@ public class Config {
                               ))
                               .build())
                       .binding(defaultFormat, () -> getChainCounterFormat(defaultFormat), Config::setChainCounterFormat)
+                      .controller(StringControllerBuilder::create)
+                      .build())
+              .build();
+   }
+
+   private static OptionGroup buildHeavenlyDurabilityCalculatorOptions() {
+      String defaultFormat = "<gold><bold>Dura after heavenly:</bold></gold><white> {{durability}}</white>";
+      ensureHeavenlyDurabilityFormat(defaultFormat);
+
+      return OptionGroup.createBuilder()
+              .name(Component.translatable("lsu.group.heavenlyDurabilityCalculator"))
+              .option(Option.<Boolean>createBuilder()
+                      .name(Component.translatable("lsu.option.heavenlyDurabilityEnabled.name"))
+                      .description(OptionDescription.createBuilder()
+                              .text(MessagingUtils.miniMessage(
+                                      "Calculates how much durability your helmet would have after triggering Heavenly."
+                              ))
+                              .build())
+                      .binding(false, Config::isHeavenlyDurabilityCalculatorEnabled, Config::setHeavenlyDurabilityCalculatorEnabled)
+                      .controller(TickBoxControllerBuilder::create)
+                      .build())
+              .option(Option.<String>createBuilder()
+                      .name(Component.translatable("lsu.option.heavenlyDurabilityFormat.name"))
+                      .description(OptionDescription.createBuilder()
+                              .text(MessagingUtils.miniMessage(
+                                      "Customize the heavenly durability calculator display format.\n\n" +
+                                              "Placeholders:\n" +
+                                              "- <gray>{{durability}}</gray> - calculated durability after heavenly\n\n" +
+                                              "Default: " + defaultFormat
+                              ))
+                              .build())
+                      .binding(defaultFormat, () -> getHeavenlyDurabilityFormat(defaultFormat), Config::setHeavenlyDurabilityFormat)
                       .controller(StringControllerBuilder::create)
                       .build())
               .build();
@@ -191,6 +325,10 @@ public class Config {
    */
 
    public static boolean getEnablePmFormat() {
+      Boolean forcedState = FeatureFlagController.getForcedState("enablePmFormat");
+      if (forcedState != null) {
+         return forcedState;
+      }
       return Config.enablePmFormat;
    }
 
@@ -200,6 +338,10 @@ public class Config {
    }
 
    public static boolean getQuickJoinButtonEnabled() {
+      Boolean forcedState = FeatureFlagController.getForcedState("quickJoinButtonEnabled");
+      if (forcedState != null) {
+         return forcedState;
+      }
       return Config.quickJoinButtonEnabled;
    }
 
@@ -208,7 +350,24 @@ public class Config {
       HANDLER.save();
    }
 
+   public static boolean getCustomPanoramaEnabled() {
+      Boolean forcedState = FeatureFlagController.getForcedState("customPanoramaEnabled");
+      if (forcedState != null) {
+         return forcedState;
+      }
+      return Config.customPanoramaEnabled;
+   }
+
+   public static void setCustomPanoramaEnabled(boolean enabled) {
+      Config.customPanoramaEnabled = enabled;
+      HANDLER.save();
+   }
+
    public static boolean getDisableChatTags() {
+      Boolean forcedState = FeatureFlagController.getForcedState("disableChatTags");
+      if (forcedState != null) {
+         return forcedState;
+      }
       return Config.disableChatTags;
    }
 
@@ -218,6 +377,10 @@ public class Config {
    }
 
    public static boolean getRemoveUniquePlusColor() {
+      Boolean forcedState = FeatureFlagController.getForcedState("removeUniquePlusColor");
+      if (forcedState != null) {
+         return forcedState;
+      }
       return Config.removeUniquePlusColor;
    }
 
@@ -227,6 +390,10 @@ public class Config {
    }
 
    public static boolean getEnableAlliances() {
+      Boolean forcedState = FeatureFlagController.getForcedState("enableAlliances");
+      if (forcedState != null) {
+         return forcedState;
+      }
       return Config.enableAlliances;
    }
 
@@ -277,6 +444,10 @@ public class Config {
    }
 
    public static boolean getCustomSplashes() {
+      Boolean forcedState = FeatureFlagController.getForcedState("customSplashes");
+      if (forcedState != null) {
+         return forcedState;
+      }
       return Config.customSplashes;
    }
 
@@ -286,6 +457,10 @@ public class Config {
    }
 
    public static boolean isRareItemScaling() {
+      Boolean forcedState = FeatureFlagController.getForcedState("rareItemScaleEnabled");
+      if (forcedState != null) {
+         return forcedState;
+      }
       return Config.rareItemScaleEnabled;
    }
 
@@ -334,16 +509,16 @@ public class Config {
    }
 
    public static boolean isChainCounterEnabled() {
+      Boolean forcedState = FeatureFlagController.getForcedState("chainCounterEnabled");
+      if (forcedState != null) {
+         return forcedState;
+      }
       return chainCounterEnabled;
    }
 
    public static void setChainCounterEnabled(boolean enabled) {
       chainCounterEnabled = enabled;
       HANDLER.save();
-   }
-
-   public static void ensureChainCounterKnown() {
-      // no-op, field has default value
    }
 
    public static String getChainCounterFormat(String fallback) {
@@ -364,9 +539,210 @@ public class Config {
       }
    }
 
+   public static boolean isHeavenlyDurabilityCalculatorEnabled() {
+      return heavenlyDurabilityCalculatorEnabled;
+   }
+
+   public static void setHeavenlyDurabilityCalculatorEnabled(boolean enabled) {
+      heavenlyDurabilityCalculatorEnabled = enabled;
+      HANDLER.save();
+   }
+
+   public static String getHeavenlyDurabilityFormat(String fallback) {
+      if (heavenlyDurabilityCalculatorFormat == null || heavenlyDurabilityCalculatorFormat.isBlank()) {
+         return fallback;
+      }
+      return heavenlyDurabilityCalculatorFormat;
+   }
+
+   public static void setHeavenlyDurabilityFormat(String format) {
+      heavenlyDurabilityCalculatorFormat = format;
+      HANDLER.save();
+   }
+
+   public static void ensureHeavenlyDurabilityFormat(String fallback) {
+      if (heavenlyDurabilityCalculatorFormat == null || heavenlyDurabilityCalculatorFormat.isBlank()) {
+         heavenlyDurabilityCalculatorFormat = fallback;
+      }
+   }
+
+   public static boolean getPoiWaypointsEnabled() {
+      Boolean forced = FeatureFlagController.getForcedState("poiWaypointsEnabled");
+      if (forced != null) return forced;
+      return poiWaypointsEnabled;
+   }
+
+   public static void setPoiWaypointsEnabled(boolean enabled) {
+      poiWaypointsEnabled = enabled;
+      HANDLER.save();
+   }
+
+   /**
+    * Retrieves the configured POI HUD indicator mode.
+    *
+    * @return the indicator mode
+    */
+   public static PoiHudIndicatorMode getPoiHudIndicatorMode() {
+      ensurePoiHudIndicatorMode();
+      return poiHudIndicatorMode;
+   }
+
+   /**
+    * Updates the POI HUD indicator mode.
+    *
+    * @param mode the new indicator mode
+    */
+   public static void setPoiHudIndicatorMode(PoiHudIndicatorMode mode) {
+      poiHudIndicatorMode = mode == null ? PoiHudIndicatorMode.TEXT_AND_COMPASS : mode;
+      HANDLER.save();
+   }
+
+   /**
+    * Checks if the POI HUD text should be displayed.
+    *
+    * @return true if the text should render
+    */
+   public static boolean isPoiHudTextEnabled() {
+      if (!getPoiWaypointsEnabled()) {
+         return false;
+      }
+      return getPoiHudIndicatorMode().showsText();
+   }
+
+   /**
+    * Checks if the POI HUD compass indicator should be displayed.
+    *
+    * @return true if the compass should render
+    */
+   public static boolean isPoiHudCompassEnabled() {
+      if (!getPoiWaypointsEnabled()) {
+         return false;
+      }
+      return getPoiHudIndicatorMode().showsCompass();
+   }
+
+   public static boolean isPoiDirectionalIndicatorEnabled() {
+      return isPoiHudCompassEnabled();
+   }
+
+   public static void setPoiDirectionalIndicatorEnabled(boolean enabled) {
+      poiDirectionalIndicatorEnabled = enabled;
+      if (poiHudIndicatorMode == null) {
+         poiHudIndicatorMode = enabled ? PoiHudIndicatorMode.TEXT_AND_COMPASS : PoiHudIndicatorMode.ONLY_TEXT;
+      }
+      HANDLER.save();
+   }
+
+   public static boolean isPoiAlwaysShowClosest() {
+      Boolean forced = FeatureFlagController.getForcedState("poiAlwaysShowClosest");
+      if (forced != null) return forced;
+      return poiAlwaysShowClosest;
+   }
+
+   public static void setPoiAlwaysShowClosest(boolean enabled) {
+      poiAlwaysShowClosest = enabled;
+      HANDLER.save();
+   }
+
+   public static String getPoiWaypointFormat(String fallback) {
+      if (poiWaypointFormat == null || poiWaypointFormat.isBlank()) {
+         return fallback;
+      }
+      return poiWaypointFormat;
+   }
+
+   public static void setPoiWaypointFormat(String format) {
+      poiWaypointFormat = format;
+      HANDLER.save();
+   }
+
+   public static void ensurePoiWaypointFormat(String fallback) {
+      if (poiWaypointFormat == null || poiWaypointFormat.isBlank()) {
+         poiWaypointFormat = fallback;
+      }
+   }
+
+   /**
+    * Checks if Xaero POI waypoints should be displayed.
+    *
+    * @return true if xaero waypoints should be active
+    */
+   public static boolean isXaeroPoiWaypointsEnabled() {
+      if (!isXaeroMinimapInstalled()) {
+         return false;
+      }
+      Boolean forced = FeatureFlagController.getForcedState("xaeroPoiWaypointsEnabled");
+      if (forced != null) return forced;
+      return xaeroPoiWaypointsEnabled;
+   }
+
+   /**
+    * Updates Xaero POI waypoint integration state.
+    *
+    * @param enabled whether xaero poi waypoints should be active
+    */
+   public static void setXaeroPoiWaypointsEnabled(boolean enabled) {
+      xaeroPoiWaypointsEnabled = enabled;
+      HANDLER.save();
+   }
+
+   /**
+    * Checks if Xaero's Minimap is installed.
+    *
+    * @return true when xaero minimap is present
+    */
+   public static boolean isXaeroMinimapInstalled() {
+      return FabricLoader.getInstance().isModLoaded("xaerominimap");
+   }
+
+   /**
+    * Ensures the POI HUD indicator mode is set, using legacy values if needed.
+    */
+   public static void ensurePoiHudIndicatorMode() {
+      if (poiHudIndicatorMode != null) {
+         return;
+      }
+      poiHudIndicatorMode = poiDirectionalIndicatorEnabled
+              ? PoiHudIndicatorMode.TEXT_AND_COMPASS
+              : PoiHudIndicatorMode.ONLY_TEXT;
+   }
+
+   public static String getPoiTrackedId() {
+      if (poiTrackedId == null) return "";
+      return poiTrackedId;
+   }
+
+   public static void setPoiTrackedId(String id) {
+      poiTrackedId = id == null ? "" : id;
+      HANDLER.save();
+   }
+
+   public static boolean isAutoJoinLifestealOnHub() {
+      Boolean forcedState = FeatureFlagController.getForcedState("autoJoinLifestealOnHub");
+      if (forcedState != null) {
+         return forcedState;
+      }
+      return autoJoinLifestealOnHub;
+   }
+
+   public static void setAutoJoinLifestealOnHub(boolean enabled) {
+      autoJoinLifestealOnHub = enabled;
+      HANDLER.save();
+   }
+
+   public static boolean isCustomBaltopInterfaceEnabled() {
+      return customBaltopInterfaceEnabled;
+   }
+
+   public static void setCustomBaltopInterfaceEnabled(boolean enabled) {
+      customBaltopInterfaceEnabled = enabled;
+      HANDLER.save();
+   }
+
    public static void load() {
       FeatureFlagController.ensureLoaded();
       HANDLER.load();
+      ensurePoiHudIndicatorMode();
    }
 
    public static YetAnotherConfigLib getConfig() {
@@ -374,20 +750,25 @@ public class Config {
       return YetAnotherConfigLib.createBuilder()
               .title(Component.translatable("lsu.name"))
               .category(ConfigCategory.createBuilder()
-                      .name(Component.translatable("lsu.category.main"))
+                      .name(Component.translatable("lsu.category.timersCounters"))
                       .group(buildTimerOptions())
                       .group(buildChainCounterOptions())
+                      .group(buildHeavenlyDurabilityCalculatorOptions())
+                      .build()
+              )
+              .category(ConfigCategory.createBuilder()
+                      .name(Component.translatable("lsu.category.alliances"))
                       .group(OptionGroup.createBuilder()
-                              .name(Component.translatable("lsu.group.alliances"))
+                              .name(Component.translatable("lsu.group.allianceSettings"))
                               .option(Option.<Boolean>createBuilder()
                                       .name(Component.translatable("lsu.option.enableAlliances.name"))
-                                      .description(OptionDescription.createBuilder()
-                                              .text(MessagingUtils.miniMessage(
-                                                      "Enables alliance features such as colored name tags."
-                                              ))
-                                              .build())
+                                      .description(descriptionWithRemoteReasoning(
+                                              "Enables alliance features such as colored name tags.",
+                                              "enableAlliances"
+                                      ))
                                       .binding(true, Config::getEnableAlliances, Config::setEnableAlliances)
                                       .controller(TickBoxControllerBuilder::create)
+                                      .available(FeatureFlagController.isFeatureAvailable("enableAlliances"))
                                       .build()
                               )
                               .option(Option.<Color>createBuilder()
@@ -403,12 +784,213 @@ public class Config {
                               )
                               .build()
                       )
+                      .build()
+              )
+              .category(ConfigCategory.createBuilder()
+                      .name(Component.translatable("lsu.category.qol"))
+                      .group(OptionGroup.createBuilder()
+                              .name(Component.translatable("lsu.group.customUis"))
+                              .option(Option.<Boolean>createBuilder()
+                                      .name(Component.translatable("lsu.option.customBaltopInterface.name"))
+                                      .description(OptionDescription.createBuilder()
+                                              .text(Component.translatable("lsu.option.customBaltopInterface.description"))
+                                              .build())
+                                      .binding(true, Config::isCustomBaltopInterfaceEnabled, Config::setCustomBaltopInterfaceEnabled)
+                                      .controller(TickBoxControllerBuilder::create)
+                                      .build()
+                              )
+                              .build()
+                      )
+                      .group(OptionGroup.createBuilder()
+                              .name(Component.translatable("lsu.group.autoJoin"))
+                              .option(Option.<Boolean>createBuilder()
+                                      .name(Component.translatable("lsu.option.autoJoinLifesteal.name"))
+                                      .description(OptionDescription.createBuilder()
+                                              .text(MessagingUtils.miniMessage(
+                                                      "Automatically joins the Lifesteal gamemode on lifesteal.net when you join the main hub.\n\nExecutes /joinlifesteal after a second of joining the hub."
+                                              ))
+                                              .build())
+                                      .binding(false, Config::isAutoJoinLifestealOnHub, Config::setAutoJoinLifestealOnHub)
+                                      .controller(TickBoxControllerBuilder::create)
+                                      .available(FeatureFlagController.isFeatureAvailable("autoJoinLifestealOnHub"))
+                                      .build()
+                              )
+                              .build()
+                      )
+                      .group(OptionGroup.createBuilder()
+                              .name(Component.translatable("lsu.group.rareItemScaling"))
+                              .option(Option.<Boolean>createBuilder()
+                                      .name(Component.translatable("lsu.option.rareScaleEnabled.name"))
+                                      .description(OptionDescription.createBuilder()
+                                              .text(MessagingUtils.miniMessage(
+                                                      "Enable increased scale for rare items such as neth and custom enchants."
+                                              ))
+                                              .build())
+                                      .binding(false, Config::isRareItemScaling, Config::toggleRareItemScaling)
+                                      .controller(TickBoxControllerBuilder::create)
+                                      .available(FeatureFlagController.isFeatureAvailable("rareItemScaleEnabled"))
+                                      .build()
+                              )
+                              .option(Option.<Float>createBuilder()
+                                      .name(Component.translatable("lsu.option.rareScale.name"))
+                                      .description(OptionDescription.createBuilder()
+                                              .text(MessagingUtils.miniMessage(
+                                                      "Increased scale of the rare items."
+                                              ))
+                                              .build())
+                                      .binding(2.0f, Config::getRareItemScaling, Config::setRareItemScaling)
+                                      .controller(opt -> FloatSliderControllerBuilder.create(opt)
+                                              .range(0.5f, 5.0f)
+                                              .step(0.1f)
+                                              .valueFormatter(val -> Component.literal(val + "x")))
+                                      .build()
+                              )
+                              .build()
+                      )
+                      .group(OptionGroup.createBuilder()
+                              .name(Component.translatable("lsu.group.pois"))
+                              .option(Option.<Boolean>createBuilder()
+                                      .name(Component.translatable("lsu.option.poiWaypointsEnabled.name"))
+                                      .description(OptionDescription.createBuilder()
+                                              .text(MessagingUtils.miniMessage(
+                                                      "Enables the POI directional indicator in your HUD."
+                                              ))
+                                              .build())
+                                      .binding(true, Config::getPoiWaypointsEnabled, Config::setPoiWaypointsEnabled)
+                                      .controller(TickBoxControllerBuilder::create)
+                                      .available(FeatureFlagController.isFeatureAvailable("poiWaypointsEnabled"))
+                                      .build()
+                              )
+                              .option(Option.<PoiHudIndicatorMode>createBuilder()
+                                      .name(Component.translatable("lsu.option.poiHudIndicatorMode.name"))
+                                      .description(OptionDescription.createBuilder()
+                                              .text(MessagingUtils.miniMessage(
+                                                      "Controls how the POI tracker is shown in your HUD.\n\n" +
+                                                              "This setting is ignored when POI waypoints are disabled."
+                                              ))
+                                              .build())
+                                      .binding(PoiHudIndicatorMode.TEXT_AND_COMPASS, Config::getPoiHudIndicatorMode, Config::setPoiHudIndicatorMode)
+                                      .controller(opt -> EnumControllerBuilder.create(opt)
+                                              .enumClass(PoiHudIndicatorMode.class)
+                                              .formatValue(mode -> Component.translatable(mode.getTranslationKey())))
+                                      .build()
+                              )
+                              .option(Option.<Boolean>createBuilder()
+                                      .name(Component.translatable("lsu.option.poiAlwaysShowClosest.name"))
+                                      .description(OptionDescription.createBuilder()
+                                              .text(MessagingUtils.miniMessage(
+                                                      "Unless you've configured to track a specific POI, the HUD will always track the closest one to you."
+                                              ))
+                                              .build())
+                                      .binding(false, Config::isPoiAlwaysShowClosest, Config::setPoiAlwaysShowClosest)
+                                      .controller(TickBoxControllerBuilder::create)
+                                      .available(FeatureFlagController.isFeatureAvailable("poiAlwaysShowClosest"))
+                                      .build()
+                              )
+                              .option(Option.<String>createBuilder()
+                                      .name(Component.translatable("lsu.option.poiWaypointFormat.name"))
+                                      .description(OptionDescription.createBuilder()
+                                              .text(MessagingUtils.miniMessage(
+                                                      "The format of the waypoint tracker in your hud\n\nDefault: <gray><bold>{{poi}}</bold>: {{distance}} blocks away"
+                                              ))
+                                              .build())
+                                      .binding(Config.poiWaypointFormat, () -> Config.getPoiWaypointFormat("<gray><bold>{{poi}}</bold>: {{distance}} blocks away"), Config::setPoiWaypointFormat)
+                                      .controller(StringControllerBuilder::create)
+                                      .build()
+                              )
+                              .build()
+                      )
+                      .group(OptionGroup.createBuilder()
+                              .name(Component.translatable("lsu.group.xaeroWaypointsIntegration"))
+                              .option(Option.<Boolean>createBuilder()
+                                      .name(Component.translatable("lsu.option.xaeroPoiWaypointsEnabled.name"))
+                                      .description(xaeroPoiWaypointDescription())
+                                      .binding(Config.xaeroPoiWaypointsEnabled, Config::isXaeroPoiWaypointsEnabled, Config::setXaeroPoiWaypointsEnabled)
+                                      .controller(TickBoxControllerBuilder::create)
+                                      .available(FeatureFlagController.isFeatureAvailable("xaeroPoiWaypointsEnabled") && isXaeroMinimapInstalled())
+                                      .build()
+                              )
+                              .build()
+                      )
+                      .build()
+              )
+              .category(ConfigCategory.createBuilder()
+                      .name(Component.translatable("lsu.category.funCustomization"))
+                      .group(OptionGroup.createBuilder()
+                              .name(Component.translatable("lsu.group.titleScreen"))
+                              .option(Option.<Boolean>createBuilder()
+                                      .name(Component.translatable("lsu.option.quickJoinButtonEnabled.name"))
+                                      .description(OptionDescription.createBuilder()
+                                              .text(MessagingUtils.miniMessage(
+                                                      "Enables a Quick Join button on the title screen that connects you to lifesteal.net automatically."
+                                              ))
+                                              .build())
+                                      .binding(true, Config::getQuickJoinButtonEnabled, Config::setQuickJoinButtonEnabled)
+                                      .controller(TickBoxControllerBuilder::create)
+                                      .available(FeatureFlagController.isFeatureAvailable("quickJoinButtonEnabled"))
+                                      .build()
+                              )
+                              .option(Option.<Boolean>createBuilder()
+                                      .name(Component.translatable("lsu.option.customSplashes.name"))
+                                      .description(OptionDescription.createBuilder()
+                                              .text(MessagingUtils.miniMessage(
+                                                      "Enables custom LSN-related splash texts in the main menu. Submit new ones at https://discord.gg/qmWYNtRzEg :)"
+                                              ))
+                                              .build())
+                                      .binding(true, Config::getCustomSplashes, Config::setCustomSplashes)
+                                      .controller(TickBoxControllerBuilder::create)
+                                      .available(FeatureFlagController.isFeatureAvailable("customSplashes"))
+                                      .build()
+                              )
+                              .option(Option.<Boolean>createBuilder()
+                                      .name(Component.translatable("lsu.option.lobbyPanorama.name"))
+                                      .description(OptionDescription.createBuilder()
+                                              .text(MessagingUtils.miniMessage(
+                                                      "Enables a panorama of the Lifesteal 2.0 lobby on the title screen."
+                                              ))
+                                              .build())
+                                      .binding(true, Config::getCustomPanoramaEnabled, Config::setCustomPanoramaEnabled)
+                                      .controller(TickBoxControllerBuilder::create)
+                                      .available(FeatureFlagController.isFeatureAvailable("customPanoramaEnabled"))
+                                      .build()
+                              )
+                              .build()
+                      )
+                      .group(OptionGroup.createBuilder()
+                              .name(Component.translatable("lsu.group.simplifications"))
+                              .option(Option.<Boolean>createBuilder()
+                                      .name(Component.translatable("lsu.option.disableChatTags.name"))
+                                      .description(OptionDescription.createBuilder()
+                                              .text(MessagingUtils.miniMessage(
+                                                      "Disables chat tags, such as [No-Life] from appearing in messages for visual simplicity."
+                                              ))
+                                              .build())
+                                      .binding(false, Config::getDisableChatTags, Config::setDisableChatTags)
+                                      .controller(TickBoxControllerBuilder::create)
+                                      .available(FeatureFlagController.isFeatureAvailable("disableChatTags"))
+                                      .build()
+                              )
+                              .option(Option.<Boolean>createBuilder()
+                                      .name(Component.translatable("lsu.option.removeUniquePlusColor.name"))
+                                      .description(OptionDescription.createBuilder()
+                                              .text(MessagingUtils.miniMessage(
+                                                      "Removes the unique coloring of the plus in LSN+ for visual simplicity.\n\nExample:\n<dark_gray>[</dark_gray><bold><#FF7200>HEROIC</#FF7200></bold><green>+</green><dark_gray>]</dark_gray> becomes <dark_gray>[</dark_gray><bold><#FF7200>HEROIC+</#FF7200></bold><dark_gray>]</dark_gray>"
+                                              ))
+                                              .build())
+                                      .binding(false, Config::getRemoveUniquePlusColor, Config::setRemoveUniquePlusColor)
+                                      .controller(TickBoxControllerBuilder::create)
+                                      .available(FeatureFlagController.isFeatureAvailable("removeUniquePlusColor"))
+                                      .build()
+                              )
+                              .build()
+                      )
                       .group(OptionGroup.createBuilder()
                               .name(Component.translatable("lsu.group.messageCustomization"))
                               .option(Option.<Boolean>createBuilder()
                                       .name(Component.translatable("lsu.option.pmFormatEnabled.name"))
                                       .binding(false, Config::getEnablePmFormat, Config::setEnablePmFormat)
                                       .controller(TickBoxControllerBuilder::create)
+                                      .available(FeatureFlagController.isFeatureAvailable("enablePmFormat"))
                                       .build()
                               )
                               .option(Option.<String>createBuilder()
@@ -445,87 +1027,7 @@ public class Config {
                               */
                               .build()
                       )
-                      .group(OptionGroup.createBuilder()
-                              .name(Component.translatable("lsu.group.titleScreen"))
-                              .option(Option.<Boolean>createBuilder()
-                                      .name(Component.translatable("lsu.option.quickJoinButtonEnabled.name"))
-                                      .description(OptionDescription.createBuilder()
-                                              .text(MessagingUtils.miniMessage(
-                                                      "Enables a Quick Join button on the title screen that connects you to lifesteal.net automatically."
-                                              ))
-                                              .build())
-                                      .binding(true, Config::getQuickJoinButtonEnabled, Config::setQuickJoinButtonEnabled)
-                                      .controller(TickBoxControllerBuilder::create)
-                                      .build()
-                              )
-                              .option(Option.<Boolean>createBuilder()
-                                      .name(Component.translatable("lsu.option.customSplashes.name"))
-                                      .description(OptionDescription.createBuilder()
-                                              .text(MessagingUtils.miniMessage(
-                                                      "Enables custom LSN-related splash texts in the main menu. Submit new ones at https://discord.gg/qmWYNtRzEg :)"
-                                              ))
-                                              .build())
-                                      .binding(true, Config::getCustomSplashes, Config::setCustomSplashes)
-                                      .controller(TickBoxControllerBuilder::create)
-                                      .build()
-                              )
-                              .build()
-                      )
-                      .group(OptionGroup.createBuilder()
-                              .name(Component.translatable("lsu.group.rareScale"))
-                              .option(Option.<Boolean>createBuilder()
-                                      .name(Component.translatable("lsu.option.rareScaleEnabled.name"))
-                                      .description(OptionDescription.createBuilder()
-                                              .text(MessagingUtils.miniMessage(
-                                                      "Enable increased scale for rare items such as neth and custom enchants."
-                                              ))
-                                              .build())
-                                      .binding(false, Config::isRareItemScaling, Config::toggleRareItemScaling)
-                                      .controller(TickBoxControllerBuilder::create)
-                                      .build()
-                              )
-                              .option(Option.<Float>createBuilder()
-                                      .name(Component.translatable("lsu.option.rareScale.name"))
-                                      .description(OptionDescription.createBuilder()
-                                              .text(MessagingUtils.miniMessage(
-                                                      "Increased scale of the rare items."
-                                              ))
-                                              .build())
-                                      .binding(2.0f, Config::getRareItemScaling, Config::setRareItemScaling)
-                                      .controller(opt -> FloatSliderControllerBuilder.create(opt)
-                                              .range(0.5f, 5.0f)
-                                              .step(0.1f)
-                                              .valueFormatter(val -> Component.literal(val + "x")))
-                                      .build()
-                              )
-                              .build()
-                      )
-                      .group(OptionGroup.createBuilder()
-                              .name(Component.translatable("lsu.group.simplications"))
-                              .option(Option.<Boolean>createBuilder()
-                                      .name(Component.translatable("lsu.option.disableChatTags.name"))
-                                      .description(OptionDescription.createBuilder()
-                                              .text(MessagingUtils.miniMessage(
-                                                      "Disables chat tags, such as [No-Life] from appearing in messages for visual simplicity."
-                                              ))
-                                              .build())
-                                      .binding(false, Config::getDisableChatTags, Config::setDisableChatTags)
-                                      .controller(TickBoxControllerBuilder::create)
-                                      .build()
-                              )
-                              .option(Option.<Boolean>createBuilder()
-                                      .name(Component.translatable("lsu.option.removeUniquePlusColor.name"))
-                                      .description(OptionDescription.createBuilder()
-                                              .text(MessagingUtils.miniMessage(
-                                                      "Removes the unique coloring of the plus in LSN+ for visual simplicity.\n\nExample:\n<dark_gray>[</dark_gray><bold><#FF7200>HEROIC</#FF7200></bold><green>+</green><dark_gray>]</dark_gray> becomes <dark_gray>[</dark_gray><bold><#FF7200>HEROIC+</#FF7200></bold><dark_gray>]</dark_gray>"
-                                              ))
-                                              .build())
-                                      .binding(false, Config::getRemoveUniquePlusColor, Config::setRemoveUniquePlusColor)
-                                      .controller(TickBoxControllerBuilder::create)
-                                      .build()
-                              )
-                              .build()
-                      ).build()
+                      .build()
               ).build();
    }
 

@@ -38,11 +38,9 @@ public final class NetworkUtilsController {
    private static final String USER_AGENT = "LifestealUtils/" + detectModVersion();
    private static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(5);
 
-   // rate limiting: track last request time per host to avoid spamming
    private static final Map<String, Long> lastRequestTimePerHost = new ConcurrentHashMap<>();
    private static final long DEFAULT_RATE_LIMIT_MS = TimeUnit.SECONDS.toMillis(1);
 
-   // track pending requests to avoid duplicates
    private static final Map<String, CompletableFuture<HttpResult>> pendingRequests = new ConcurrentHashMap<>();
 
    private NetworkUtilsController() {
@@ -103,7 +101,6 @@ public final class NetworkUtilsController {
          URI uri = new URI(url);
          String host = uri.getHost();
 
-         // check rate limit
          if (rateLimitMs > 0 && host != null) {
             Long lastRequest = lastRequestTimePerHost.get(host);
             if (lastRequest != null && System.currentTimeMillis() - lastRequest < rateLimitMs) {
@@ -111,7 +108,6 @@ public final class NetworkUtilsController {
             }
          }
 
-         // update rate limit tracker
          if (host != null) {
             lastRequestTimePerHost.put(host, System.currentTimeMillis());
          }
@@ -155,7 +151,6 @@ public final class NetworkUtilsController {
          return CompletableFuture.completedFuture(HttpResult.failure("url is null or blank"));
       }
 
-      // check for pending request to avoid duplicates
       CompletableFuture<HttpResult> pending = pendingRequests.get(url);
       if (pending != null) {
          return pending;

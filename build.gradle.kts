@@ -1,3 +1,4 @@
+import dev.kikugie.stonecutter.data.ParsedVersion
 import java.net.URI
 
 plugins {
@@ -39,6 +40,11 @@ repositories {
         name = "Xander Maven"
         url = URI.create("https://maven.isxander.dev/releases")
     }
+
+    maven {
+        name = "Xaero's Maven"
+        url = URI.create("https://chocolateminecraft.com/maven")
+    }
 }
 
 dependencies {
@@ -55,6 +61,11 @@ dependencies {
     mappings(loom.officialMojangMappings())
     modImplementation("net.fabricmc:fabric-loader:${property("deps.fabric_loader")}")
     modImplementation("com.terraformersmc:modmenu:${property("deps.modmenu")}")
+    if (sc.current.parsed == ParsedVersion("1.21.9")) {
+        modImplementation(fletchingTable.modrinth("xaeros-minimap", property("mod.mc_dep") as String, "fabric"))
+    } else {
+        modImplementation("xaero.minimap:xaerominimap-fabric-${property("deps.xaerominimap")}")
+    }
     modImplementation("dev.isxander:yet-another-config-lib:${property("deps.yacl")}")
     modImplementation("net.kyori:adventure-platform-fabric:${property("deps.adventure")}")
     modImplementation("net.fabricmc.fabric-api:fabric-api:${property("deps.fabric_api")}")
