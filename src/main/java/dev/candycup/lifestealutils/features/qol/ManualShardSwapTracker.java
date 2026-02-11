@@ -32,7 +32,7 @@ public class ManualShardSwapTracker implements CommandEventListener {
       }
 
       String command = event.getCommand().toLowerCase();
-      if (command.equals("hub") || command.equals("safelogout")) {
+      if (command.equals("hub") || command.equals("safelogout") || command.equals("lobby")) {
          lastManualSwapTime = System.currentTimeMillis();
          LOGGER.debug("[lsu-manualswap] tracked manual command: /{}", command);
       }
