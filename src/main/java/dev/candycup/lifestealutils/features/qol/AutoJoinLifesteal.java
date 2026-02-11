@@ -30,6 +30,7 @@ public class AutoJoinLifesteal implements ServerEventListener, TickEventListener
    private boolean wasConnected = false;
    private int disconnectTicks = 0;
    private static final int DISCONNECT_THRESHOLD_TICKS = 100;
+   private boolean shouldAutoRejoin = false;
 
 
    
@@ -54,6 +55,7 @@ public class AutoJoinLifesteal implements ServerEventListener, TickEventListener
       pendingJoinTicks = -1;
       wasConnected = false;
       disconnectTicks = 0;
+      shouldAutoRejoin = false;
       manualSwapTracker.resetTracking();
    }
 
@@ -68,6 +70,7 @@ public class AutoJoinLifesteal implements ServerEventListener, TickEventListener
 
       // if the player is in a lifesteal- shard  it resets the tracking 
       if (shardName.startsWith("lifesteal-")) {
+         shouldAutoRejoin = false;
          manualSwapTracker.resetTracking();
          LOGGER.debug("[lsu-autojoin] returned to lifesteal shard '{}', reset manual swap tracking", shardName);
          previousShard = shardName;
@@ -82,17 +85,17 @@ public class AutoJoinLifesteal implements ServerEventListener, TickEventListener
          if (wasOnLifesteal) {
             if (manualSwapTracker.wasRecentManualSwap()) {
                LOGGER.debug("[lsu-autojoin] detected manual swap to hub shard '{}', skipping auto-rejoin", shardName);
+               shouldAutoRejoin = false;
                previousShard = shardName;
                return;
             }
             
+            shouldAutoRejoin = true;
             pendingJoinTicks = 20;
-            LOGGER.debug("[lsu-autojoin] detected automatic swap to hub shard '{}', scheduling /joinlifesteal in 1 second", shardName);
          } else if (isFirstJoin) {
+            shouldAutoRejoin = true;
             pendingJoinTicks = 20;
-            LOGGER.debug("[lsu-autojoin] first join to hub shard '{}', scheduling /joinlifesteal in 1 second", shardName);
          } else {
-            LOGGER.debug("[lsu-autojoin] arrived at hub shard '{}' from non-lifesteal shard, skipping auto-rejoin", shardName);
          }
       }
       
@@ -110,6 +113,7 @@ public class AutoJoinLifesteal implements ServerEventListener, TickEventListener
             if (disconnectTicks >= DISCONNECT_THRESHOLD_TICKS) {
                previousShard = null;
                pendingJoinTicks = -1;
+               shouldAutoRejoin = false;
                manualSwapTracker.clearOnDisconnect();
                wasConnected = false;
                disconnectTicks = 0;
@@ -154,14 +158,14 @@ public class AutoJoinLifesteal implements ServerEventListener, TickEventListener
 
       if (manualSwapTracker.wasRecentManualSwap()) {
          LOGGER.debug("[lsu-autojoin] failsafe: skipping hub check due to recent manual swap");
+         shouldAutoRejoin = false;
          return;
       }
 
       String currentShard = LifestealTablistAPI.getCurrentShard();
       if (currentShard != null && currentShard.startsWith("hub-")) {
-         boolean wasOnLifesteal = previousShard != null && previousShard.startsWith("lifesteal-");
-         if (wasOnLifesteal || previousShard == null) {
-            LOGGER.debug("[lsu-autojoin] failsafe: still in hub shard '{}', executing /joinlifesteal", currentShard);
+         if (shouldAutoRejoin) {
+            LOGGER.debug("[lsu-autojoin] periodic retry: still in hub shard '{}', executing /joinlifesteal", currentShard);
             executeJoinCommand();
          }
       }
