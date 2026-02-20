@@ -31,10 +31,11 @@ public final class TablistDataController {
     */
    public static void updateFromFooter(@Nullable Component footer) {
       lastFooter = footer;
+      String oldShard = currentShard;
 
       if (footer == null) {
-         currentShard = null;
-         currentPlayerCount = 0;
+         // some transitions briefly send a null footer before the next shard footer arrives.
+         // keep previous shard so fromShard stays accurate for the upcoming swap event.
          return;
       }
 
@@ -55,7 +56,7 @@ public final class TablistDataController {
             // fire shard swap event
             LifestealUtilsEvents.SHARD_SWAP
                     .invoker()
-                    .onShardSwap(new LifestealShardSwapEvent(currentShard));
+                    .onShardSwap(new LifestealShardSwapEvent(currentShard, oldShard));
          }
       }
    }

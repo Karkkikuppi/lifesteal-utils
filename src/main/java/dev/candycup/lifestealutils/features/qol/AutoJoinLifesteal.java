@@ -1,15 +1,7 @@
 package dev.candycup.lifestealutils.features.qol;
 
 import dev.candycup.lifestealutils.Config;
-import dev.candycup.lifestealutils.api.LifestealTablistAPI;
-import dev.candycup.lifestealutils.event.EventPriority;
-import dev.candycup.lifestealutils.event.events.LifestealShardSwapEvent;
-import dev.candycup.lifestealutils.event.events.ServerChangeEvent;
-import dev.candycup.lifestealutils.event.events.ClientTickEvent;
-import dev.candycup.lifestealutils.event.listener.ServerEventListener;
-import dev.candycup.lifestealutils.event.listener.TickEventListener;
 import dev.candycup.lifestealutils.api.LifestealAPI;
-import dev.candycup.lifestealutils.api.TablistDataController;
 import dev.candycup.lifestealutils.event.LifestealUtilsEvents;
 import dev.candycup.lifestealutils.event.LifestealUtilsEvents.ClientTickEvent;
 import dev.candycup.lifestealutils.event.LifestealUtilsEvents.LifestealShardSwapEvent;
@@ -27,7 +19,6 @@ public class AutoJoinLifesteal {
    private static final int HUB_CHECK_INTERVAL = 100; // check every 5 seconds
    private static final int JOIN_COOLDOWN = 100; // 5 second cooldown after executing command
 
-   private final ManualShardSwapTracker manualSwapTracker;
    private int pendingJoinTicks = -1;
    private int hubCheckTicks = 0;
    private int joinCooldownTicks = 0;
@@ -36,14 +27,11 @@ public class AutoJoinLifesteal {
    private int disconnectTicks = 0;
    private static final int DISCONNECT_THRESHOLD_TICKS = 100;
    private boolean shouldAutoRejoin = false;
-
-
-   
-   public AutoJoinLifesteal(ManualShardSwapTracker manualSwapTracker) {
-      this.manualSwapTracker = manualSwapTracker;
-   }
+   private boolean pendingManualHubCommand = false;
+   private boolean manualHubSwapActive = false;
 
    public AutoJoinLifesteal() {
+
       LifestealUtilsEvents.SHARD_SWAP.register(event -> {
          if (!isEnabled()) {
             return;
@@ -56,30 +44,52 @@ public class AutoJoinLifesteal {
          }
          onClientTick(event);
       });
+      LifestealUtilsEvents.SERVER_CHANGE.register(event -> {
+         if (!isEnabled()) {
+            return;
+         }
+         onServerChange(event);
+      });
+      LifestealUtilsEvents.COMMAND_SENT.register(command -> {
+         if (!isEnabled()) {
+            return;
+         }
+         onCommandSent(command);
+      });
    }
 
    public boolean isEnabled() {
       return Config.isAutoJoinLifestealOnHub();
    }
 
-   @Override
-   public EventPriority getPriority() {
-      return EventPriority.NORMAL;
-   }
-
    // tracks server changes
-   @Override
-   public void onServerChange(ServerChangeEvent event) {
+   public void onServerChange(LifestealUtilsEvents.ServerChangeEvent event) {
       previousShard = null;
       pendingJoinTicks = -1;
       wasConnected = false;
       disconnectTicks = 0;
       shouldAutoRejoin = false;
-      manualSwapTracker.resetTracking();
+      pendingManualHubCommand = false;
+      manualHubSwapActive = false;
    }
 
-   // it tracks if the shard gets changed
-   @Override
+   public void onCommandSent(String command) {
+      if (!LifestealAPI.isOnLifestealNetwork() || command == null) {
+         return;
+      }
+
+      String normalized = command.trim().toLowerCase();
+      if (normalized.startsWith("/")) {
+         normalized = normalized.substring(1).trim();
+      }
+
+      int firstSpaceIndex = normalized.indexOf(' ');
+      String commandRoot = firstSpaceIndex >= 0 ? normalized.substring(0, firstSpaceIndex) : normalized;
+      if (commandRoot.equals("hub") || commandRoot.equals("lobby") || commandRoot.equals("safelogout")) {
+         pendingManualHubCommand = true;
+      }
+   }
+
    public void onShardSwap(LifestealShardSwapEvent event) {
       String shardName = event.getShardName();
       if (shardName == null || shardName.isBlank()) {
@@ -87,11 +97,28 @@ public class AutoJoinLifesteal {
          return;
       }
 
+      String fromShard = event.getFromShard();
+      boolean isHubShard = isHubShard(shardName);
+      boolean wasHubShard = isHubShard(fromShard);
+
+      if (pendingManualHubCommand && !wasHubShard && isHubShard) {
+         manualHubSwapActive = true;
+         pendingManualHubCommand = false;
+         shouldAutoRejoin = false;
+         pendingJoinTicks = -1;
+         previousShard = shardName;
+         LOGGER.debug("[lsu-autojoin] detected manual transfer to hub shard '{}', skipping auto-rejoin", shardName);
+         return;
+      }
+
+      if (!isHubShard) {
+         pendingManualHubCommand = false;
+         manualHubSwapActive = false;
+      }
+
       // if the player is in a lifesteal- shard  it resets the tracking 
       if (shardName.startsWith("lifesteal-")) {
          shouldAutoRejoin = false;
-         manualSwapTracker.resetTracking();
-         LOGGER.debug("[lsu-autojoin] returned to lifesteal shard '{}', reset manual swap tracking", shardName);
          previousShard = shardName;
          return;
       }
@@ -102,7 +129,7 @@ public class AutoJoinLifesteal {
          boolean isFirstJoin = previousShard == null;
          
          if (wasOnLifesteal) {
-            if (manualSwapTracker.wasRecentManualSwap()) {
+            if (manualHubSwapActive) {
                LOGGER.debug("[lsu-autojoin] detected manual swap to hub shard '{}', skipping auto-rejoin", shardName);
                shouldAutoRejoin = false;
                previousShard = shardName;
@@ -132,7 +159,8 @@ public class AutoJoinLifesteal {
                previousShard = null;
                pendingJoinTicks = -1;
                shouldAutoRejoin = false;
-               manualSwapTracker.clearOnDisconnect();
+               pendingManualHubCommand = false;
+               manualHubSwapActive = false;
                wasConnected = false;
                disconnectTicks = 0;
             }
@@ -174,7 +202,7 @@ public class AutoJoinLifesteal {
          return;
       }
 
-      if (manualSwapTracker.wasRecentManualSwap()) {
+      if (manualHubSwapActive) {
          LOGGER.debug("[lsu-autojoin] failsafe: skipping hub check due to recent manual swap");
          shouldAutoRejoin = false;
          return;
@@ -198,5 +226,9 @@ public class AutoJoinLifesteal {
          LOGGER.info("[lsu-autojoin] executed /joinlifesteal command");
          joinCooldownTicks = JOIN_COOLDOWN;
       }
+   }
+
+   private static boolean isHubShard(String shardName) {
+      return shardName != null && shardName.startsWith("hub");
    }
 }

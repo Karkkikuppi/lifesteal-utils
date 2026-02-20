@@ -24,7 +24,6 @@ import dev.candycup.lifestealutils.features.messages.GhostedChatMessageFilter;
 import dev.candycup.lifestealutils.features.messages.PrivateMessageFormatter;
 import dev.candycup.lifestealutils.features.messages.RankPlusColorNormalizer;
 import dev.candycup.lifestealutils.features.qol.AutoJoinLifesteal;
-import dev.candycup.lifestealutils.features.qol.ManualShardSwapTracker;
 import dev.candycup.lifestealutils.features.qol.PoiTrackingController;
 import dev.candycup.lifestealutils.features.qol.PoiDirectionalIndicator;
 import dev.candycup.lifestealutils.features.qol.PoiWaypointTracker;
@@ -166,11 +165,7 @@ public final class LifestealUtils implements ClientModInitializer {
 
       customSplashes = new CustomSplashes();
 
-      ManualShardSwapTracker manualSwapTracker = new ManualShardSwapTracker();
-      EventBus.getInstance().register(manualSwapTracker);
-
-      autoJoinLifesteal = new AutoJoinLifesteal(manualSwapTracker);
-      EventBus.getInstance().register(autoJoinLifesteal);
+      autoJoinLifesteal = new AutoJoinLifesteal();
 
       // gaia gateway websocket client
       gaiaGatewayClient = new GaiaGatewayClient();

@@ -2,6 +2,7 @@ package dev.candycup.lifestealutils.event;
 
 import com.google.gson.JsonObject;
 import com.mojang.blaze3d.vertex.PoseStack;
+import lombok.Getter;
 import net.fabricmc.fabric.api.event.Event;
 import net.fabricmc.fabric.api.event.EventFactory;
 import net.minecraft.client.Minecraft;
@@ -103,7 +104,18 @@ public final class LifestealUtilsEvents {
       }
    });
 
+   public static final Event<CommandEvent> COMMAND_SENT = EventFactory.createArrayBacked(CommandEvent.class, listeners -> command -> {
+      for (CommandEvent listener : listeners) {
+         listener.onCommandSent(command);
+      }
+   });
+
    private LifestealUtilsEvents() {
+   }
+
+   @FunctionalInterface
+   public interface CommandEvent {
+      void onCommandSent(String command);
    }
 
    @FunctionalInterface
@@ -326,14 +338,14 @@ public final class LifestealUtilsEvents {
    }
 
    public static class LifestealShardSwapEvent extends LSUEvent {
+      @Getter
       private final String shardName;
+      @Getter
+      private final String fromShard;
 
-      public LifestealShardSwapEvent(String shardName) {
+      public LifestealShardSwapEvent(String shardName, String fromShard) {
          this.shardName = shardName;
-      }
-
-      public String getShardName() {
-         return shardName;
+         this.fromShard = fromShard;
       }
 
       @Override
