@@ -8,6 +8,9 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MessageSignature;
 
 public class MessagingUtils {
+   public record MiniMessagePreviewResult(Component component, boolean valid) {
+   }
+
    public static void showMessage(String message) {
       showMessage(Component.literal(message), 0xFFFFFF);
    }
@@ -42,6 +45,14 @@ public class MessagingUtils {
       return MinecraftClientAudiences.of().asNative(
               MiniMessage.miniMessage().deserialize(miniMessage)
       );
+   }
+
+   public static MiniMessagePreviewResult previewMiniMessage(String miniMessage) {
+      try {
+         return new MiniMessagePreviewResult(miniMessage(miniMessage), true);
+      } catch (Exception ignored) {
+         return new MiniMessagePreviewResult(Component.literal(miniMessage), false);
+      }
    }
 
    public static Component miniMessage(net.kyori.adventure.text.Component component) {

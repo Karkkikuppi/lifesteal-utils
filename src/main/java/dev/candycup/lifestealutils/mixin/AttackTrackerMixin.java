@@ -1,8 +1,9 @@
 package dev.candycup.lifestealutils.mixin;
 
+import dev.candycup.lifestealutils.api.LifestealAPI;
 import dev.candycup.lifestealutils.api.LifestealServerDetector;
-import dev.candycup.lifestealutils.event.EventBus;
-import dev.candycup.lifestealutils.event.events.ClientAttackEvent;
+import dev.candycup.lifestealutils.event.LifestealUtilsEvents;
+import dev.candycup.lifestealutils.event.LifestealUtilsEvents.ClientAttackEvent;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.MultiPlayerGameMode;
 import net.minecraft.world.entity.Entity;
@@ -23,13 +24,13 @@ public abstract class AttackTrackerMixin {
 
    @Inject(method = "attack", at = @At("HEAD"), cancellable = true)
    private void onAttack(Player player, Entity target, CallbackInfo ci) {
-      if (!LifestealServerDetector.isOnLifestealServer()) return;
+      if (!LifestealAPI.isOnLifestealNetwork()) return;
       if (minecraft.player == null) return;
       if (player != minecraft.player) return;
       if (!(target instanceof Player)) return;
 
       ClientAttackEvent event = new ClientAttackEvent(target, System.currentTimeMillis());
-      EventBus.getInstance().post(event);
+      LifestealUtilsEvents.CLIENT_ATTACK.invoker().onClientAttack(event);
 
       if (event.isCancelled()) {
          ci.cancel();

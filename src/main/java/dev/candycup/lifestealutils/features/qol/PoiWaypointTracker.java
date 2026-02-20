@@ -1,14 +1,14 @@
 package dev.candycup.lifestealutils.features.qol;
 
 import dev.candycup.lifestealutils.Config;
-import dev.candycup.lifestealutils.api.LifestealTablistAPI;
-import dev.candycup.lifestealutils.event.EventPriority;
-import dev.candycup.lifestealutils.event.events.ClientTickEvent;
-import dev.candycup.lifestealutils.event.events.ServerChangeEvent;
-import dev.candycup.lifestealutils.event.listener.ServerEventListener;
-import dev.candycup.lifestealutils.event.listener.TickEventListener;
+import dev.candycup.lifestealutils.api.LifestealAPI;
+import dev.candycup.lifestealutils.api.TablistDataController;
+import dev.candycup.lifestealutils.event.LifestealUtilsEvents;
+import dev.candycup.lifestealutils.event.LifestealUtilsEvents.ClientTickEvent;
+import dev.candycup.lifestealutils.event.LifestealUtilsEvents.ServerChangeEvent;
 import dev.candycup.lifestealutils.hud.HudElementDefinition;
 import dev.candycup.lifestealutils.hud.HudPosition;
+import lombok.Getter;
 import net.minecraft.client.Minecraft;
 import net.minecraft.resources.Identifier;
 import org.slf4j.Logger;
@@ -17,7 +17,7 @@ import org.slf4j.LoggerFactory;
 import java.util.List;
 import java.util.Optional;
 
-public final class PoiWaypointTracker implements TickEventListener, ServerEventListener {
+public final class PoiWaypointTracker {
    private static final Logger LOGGER = LoggerFactory.getLogger("lifestealutils/poi");
 
    public static final String CONFIG_ID = "poi_waypoint";
@@ -34,10 +34,10 @@ public final class PoiWaypointTracker implements TickEventListener, ServerEventL
    private final List<PoiRepository.Poi> pois;
    private final HudElementDefinition hudDefinition;
 
+   @Getter
    private PoiRepository.Poi currentTarget = null;
 
    public PoiWaypointTracker() {
-      Config.ensurePoiWaypointFormat(DEFAULT_FORMAT);
       this.pois = PoiRepository.loadPois();
 
       this.hudDefinition = new HudElementDefinition(
@@ -47,6 +47,19 @@ public final class PoiWaypointTracker implements TickEventListener, ServerEventL
               HudPosition.clamp(DEFAULT_TEXT_X, DEFAULT_TEXT_Y)
       );
 
+      LifestealUtilsEvents.CLIENT_TICK.register(event -> {
+         if (!isEnabled()) {
+            return;
+         }
+         onClientTick(event);
+      });
+      LifestealUtilsEvents.SERVER_CHANGE.register(event -> {
+         if (!isEnabled()) {
+            return;
+         }
+         onServerChange(event);
+      });
+
       LOGGER.info("[lsu-poi] initialized with {} POIs", pois.size());
    }
 
@@ -54,17 +67,10 @@ public final class PoiWaypointTracker implements TickEventListener, ServerEventL
       return hudDefinition;
    }
 
-   @Override
    public boolean isEnabled() {
-      return Config.getPoiWaypointsEnabled();
+      return Config.isPoiWaypointsEnabled();
    }
 
-   @Override
-   public EventPriority getPriority() {
-      return EventPriority.NORMAL;
-   }
-
-   @Override
    public void onClientTick(ClientTickEvent event) {
       if (!isEnabled()) return;
       if (isIndicatorsSuppressedForShard()) {
@@ -74,66 +80,84 @@ public final class PoiWaypointTracker implements TickEventListener, ServerEventL
       Minecraft client = Minecraft.getInstance();
       if (client.player == null || client.level == null) return;
 
-      // choose target: configured id > closest if allowed > none
-      String configuredId = Config.getPoiTrackedId();
-      if (configuredId != null && !configuredId.isBlank()) {
-         Optional<PoiRepository.Poi> match = pois.stream()
-                 .filter(p -> p.id().equals(configuredId))
-                 .findFirst();
-         currentTarget = match.orElse(null);
+      PoiRepository.Poi configuredTarget = resolveConfiguredTarget();
+      if (configuredTarget != null) {
+         currentTarget = configuredTarget;
          return;
       }
 
       if (!Config.isPoiAlwaysShowClosest()) {
-         // no configured target and not showing closest
          currentTarget = null;
          return;
       }
 
-      // pick closest POI in the same dimension (or POIs without dimension set)
-      String currentDimension = null;
-      try {
-         if (client.level != null && client.level.dimension() != null) {
-            // registry key may not expose a direct location method across mappings; fall back to toString()
-            // ^ this was causing some weird behavior in testing. TODO: dont make this hacky
-            currentDimension = client.level.dimension().toString();
-         }
-      } catch (Exception ignore) {
+      this.currentTarget = findClosestVisiblePoi(client);
+   }
+
+   private PoiRepository.Poi resolveConfiguredTarget() {
+      String configuredId = Config.getPoiTrackedId();
+      if (configuredId == null || configuredId.isBlank()) {
+         return null;
       }
 
-      double px = client.player.getX();
-      double pz = client.player.getZ();
+      Optional<PoiRepository.Poi> match = pois.stream()
+              .filter(poi -> poi.id().equals(configuredId))
+              .findFirst();
+      return match.orElse(null);
+   }
+
+   private PoiRepository.Poi findClosestVisiblePoi(Minecraft client) {
+      String currentDimension = resolveCurrentDimension(client);
+      double playerX = client.player.getX();
+      double playerZ = client.player.getZ();
 
       PoiRepository.Poi best = null;
-      double bestDist = Double.MAX_VALUE;
+      double bestDistance = Double.MAX_VALUE;
       for (PoiRepository.Poi poi : pois) {
-         if (poi.dimension() != null && currentDimension != null) {
-            // compare heuristically: either exact match or contained in registry key string
-            if (!poi.dimension().equals(currentDimension) && !currentDimension.contains(poi.dimension())) {
-               continue;
-            }
+         if (!isPoiInCurrentDimension(poi, currentDimension)) {
+            continue;
          }
 
-         double dx = poi.x() - px;
-         double dz = poi.z() - pz;
-         double dist = Math.sqrt(dx * dx + dz * dz);
-         if (dist < bestDist) {
-            bestDist = dist;
+         double distance = distanceToPoi(poi, playerX, playerZ);
+         if (distance < bestDistance) {
+            bestDistance = distance;
             best = poi;
          }
       }
-
-      this.currentTarget = best;
+      return best;
    }
 
-   @Override
+   private String resolveCurrentDimension(Minecraft client) {
+      try {
+         if (client.level == null || client.level.dimension() == null) {
+            return null;
+         }
+         return client.level.dimension().toString();
+      } catch (Exception ignore) {
+         return null;
+      }
+   }
+
+   private boolean isPoiInCurrentDimension(PoiRepository.Poi poi, String currentDimension) {
+      if (poi.dimension() == null || currentDimension == null) {
+         return true;
+      }
+      return poi.dimension().equals(currentDimension) || currentDimension.contains(poi.dimension());
+   }
+
+   private double distanceToPoi(PoiRepository.Poi poi, double playerX, double playerZ) {
+      double deltaX = poi.x() - playerX;
+      double deltaZ = poi.z() - playerZ;
+      return Math.sqrt(deltaX * deltaX + deltaZ * deltaZ);
+   }
+
    public void onServerChange(ServerChangeEvent event) {
       // clear selection when server changes
       this.currentTarget = null;
    }
 
    private String getDisplayText() {
-      if (!Config.isPoiHudTextEnabled()) {
+      if (!PoiDirectionalIndicator.isPoiHudTextEnabled()) {
          return "";
       }
       if (isIndicatorsSuppressedForShard()) {
@@ -148,7 +172,7 @@ public final class PoiWaypointTracker implements TickEventListener, ServerEventL
 
       int distance = calculateDistance(t, client);
 
-      String format = Config.getPoiWaypointFormat(DEFAULT_FORMAT);
+      String format = Config.getPoiWaypointFormat();
       if (format == null || format.isBlank()) format = DEFAULT_FORMAT;
 
       String distanceText = distance == UNKNOWN_DISTANCE
@@ -166,7 +190,7 @@ public final class PoiWaypointTracker implements TickEventListener, ServerEventL
     * @return true when on hub/spawn shards
     */
    public boolean isIndicatorsSuppressedForShard() {
-      String shardName = LifestealTablistAPI.getCurrentShard();
+      String shardName = LifestealAPI.getCurrentShard();
       if (shardName == null || shardName.isBlank()) {
          return false;
       }
@@ -213,18 +237,11 @@ public final class PoiWaypointTracker implements TickEventListener, ServerEventL
     * @return true if shard name contains "nether"
     */
    private boolean isShardNether() {
-      String shardName = LifestealTablistAPI.getCurrentShard();
+      String shardName = LifestealAPI.getCurrentShard();
       if (shardName == null || shardName.isBlank()) {
          return false;
       }
       return shardName.toLowerCase().contains(SHARD_KEYWORD_NETHER);
-   }
-
-   /**
-    * Helper: expose current target for tests or other code.
-    */
-   public PoiRepository.Poi getCurrentTarget() {
-      return currentTarget;
    }
 
    /**

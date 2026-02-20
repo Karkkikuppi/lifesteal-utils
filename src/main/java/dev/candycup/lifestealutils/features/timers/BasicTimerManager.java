@@ -1,10 +1,9 @@
 package dev.candycup.lifestealutils.features.timers;
 
 import dev.candycup.lifestealutils.Config;
-import dev.candycup.lifestealutils.event.events.ChatMessageReceivedEvent;
-import dev.candycup.lifestealutils.event.events.ClientTickEvent;
-import dev.candycup.lifestealutils.event.listener.ChatEventListener;
-import dev.candycup.lifestealutils.event.listener.TickEventListener;
+import dev.candycup.lifestealutils.event.LifestealUtilsEvents;
+import dev.candycup.lifestealutils.event.LifestealUtilsEvents.ChatMessageReceivedEvent;
+import dev.candycup.lifestealutils.event.LifestealUtilsEvents.ClientTickEvent;
 import dev.candycup.lifestealutils.hud.HudElementDefinition;
 import dev.candycup.lifestealutils.hud.HudPosition;
 import net.minecraft.resources.Identifier;
@@ -18,7 +17,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-public final class BasicTimerManager implements ChatEventListener, TickEventListener {
+public final class BasicTimerManager {
    private static final Logger LOGGER = LoggerFactory.getLogger("lifestealutils/timers");
 
    private final Map<String, BasicTimerDefinition> definitions = new LinkedHashMap<>();
@@ -27,6 +26,20 @@ public final class BasicTimerManager implements ChatEventListener, TickEventList
 
    public BasicTimerManager(List<BasicTimerDefinition> definitions) {
       configure(definitions);
+
+      LifestealUtilsEvents.CHAT_MESSAGE_RECEIVED.register(event -> {
+         if (!isEnabled()) {
+            return;
+         }
+         onChatMessageReceived(event);
+      });
+
+      LifestealUtilsEvents.CLIENT_TICK.register(event -> {
+         if (!isEnabled()) {
+            return;
+         }
+         onClientTick(event);
+      });
    }
 
    private void configure(List<BasicTimerDefinition> definitions) {
@@ -68,14 +81,12 @@ public final class BasicTimerManager implements ChatEventListener, TickEventList
               .collect(Collectors.toList());
    }
 
-   @Override
    public boolean isEnabled() {
       // enabled if any timer is enabled
       return definitions.keySet().stream()
               .anyMatch(Config::isBasicTimerEnabled);
    }
 
-   @Override
    public void onChatMessageReceived(ChatMessageReceivedEvent event) {
       String message = event.getMessage().getString();
       if (message.isBlank()) {
@@ -94,7 +105,6 @@ public final class BasicTimerManager implements ChatEventListener, TickEventList
       }
    }
 
-   @Override
    public void onClientTick(ClientTickEvent event) {
       for (TimerState state : states.values()) {
          if (state.remainingTicks > 0) {

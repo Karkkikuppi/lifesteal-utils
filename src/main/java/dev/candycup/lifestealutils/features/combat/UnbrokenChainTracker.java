@@ -1,19 +1,21 @@
 package dev.candycup.lifestealutils.features.combat;
 
 import dev.candycup.lifestealutils.Config;
-import dev.candycup.lifestealutils.api.CustomEnchantUtilities;
-import dev.candycup.lifestealutils.event.events.ClientAttackEvent;
-import dev.candycup.lifestealutils.event.events.ClientTickEvent;
-import dev.candycup.lifestealutils.event.events.DamageConfirmedEvent;
-import dev.candycup.lifestealutils.event.events.PlayerDamagedEvent;
-import dev.candycup.lifestealutils.event.events.ServerChangeEvent;
-import dev.candycup.lifestealutils.event.listener.CombatEventListener;
-import dev.candycup.lifestealutils.event.listener.ServerEventListener;
-import dev.candycup.lifestealutils.event.listener.TickEventListener;
+import dev.candycup.lifestealutils.api.CustomEnchantParsingUtilities;
+import dev.candycup.lifestealutils.api.LifestealAPI;
+import dev.candycup.lifestealutils.api.LifestealServerDetector;
+import dev.candycup.lifestealutils.event.LifestealUtilsEvents;
+import dev.candycup.lifestealutils.event.LifestealUtilsEvents.ClientAttackEvent;
+import dev.candycup.lifestealutils.event.LifestealUtilsEvents.ClientTickEvent;
+import dev.candycup.lifestealutils.event.LifestealUtilsEvents.ServerChangeEvent;
 import dev.candycup.lifestealutils.hud.HudElementDefinition;
 import dev.candycup.lifestealutils.hud.HudPosition;
+import lombok.Getter;
 import net.minecraft.client.Minecraft;
+import net.minecraft.network.protocol.game.ClientboundDamageEventPacket;
 import net.minecraft.resources.Identifier;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,10 +31,10 @@ import java.util.concurrent.ConcurrentHashMap;
  * <p>
  * tracking flow:
  * 1. client swings at an entity -> record pending hit with entity id + timestamp
- * 2. server responds with damage dealt to that entity within 500ms -> increment chain
+ * 2. incoming damage packet confirms damage dealt to that entity within 500ms -> increment chain
  * 3. player receives damage -> reset chain to 0
  */
-public final class UnbrokenChainTracker implements CombatEventListener, TickEventListener, ServerEventListener {
+public final class UnbrokenChainTracker {
    private static final Logger LOGGER = LoggerFactory.getLogger("lifestealutils/chain");
 
    public static final String CONFIG_ID = "unbroken_chain";
@@ -48,14 +50,14 @@ public final class UnbrokenChainTracker implements CombatEventListener, TickEven
    private final Map<Integer, Long> pendingHits = new ConcurrentHashMap<>();
 
    // current chain count
+   @Getter
    private int chainCount = 0;
    private long lastConfirmedHitTimeMs = 0L;
 
+   @Getter
    private final HudElementDefinition hudDefinition;
 
    public UnbrokenChainTracker() {
-      Config.ensureChainCounterFormat(DEFAULT_FORMAT);
-
       this.hudDefinition = new HudElementDefinition(
               Identifier.fromNamespaceAndPath("lifestealutils", CONFIG_ID + "_counter"),
               "Unbroken Chain Counter",
@@ -63,24 +65,48 @@ public final class UnbrokenChainTracker implements CombatEventListener, TickEven
               HudPosition.clamp(0.5F, 0.25F)
       );
 
+      LifestealUtilsEvents.CLIENT_ATTACK.register(event -> {
+         if (!isEnabled()) {
+            return;
+         }
+         onClientAttack(event);
+      });
+      LifestealUtilsEvents.PACKET_RECEIVED.register((packet, callbackInfo) -> {
+         if (!isEnabled()) {
+            return;
+         }
+         if (!(packet instanceof ClientboundDamageEventPacket damagePacket)) {
+            return;
+         }
+         onIncomingDamagePacket(damagePacket);
+      });
+      LifestealUtilsEvents.CLIENT_TICK.register(event -> {
+         if (!isEnabled()) {
+            return;
+         }
+         onClientTick(event);
+      });
+      LifestealUtilsEvents.SERVER_CHANGE.register(event -> {
+         if (!isEnabled()) {
+            return;
+         }
+         onServerChange(event);
+      });
+
       LOGGER.info("[lsu-chain] unbroken chain tracker initialized");
    }
 
-   public HudElementDefinition getHudDefinition() {
-      return hudDefinition;
-   }
-
-   @Override
    public boolean isEnabled() {
       return Config.isChainCounterEnabled();
    }
 
-   @Override
    public void onClientAttack(ClientAttackEvent event) {
       Minecraft client = Minecraft.getInstance();
       if (client.player == null) return;
-      if (!CustomEnchantUtilities.hasCustomEnchant(
-              client.player.getMainHandItem(), "enchants:unbroken_chain")) {
+      if (!LifestealAPI.hasSpecificCustomEnchant(
+              client.player.getMainHandItem(),
+              "enchants:unbroken_chain")
+      ) {
          return;
       }
 
@@ -89,9 +115,28 @@ public final class UnbrokenChainTracker implements CombatEventListener, TickEven
       LOGGER.debug("[lsu-chain] pending hit registered for entity {}", event.getTargetId());
    }
 
-   @Override
-   public void onDamageConfirmed(DamageConfirmedEvent event) {
-      Long hitTime = pendingHits.remove(event.getEntityId());
+   private void onIncomingDamagePacket(ClientboundDamageEventPacket packet) {
+      if (!LifestealAPI.isOnLifestealNetwork()) {
+         return;
+      }
+
+      Minecraft client = Minecraft.getInstance();
+      if (client.player == null) {
+         return;
+      }
+
+      int entityId = packet.entityId();
+      if (entityId == client.player.getId()) {
+         onPlayerDamaged();
+         return;
+      }
+
+      Entity entity = client.level != null ? client.level.getEntity(entityId) : null;
+      if (!(entity instanceof Player)) {
+         return;
+      }
+
+      Long hitTime = pendingHits.remove(entityId);
       if (hitTime == null) {
          return;
       }
@@ -107,8 +152,7 @@ public final class UnbrokenChainTracker implements CombatEventListener, TickEven
       LOGGER.debug("[lsu-chain] chain incremented to {}", chainCount);
    }
 
-   @Override
-   public void onPlayerDamaged(PlayerDamagedEvent event) {
+   private void onPlayerDamaged() {
       if (chainCount > 0) {
          LOGGER.debug("[lsu-chain] chain reset from {} (player damaged)", chainCount);
          chainCount = 0;
@@ -118,7 +162,6 @@ public final class UnbrokenChainTracker implements CombatEventListener, TickEven
       pendingHits.clear();
    }
 
-   @Override
    public void onClientTick(ClientTickEvent event) {
       long now = System.currentTimeMillis();
       if (chainCount > 0 && lastConfirmedHitTimeMs > 0L && now - lastConfirmedHitTimeMs > INACTIVE_RESET_MS) {
@@ -132,15 +175,10 @@ public final class UnbrokenChainTracker implements CombatEventListener, TickEven
       );
    }
 
-   @Override
    public void onServerChange(ServerChangeEvent event) {
       if (event.isDisconnected()) {
          reset();
       }
-   }
-
-   public int getChainCount() {
-      return chainCount;
    }
 
    public int getBonusPercent() {
@@ -160,7 +198,7 @@ public final class UnbrokenChainTracker implements CombatEventListener, TickEven
          return "";
       }
 
-      String format = Config.getChainCounterFormat(DEFAULT_FORMAT);
+      String format = Config.getChainCounterFormat();
       if (format == null || format.isBlank()) {
          format = DEFAULT_FORMAT;
       }

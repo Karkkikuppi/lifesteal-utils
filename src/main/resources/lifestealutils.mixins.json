@@ -3,15 +3,17 @@
   "package": "dev.candycup.lifestealutils.mixin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
+    "ConnectionMixin",
     "PlayerEntityMixin"
   ],
   "client": [
     "AttackTrackerMixin",
+    "ClientHandshakePacketListenerImplAuthInvoker",
     "ClientPacketListenerMixin",
     "ConnectingScreenMixin",
-    "DamageListenerMixin",
     "ItemClusterMixin",
     "ItemRendererMixin",
+    "JoinMultiplayerScreenMixin",
     "MessageReceiver",
     "PanoramaRendererMixin",
     "ScreenAccessor",

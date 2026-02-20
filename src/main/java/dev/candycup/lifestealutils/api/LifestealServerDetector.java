@@ -11,7 +11,7 @@ public final class LifestealServerDetector {
    private LifestealServerDetector() {
    }
 
-   public static boolean isOnLifestealServer() {
+   static boolean isOnLifestealServer() {
       Minecraft minecraft = Minecraft.getInstance();
       if (minecraft == null) {
          return false;

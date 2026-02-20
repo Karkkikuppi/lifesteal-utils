@@ -1,5 +1,6 @@
 package dev.candycup.lifestealutils.features.afk;
 
+import lombok.Getter;
 import net.minecraft.client.Minecraft;
 
 /**
@@ -8,17 +9,11 @@ import net.minecraft.client.Minecraft;
 public final class AfkMode {
    private static final int AFK_FPS_LIMIT = 2;
    private static final int UNSET_FPS_LIMIT = -1;
+   @Getter
    private static boolean enabled = false;
    private static int previousFpsLimit = UNSET_FPS_LIMIT;
 
    private AfkMode() {
-   }
-
-   /**
-    * @return true when afk mode is enabled
-    */
-   public static boolean isEnabled() {
-      return enabled;
    }
 
    /**

@@ -282,54 +282,91 @@ public class RadarScreen extends Screen {
     * Renders the coordinate grid.
     */
    private void renderGrid(GuiGraphics guiGraphics, int gridTop, int gridWidth, int gridHeight, double scale) {
-      // determine grid spacing based on zoom level
       int gridSpacing = calculateGridSpacing(scale);
-
-      // calculate world bounds visible on screen
       double worldLeft = cameraX - (gridWidth / 2.0) / scale;
       double worldRight = cameraX + (gridWidth / 2.0) / scale;
       double worldTop = cameraZ - (gridHeight / 2.0) / scale;
       double worldBottom = cameraZ + (gridHeight / 2.0) / scale;
-
-      // clamp to world bounds for rendering
       double clampedWorldLeft = Math.max(-WORLD_HALF_SIZE, worldLeft);
       double clampedWorldRight = Math.min(WORLD_HALF_SIZE, worldRight);
       double clampedWorldTop = Math.max(-WORLD_HALF_SIZE, worldTop);
       double clampedWorldBottom = Math.min(WORLD_HALF_SIZE, worldBottom);
+      renderVerticalGridLines(guiGraphics, gridTop, gridWidth, gridHeight, scale, gridSpacing, clampedWorldLeft, clampedWorldRight);
+      renderHorizontalGridLines(guiGraphics, gridTop, gridWidth, gridHeight, scale, gridSpacing, clampedWorldTop, clampedWorldBottom);
+      renderOriginAxes(guiGraphics, gridTop, gridWidth, gridHeight, scale);
 
-      // draw vertical grid lines (only within world bounds)
+      // draw coordinate labels
+      renderGridLabels(guiGraphics, gridTop, gridWidth, gridHeight, scale, gridSpacing,
+              clampedWorldLeft, clampedWorldRight, clampedWorldTop, clampedWorldBottom);
+   }
+
+   private void renderVerticalGridLines(
+           GuiGraphics guiGraphics,
+           int gridTop,
+           int gridWidth,
+           int gridHeight,
+           double scale,
+           int gridSpacing,
+           double clampedWorldLeft,
+           double clampedWorldRight
+   ) {
       int startX = Mth.floor(clampedWorldLeft / gridSpacing) * gridSpacing;
+      int lineTop = Math.max(gridTop, worldToScreenY(-WORLD_HALF_SIZE, gridTop, gridHeight, scale));
+      int lineBottom = Math.min(gridTop + gridHeight, worldToScreenY(WORLD_HALF_SIZE, gridTop, gridHeight, scale));
+      if (lineBottom <= lineTop) {
+         return;
+      }
+
       for (int worldX = startX; worldX <= clampedWorldRight; worldX += gridSpacing) {
-         if (worldX < -WORLD_HALF_SIZE || worldX > WORLD_HALF_SIZE) continue;
+         if (worldX < -WORLD_HALF_SIZE || worldX > WORLD_HALF_SIZE) {
+            continue;
+         }
+
          int screenX = worldToScreenX(worldX, gridWidth, scale);
-         if (screenX >= 0 && screenX < gridWidth) {
-            int alpha = getGridLineAlpha(worldX, gridSpacing);
-            int color = (alpha << 24) | 0xFFFFFF;
-            int lineTop = Math.max(gridTop, worldToScreenY(-WORLD_HALF_SIZE, gridTop, gridHeight, scale));
-            int lineBottom = Math.min(gridTop + gridHeight, worldToScreenY(WORLD_HALF_SIZE, gridTop, gridHeight, scale));
-            if (lineBottom > lineTop) {
-               guiGraphics.fill(screenX, lineTop, screenX + 1, lineBottom, color);
-            }
+         if (screenX < 0 || screenX >= gridWidth) {
+            continue;
          }
-      }
 
-      // draw horizontal grid lines (only within world bounds)
+         int alpha = getGridLineAlpha(worldX, gridSpacing);
+         int color = (alpha << 24) | 0xFFFFFF;
+         guiGraphics.fill(screenX, lineTop, screenX + 1, lineBottom, color);
+      }
+   }
+
+   private void renderHorizontalGridLines(
+           GuiGraphics guiGraphics,
+           int gridTop,
+           int gridWidth,
+           int gridHeight,
+           double scale,
+           int gridSpacing,
+           double clampedWorldTop,
+           double clampedWorldBottom
+   ) {
       int startZ = Mth.floor(clampedWorldTop / gridSpacing) * gridSpacing;
-      for (int worldZ = startZ; worldZ <= clampedWorldBottom; worldZ += gridSpacing) {
-         if (worldZ < -WORLD_HALF_SIZE || worldZ > WORLD_HALF_SIZE) continue;
-         int screenY = worldToScreenY(worldZ, gridTop, gridHeight, scale);
-         if (screenY >= gridTop && screenY < gridTop + gridHeight) {
-            int alpha = getGridLineAlpha(worldZ, gridSpacing);
-            int color = (alpha << 24) | 0xFFFFFF;
-            int lineLeft = Math.max(0, worldToScreenX(-WORLD_HALF_SIZE, gridWidth, scale));
-            int lineRight = Math.min(gridWidth, worldToScreenX(WORLD_HALF_SIZE, gridWidth, scale));
-            if (lineRight > lineLeft) {
-               guiGraphics.fill(lineLeft, screenY, lineRight, screenY + 1, color);
-            }
-         }
+      int lineLeft = Math.max(0, worldToScreenX(-WORLD_HALF_SIZE, gridWidth, scale));
+      int lineRight = Math.min(gridWidth, worldToScreenX(WORLD_HALF_SIZE, gridWidth, scale));
+      if (lineRight <= lineLeft) {
+         return;
       }
 
-      // draw origin axes with higher opacity (only within world bounds)
+      for (int worldZ = startZ; worldZ <= clampedWorldBottom; worldZ += gridSpacing) {
+         if (worldZ < -WORLD_HALF_SIZE || worldZ > WORLD_HALF_SIZE) {
+            continue;
+         }
+
+         int screenY = worldToScreenY(worldZ, gridTop, gridHeight, scale);
+         if (screenY < gridTop || screenY >= gridTop + gridHeight) {
+            continue;
+         }
+
+         int alpha = getGridLineAlpha(worldZ, gridSpacing);
+         int color = (alpha << 24) | 0xFFFFFF;
+         guiGraphics.fill(lineLeft, screenY, lineRight, screenY + 1, color);
+      }
+   }
+
+   private void renderOriginAxes(GuiGraphics guiGraphics, int gridTop, int gridWidth, int gridHeight, double scale) {
       int originScreenX = worldToScreenX(0, gridWidth, scale);
       int originScreenY = worldToScreenY(0, gridTop, gridHeight, scale);
       int worldLeftScreen = worldToScreenX(-WORLD_HALF_SIZE, gridWidth, scale);
@@ -337,7 +374,6 @@ public class RadarScreen extends Screen {
       int worldTopScreen = worldToScreenY(-WORLD_HALF_SIZE, gridTop, gridHeight, scale);
       int worldBottomScreen = worldToScreenY(WORLD_HALF_SIZE, gridTop, gridHeight, scale);
 
-      // x-axis (z = 0) - red
       if (originScreenY >= gridTop && originScreenY < gridTop + gridHeight) {
          int axisLeft = Math.max(0, worldLeftScreen);
          int axisRight = Math.min(gridWidth, worldRightScreen);
@@ -345,7 +381,7 @@ public class RadarScreen extends Screen {
             guiGraphics.fill(axisLeft, originScreenY, axisRight, originScreenY + 2, 0xA0FF4444);
          }
       }
-      // z-axis (x = 0) - blue
+
       if (originScreenX >= 0 && originScreenX < gridWidth) {
          int axisTop = Math.max(gridTop, worldTopScreen);
          int axisBottom = Math.min(gridTop + gridHeight, worldBottomScreen);
@@ -353,10 +389,6 @@ public class RadarScreen extends Screen {
             guiGraphics.fill(originScreenX, axisTop, originScreenX + 2, axisBottom, 0xA04444FF);
          }
       }
-
-      // draw coordinate labels
-      renderGridLabels(guiGraphics, gridTop, gridWidth, gridHeight, scale, gridSpacing,
-              clampedWorldLeft, clampedWorldRight, clampedWorldTop, clampedWorldBottom);
    }
 
    /**
@@ -371,68 +403,72 @@ public class RadarScreen extends Screen {
       int topEdge = worldToScreenY(-WORLD_HALF_SIZE, gridTop, gridHeight, scale);
       int bottomEdge = worldToScreenY(WORLD_HALF_SIZE, gridTop, gridHeight, scale);
 
-      // left border (x = -20000)
-      if (leftEdge >= 0 && leftEdge < gridWidth) {
-         int top = Math.max(gridTop, topEdge);
-         int bottom = Math.min(gridTop + gridHeight, bottomEdge);
-         if (bottom > top) {
+      renderWorldBorderEdges(guiGraphics, gridTop, gridWidth, gridHeight, borderColor, leftEdge, rightEdge, topEdge, bottomEdge);
+      renderWorldOutsideAreas(guiGraphics, gridTop, gridWidth, gridHeight, leftEdge, rightEdge, topEdge, bottomEdge);
+   }
+
+   private void renderWorldBorderEdges(
+           GuiGraphics guiGraphics,
+           int gridTop,
+           int gridWidth,
+           int gridHeight,
+           int borderColor,
+           int leftEdge,
+           int rightEdge,
+           int topEdge,
+           int bottomEdge
+   ) {
+      int top = Math.max(gridTop, topEdge);
+      int bottom = Math.min(gridTop + gridHeight, bottomEdge);
+      if (bottom > top) {
+         if (leftEdge >= 0 && leftEdge < gridWidth) {
             guiGraphics.fill(leftEdge, top, leftEdge + WORLD_BORDER_THICKNESS, bottom, borderColor);
          }
-      }
-
-      // right border (x = 20000)
-      if (rightEdge >= 0 && rightEdge < gridWidth) {
-         int top = Math.max(gridTop, topEdge);
-         int bottom = Math.min(gridTop + gridHeight, bottomEdge);
-         if (bottom > top) {
+         if (rightEdge >= 0 && rightEdge < gridWidth) {
             guiGraphics.fill(rightEdge - WORLD_BORDER_THICKNESS, top, rightEdge, bottom, borderColor);
          }
       }
 
-      // top border (z = -20000)
-      if (topEdge >= gridTop && topEdge < gridTop + gridHeight) {
-         int left = Math.max(0, leftEdge);
-         int right = Math.min(gridWidth, rightEdge);
-         if (right > left) {
+      int left = Math.max(0, leftEdge);
+      int right = Math.min(gridWidth, rightEdge);
+      if (right > left) {
+         if (topEdge >= gridTop && topEdge < gridTop + gridHeight) {
             guiGraphics.fill(left, topEdge, right, topEdge + WORLD_BORDER_THICKNESS, borderColor);
          }
-      }
-
-      // bottom border (z = 20000)
-      if (bottomEdge >= gridTop && bottomEdge < gridTop + gridHeight) {
-         int left = Math.max(0, leftEdge);
-         int right = Math.min(gridWidth, rightEdge);
-         if (right > left) {
+         if (bottomEdge >= gridTop && bottomEdge < gridTop + gridHeight) {
             guiGraphics.fill(left, bottomEdge - WORLD_BORDER_THICKNESS, right, bottomEdge, borderColor);
          }
       }
+   }
 
-      // darken areas outside the world bounds
+   private void renderWorldOutsideAreas(
+           GuiGraphics guiGraphics,
+           int gridTop,
+           int gridWidth,
+           int gridHeight,
+           int leftEdge,
+           int rightEdge,
+           int topEdge,
+           int bottomEdge
+   ) {
       int outsideColor = 0xA0000000;
-
-      // left outside area
       if (leftEdge > 0) {
          guiGraphics.fill(0, gridTop, Math.min(leftEdge, gridWidth), gridTop + gridHeight, outsideColor);
       }
-      // right outside area
       if (rightEdge < gridWidth) {
          guiGraphics.fill(Math.max(0, rightEdge), gridTop, gridWidth, gridTop + gridHeight, outsideColor);
       }
-      // top outside area (between left and right borders)
-      if (topEdge > gridTop) {
-         int left = Math.max(0, leftEdge);
-         int right = Math.min(gridWidth, rightEdge);
-         if (right > left) {
-            guiGraphics.fill(left, gridTop, right, Math.min(topEdge, gridTop + gridHeight), outsideColor);
-         }
+
+      int left = Math.max(0, leftEdge);
+      int right = Math.min(gridWidth, rightEdge);
+      if (right <= left) {
+         return;
       }
-      // bottom outside area (between left and right borders)
+      if (topEdge > gridTop) {
+         guiGraphics.fill(left, gridTop, right, Math.min(topEdge, gridTop + gridHeight), outsideColor);
+      }
       if (bottomEdge < gridTop + gridHeight) {
-         int left = Math.max(0, leftEdge);
-         int right = Math.min(gridWidth, rightEdge);
-         if (right > left) {
-            guiGraphics.fill(left, Math.max(gridTop, bottomEdge), right, gridTop + gridHeight, outsideColor);
-         }
+         guiGraphics.fill(left, Math.max(gridTop, bottomEdge), right, gridTop + gridHeight, outsideColor);
       }
    }
 

@@ -8,6 +8,11 @@ import dev.candycup.lifestealutils.event.events.ServerChangeEvent;
 import dev.candycup.lifestealutils.event.events.ClientTickEvent;
 import dev.candycup.lifestealutils.event.listener.ServerEventListener;
 import dev.candycup.lifestealutils.event.listener.TickEventListener;
+import dev.candycup.lifestealutils.api.LifestealAPI;
+import dev.candycup.lifestealutils.api.TablistDataController;
+import dev.candycup.lifestealutils.event.LifestealUtilsEvents;
+import dev.candycup.lifestealutils.event.LifestealUtilsEvents.ClientTickEvent;
+import dev.candycup.lifestealutils.event.LifestealUtilsEvents.LifestealShardSwapEvent;
 import dev.candycup.lifestealutils.interapi.MessagingUtils;
 import net.minecraft.client.Minecraft;
 import org.slf4j.Logger;
@@ -17,7 +22,7 @@ import org.slf4j.LoggerFactory;
  * automatically joins the Lifesteal gamemode when connecting to a hub shard.
  * triggered by detecting shard names starting with 'hub-' via the lifesteal API.
  */
-public class AutoJoinLifesteal implements ServerEventListener, TickEventListener {
+public class AutoJoinLifesteal {
    private static final Logger LOGGER = LoggerFactory.getLogger("lifestealutils/autojoin");
    private static final int HUB_CHECK_INTERVAL = 100; // check every 5 seconds
    private static final int JOIN_COOLDOWN = 100; // 5 second cooldown after executing command
@@ -38,7 +43,21 @@ public class AutoJoinLifesteal implements ServerEventListener, TickEventListener
       this.manualSwapTracker = manualSwapTracker;
    }
 
-   @Override
+   public AutoJoinLifesteal() {
+      LifestealUtilsEvents.SHARD_SWAP.register(event -> {
+         if (!isEnabled()) {
+            return;
+         }
+         onShardSwap(event);
+      });
+      LifestealUtilsEvents.CLIENT_TICK.register(event -> {
+         if (!isEnabled()) {
+            return;
+         }
+         onClientTick(event);
+      });
+   }
+
    public boolean isEnabled() {
       return Config.isAutoJoinLifestealOnHub();
    }
@@ -102,7 +121,6 @@ public class AutoJoinLifesteal implements ServerEventListener, TickEventListener
       previousShard = shardName;
    }
 
-   @Override
    public void onClientTick(ClientTickEvent event) {
       Minecraft client = Minecraft.getInstance();
       
@@ -162,7 +180,8 @@ public class AutoJoinLifesteal implements ServerEventListener, TickEventListener
          return;
       }
 
-      String currentShard = LifestealTablistAPI.getCurrentShard();
+      String currentShard = LifestealAPI.getCurrentShard();
+
       if (currentShard != null && currentShard.startsWith("hub-")) {
          if (shouldAutoRejoin) {
             LOGGER.debug("[lsu-autojoin] periodic retry: still in hub shard '{}', executing /joinlifesteal", currentShard);

@@ -1,6 +1,11 @@
 package dev.candycup.lifestealutils.ui;
 
+import dev.candycup.lifestealutils.Config;
+import dev.candycup.lifestealutils.api.LifestealAPI;
+import dev.candycup.lifestealutils.api.LifestealServerDetector;
 import dev.candycup.lifestealutils.features.baltop.BaltopScraper;
+import dev.candycup.lifestealutils.gaia.collectivum.CollectivumBaltopClient;
+import dev.candycup.lifestealutils.gaia.curiositas.CuriositasBaltopSnapshotClient;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractSelectionList;
@@ -32,19 +37,31 @@ import net.minecraft.client.input.KeyEvent;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.ArrayList;
+import java.util.Locale;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 
-/**
- * A screen displaying the balance leaderboard (baltop) in a Statistics-like format.
- * Shows player heads, usernames, balances, and positions.
- * Supports live updating as entries are scraped from the server.
- */
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 public class BaltopScreen extends Screen {
+   private static final Logger LOGGER = LoggerFactory.getLogger("lifestealutils/baltop-screen");
    private static final Component TITLE = Component.translatable("lifestealutils.baltop.title");
    private static final Component BALTOP_TAB = Component.translatable("lifestealutils.baltop.tab");
    private static final Component LOADING_TEXT = Component.translatable("lifestealutils.baltop.loading");
    private static final int LIST_WIDTH = 280;
    private static final int PADDING = 8;
+   private static final String BALANCE_PREFIX = "$";
+   private static final String BALANCE_SEPARATOR = ",";
+   private static final CuriositasBaltopSnapshotClient.SnapshotRange DEFAULT_SNAPSHOT_RANGE = CuriositasBaltopSnapshotClient.SnapshotRange.RANGE_24_HOURS;
+   private static final String DELTA_UP_TRANSLATION_KEY = "lifestealutils.baltop.delta.up";
+   private static final String DELTA_DOWN_TRANSLATION_KEY = "lifestealutils.baltop.delta.down";
+   private static final String DELTA_UNCHANGED_TRANSLATION_KEY = "lifestealutils.baltop.delta.unchanged";
+   private static final int DELTA_UP_COLOR = 0xFF4CAF50;
+   private static final int DELTA_DOWN_COLOR = 0xFFF44336;
+   private static final int DELTA_UNCHANGED_COLOR = 0xFFB0BEC5;
 
    private final HeaderAndFooterLayout layout = new HeaderAndFooterLayout(this);
    private final TabManager tabManager;
@@ -53,6 +70,10 @@ public class BaltopScreen extends Screen {
    private final BaltopScraper scraper;
    private BaltopList baltopList;
    private boolean loadingComplete = false;
+   private boolean submissionSent = false;
+   private final Map<String, Long> snapshotPastAmountsByUsername = new ConcurrentHashMap<>();
+   private volatile String snapshotRangeTranslationKey = DEFAULT_SNAPSHOT_RANGE.translationKey();
+   private boolean snapshotRequestStarted = false;
 
    /**
     * Creates a new BaltopScreen that displays data from a scraper.
@@ -76,7 +97,7 @@ public class BaltopScreen extends Screen {
     * Refreshes the list to show the latest data.
     */
    public void refreshEntries() {
-      if (baltopList != null && minecraft != null) {
+      if (baltopList != null) {
          baltopList.refreshFromScraper();
       }
    }
@@ -87,6 +108,8 @@ public class BaltopScreen extends Screen {
    public void onLoadingComplete() {
       loadingComplete = true;
       refreshEntries();
+      submitBaltopIfNeeded();
+      fetchSnapshotIfNeeded();
    }
 
    /**
@@ -95,6 +118,112 @@ public class BaltopScreen extends Screen {
    public void onLoadingFailed(String reason) {
       loadingComplete = true;
       // the error message is already shown via MessagingUtils, just mark as done
+   }
+
+   private void submitBaltopIfNeeded() {
+      if (submissionSent) {
+         return;
+      }
+
+      if (!Config.isGaiaAdvancedFeaturesEnabled()) {
+         return;
+      }
+
+      if (!LifestealAPI.isOnLifestealNetwork()) {
+         return;
+      }
+
+      List<BaltopScraper.BaltopEntry> entries = scraper.getScrapedEntries();
+      if (entries.isEmpty()) {
+         return;
+      }
+
+      List<CollectivumBaltopClient.BaltopEntryPayload> payload = new ArrayList<>();
+      for (BaltopScraper.BaltopEntry entry : entries) {
+         long amount = parseBalanceAmount(entry.balance());
+         if (amount < 0) {
+            LOGGER.debug("skipping baltop entry with invalid amount: {}", entry.balance());
+            continue;
+         }
+         payload.add(new CollectivumBaltopClient.BaltopEntryPayload(entry.username(), amount));
+      }
+
+      if (payload.isEmpty()) {
+         return;
+      }
+
+      submissionSent = true;
+      CollectivumBaltopClient.submitBaltopEntries(payload)
+              .thenAccept(success -> {
+                 if (!success) {
+                    LOGGER.debug("baltop submission failed");
+                 }
+              });
+   }
+
+   private void fetchSnapshotIfNeeded() {
+      if (snapshotRequestStarted) {
+         return;
+      }
+
+      if (!Config.isGaiaAdvancedFeaturesEnabled()) {
+         return;
+      }
+
+      if (!LifestealAPI.isOnLifestealNetwork()) {
+         return;
+      }
+
+      snapshotRequestStarted = true;
+      CuriositasBaltopSnapshotClient.fetchSnapshot(DEFAULT_SNAPSHOT_RANGE)
+              .thenAccept(snapshotResponse -> {
+                 Minecraft client = this.minecraft;
+                 if (snapshotResponse == null) {
+                    return;
+                 }
+
+                 client.execute(() -> {
+                    snapshotPastAmountsByUsername.clear();
+                    for (CuriositasBaltopSnapshotClient.SnapshotEntry entry : snapshotResponse.entries()) {
+                       if (entry.pastAmount() != null) {
+                          snapshotPastAmountsByUsername.put(normalizeUsername(entry.username()), entry.pastAmount());
+                       }
+                    }
+                    snapshotRangeTranslationKey = snapshotResponse.range().translationKey();
+                    refreshEntries();
+                 });
+              });
+   }
+
+   private long parseBalanceAmount(String balance) {
+      if (balance == null || balance.isBlank()) {
+         return -1;
+      }
+
+      String sanitized = balance.replace(BALANCE_PREFIX, "").replace(BALANCE_SEPARATOR, "").trim();
+      if (sanitized.isEmpty()) {
+         return -1;
+      }
+
+      for (int i = 0; i < sanitized.length(); i++) {
+         if (!Character.isDigit(sanitized.charAt(i))) {
+            return -1;
+         }
+      }
+
+      try {
+         return Long.parseLong(sanitized);
+      } catch (NumberFormatException e) {
+         return -1;
+      }
+   }
+
+   private String normalizeUsername(String username) {
+      return username == null ? "" : username.trim().toLowerCase(Locale.ROOT);
+   }
+
+   private String formatCoins(long amount) {
+      return String.format(Locale.US, "%,d", amount);
    }
 
    @Override
@@ -217,7 +346,7 @@ public class BaltopScreen extends Screen {
     * The list displaying baltop entries.
     */
    private class BaltopList extends ObjectSelectionList<BaltopList.BaltopEntry> {
-      private static final int ENTRY_HEIGHT = 36;
+      private static final int ENTRY_HEIGHT = 48;
       private int lastKnownEntryCount = 0;
 
       public BaltopList(Minecraft minecraft) {
@@ -266,6 +395,7 @@ public class BaltopScreen extends Screen {
          private final Component usernameComponent;
          private final Component balanceComponent;
          private final Component positionComponent;
+         private final long parsedCurrentAmount;
 
          public BaltopEntry(BaltopScraper.BaltopEntry data) {
             this.data = data;
@@ -299,6 +429,7 @@ public class BaltopScreen extends Screen {
                     .withStyle(style -> style.withColor(0xFFFFFF).withBold(isCurrentPlayer));
 
             this.balanceComponent = Component.literal(data.balance()).withStyle(style -> style.withColor(0xFFD700)); // gold
+            this.parsedCurrentAmount = BaltopScreen.this.parseBalanceAmount(data.balance());
             this.positionComponent = Component.literal("#" + data.position()).withStyle(style -> {
                return switch (data.position()) {
                   case 1 -> style.withColor(0xFFD700).withBold(true); // gold
@@ -343,17 +474,65 @@ public class BaltopScreen extends Screen {
             // render username and balance stacked vertically, next to the face
             int textX = faceX + FACE_SIZE + PADDING * 2;
             int lineHeight = BaltopScreen.this.font.lineHeight;
-            int totalTextHeight = lineHeight * 2 + 2; // two lines with 2px spacing
+            Component deltaComponent = buildDeltaComponent();
+            boolean hasDeltaLine = deltaComponent != null;
+            int totalTextHeight = hasDeltaLine ? lineHeight * 3 + 4 : lineHeight * 2 + 2;
             int textStartY = contentY + (contentHeight - totalTextHeight) / 2;
 
             guiGraphics.drawString(BaltopScreen.this.font, this.usernameComponent, textX, textStartY, textColor);
             guiGraphics.drawString(BaltopScreen.this.font, this.balanceComponent, textX, textStartY + lineHeight + 2, textColor);
+            if (hasDeltaLine) {
+               int deltaColor = resolveDeltaColor();
+               guiGraphics.drawString(BaltopScreen.this.font, deltaComponent, textX, textStartY + (lineHeight + 2) * 2, deltaColor);
+            }
 
             // render position on the right side
             int positionWidth = BaltopScreen.this.font.width(this.positionComponent);
             int positionX = contentRight - positionWidth - PADDING;
             int positionY = contentY + (contentHeight - lineHeight) / 2;
             guiGraphics.drawString(BaltopScreen.this.font, this.positionComponent, positionX, positionY, textColor);
+         }
+
+         private Component buildDeltaComponent() {
+            if (parsedCurrentAmount < 0) {
+               return null;
+            }
+
+            Long pastAmount = snapshotPastAmountsByUsername.get(normalizeUsername(data.username()));
+            if (pastAmount == null) {
+               return null;
+            }
+
+            Component rangeComponent = Component.translatable(snapshotRangeTranslationKey);
+
+            long deltaAmount = parsedCurrentAmount - pastAmount;
+            if (deltaAmount > 0) {
+               return Component.translatable(DELTA_UP_TRANSLATION_KEY, formatCoins(deltaAmount), rangeComponent);
+            }
+            if (deltaAmount < 0) {
+               return Component.translatable(DELTA_DOWN_TRANSLATION_KEY, formatCoins(Math.abs(deltaAmount)), rangeComponent);
+            }
+            return Component.translatable(DELTA_UNCHANGED_TRANSLATION_KEY, rangeComponent);
+         }
+
+         private int resolveDeltaColor() {
+            if (parsedCurrentAmount < 0) {
+               return DELTA_UNCHANGED_COLOR;
+            }
+
+            Long pastAmount = snapshotPastAmountsByUsername.get(normalizeUsername(data.username()));
+            if (pastAmount == null) {
+               return DELTA_UNCHANGED_COLOR;
+            }
+
+            long deltaAmount = parsedCurrentAmount - pastAmount;
+            if (deltaAmount > 0) {
+               return DELTA_UP_COLOR;
+            }
+            if (deltaAmount < 0) {
+               return DELTA_DOWN_COLOR;
+            }
+            return DELTA_UNCHANGED_COLOR;
          }
 
          @Override

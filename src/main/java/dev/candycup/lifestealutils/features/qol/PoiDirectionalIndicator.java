@@ -92,7 +92,7 @@ public final class PoiDirectionalIndicator {
     * @param guiHeight the current gui height
     */
    public void render(GuiGraphics graphics, int guiWidth, int guiHeight) {
-      if (!Config.isPoiHudCompassEnabled()) {
+      if (!isPoiHudCompassEnabled()) {
          return;
       }
       if (tracker.isIndicatorsSuppressedForShard()) {
@@ -206,12 +206,36 @@ public final class PoiDirectionalIndicator {
     * @return true if the indicator should render
     */
    public boolean isVisible() {
-      if (!Config.isPoiHudCompassEnabled()) {
+      if (!isPoiHudCompassEnabled()) {
          return false;
       }
       if (tracker.isIndicatorsSuppressedForShard()) {
          return false;
       }
       return tracker.getCurrentTarget() != null;
+   }
+
+   /**
+    * Checks if the POI HUD text should be displayed.
+    *
+    * @return true if the text should render
+    */
+   public static boolean isPoiHudTextEnabled() {
+      if (!Config.isPoiWaypointsEnabled()) {
+         return false;
+      }
+      return Config.getPoiHudIndicatorMode().isShowsTextIndicator();
+   }
+
+   /**
+    * Checks if the POI HUD compass indicator should be displayed.
+    *
+    * @return true if the compass should render
+    */
+   public static boolean isPoiHudCompassEnabled() {
+      if (!Config.isPoiWaypointsEnabled()) {
+         return false;
+      }
+      return Config.getPoiHudIndicatorMode().isShowsCompassIndicator();
    }
 }

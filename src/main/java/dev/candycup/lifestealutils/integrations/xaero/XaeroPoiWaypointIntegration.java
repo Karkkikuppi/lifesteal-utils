@@ -1,14 +1,14 @@
 package dev.candycup.lifestealutils.integrations.xaero;
 
 import dev.candycup.lifestealutils.Config;
-import dev.candycup.lifestealutils.api.LifestealTablistAPI;
-import dev.candycup.lifestealutils.event.EventPriority;
-import dev.candycup.lifestealutils.event.events.ClientTickEvent;
-import dev.candycup.lifestealutils.event.events.LifestealShardSwapEvent;
-import dev.candycup.lifestealutils.event.events.ServerChangeEvent;
-import dev.candycup.lifestealutils.event.listener.ServerEventListener;
-import dev.candycup.lifestealutils.event.listener.TickEventListener;
+import dev.candycup.lifestealutils.api.LifestealAPI;
+import dev.candycup.lifestealutils.api.TablistDataController;
+import dev.candycup.lifestealutils.event.LifestealUtilsEvents;
+import dev.candycup.lifestealutils.event.LifestealUtilsEvents.ClientTickEvent;
+import dev.candycup.lifestealutils.event.LifestealUtilsEvents.LifestealShardSwapEvent;
+import dev.candycup.lifestealutils.event.LifestealUtilsEvents.ServerChangeEvent;
 import dev.candycup.lifestealutils.features.qol.PoiRepository;
+import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,7 +29,7 @@ import java.util.Set;
 /**
  * syncs lifesteal utils poi definitions into xaero's minimap waypoint sets.
  */
-public final class XaeroPoiWaypointIntegration implements TickEventListener, ServerEventListener {
+public final class XaeroPoiWaypointIntegration {
    private static final Logger LOGGER = LoggerFactory.getLogger("lifestealutils/xaero");
 
    private static final String WAYPOINT_SET_TRANSLATION_KEY = "lsu.xaero.poi_set";
@@ -56,45 +56,50 @@ public final class XaeroPoiWaypointIntegration implements TickEventListener, Ser
     */
    public XaeroPoiWaypointIntegration() {
       scheduleSync();
+
+      LifestealUtilsEvents.SERVER_CHANGE.register(this::onServerChange);
+      LifestealUtilsEvents.SHARD_SWAP.register(this::onShardSwap);
+      LifestealUtilsEvents.CLIENT_TICK.register(this::onClientTick);
    }
 
-   @Override
    public boolean isEnabled() {
       return true;
    }
 
-   @Override
-   public EventPriority getPriority() {
-      return EventPriority.NORMAL;
-   }
-
-   @Override
    public void onServerChange(ServerChangeEvent event) {
       scheduleReconcile();
    }
 
-   @Override
    public void onShardSwap(LifestealShardSwapEvent event) {
       scheduleReconcile();
    }
 
-   @Override
    public void onClientTick(ClientTickEvent event) {
       boolean integrationEnabled = Config.isXaeroPoiWaypointsEnabled();
-      if (lastEnabledState == null || lastEnabledState != integrationEnabled) {
-         if (integrationEnabled) {
-            scheduleSync();
-         } else {
-            scheduleRemoval();
-         }
-         lastEnabledState = integrationEnabled;
-      }
+      reconcileEnabledState(integrationEnabled);
 
       if (!integrationEnabled) {
          handleRemovalTick();
          return;
       }
 
+      handleSyncTick();
+   }
+
+   private void reconcileEnabledState(boolean integrationEnabled) {
+      if (lastEnabledState != null && lastEnabledState == integrationEnabled) {
+         return;
+      }
+
+      if (integrationEnabled) {
+         scheduleSync();
+      } else {
+         scheduleRemoval();
+      }
+      lastEnabledState = integrationEnabled;
+   }
+
+   private void handleSyncTick() {
       if (pendingSyncTicks == SYNC_DELAY_TICKS) {
          LOGGER.info("[lsu-xaero] scheduled poi sync");
       }
@@ -114,15 +119,12 @@ public final class XaeroPoiWaypointIntegration implements TickEventListener, Ser
          return;
       }
 
-      MinimapSession session = BuiltInHudModules.MINIMAP.getCurrentSession();
+      MinimapSession session = requireCurrentSession();
       if (session == null) {
-         LOGGER.debug("[lsu-xaero] xaero minimap session not ready yet");
          return;
       }
-
-      MinimapWorld world = session.getWorldManager().getCurrentWorld();
+      MinimapWorld world = requireCurrentWorld(session);
       if (world == null) {
-         LOGGER.debug("[lsu-xaero] xaero world not ready yet");
          return;
       }
 
@@ -147,6 +149,24 @@ public final class XaeroPoiWaypointIntegration implements TickEventListener, Ser
 
       lastSyncedWorldKey = worldKey;
       pendingSyncTicks = -1;
+   }
+
+   private MinimapSession requireCurrentSession() {
+      MinimapSession session = BuiltInHudModules.MINIMAP.getCurrentSession();
+      if (session == null) {
+         LOGGER.debug("[lsu-xaero] xaero minimap session not ready yet");
+         return null;
+      }
+      return session;
+   }
+
+   private MinimapWorld requireCurrentWorld(MinimapSession session) {
+      MinimapWorld world = session.getWorldManager().getCurrentWorld();
+      if (world == null) {
+         LOGGER.debug("[lsu-xaero] xaero world not ready yet");
+         return null;
+      }
+      return world;
    }
 
    /**
@@ -439,7 +459,7 @@ public final class XaeroPoiWaypointIntegration implements TickEventListener, Ser
     * @return true when on hub/spawn shards
     */
    private boolean isIndicatorsSuppressedForShard() {
-      String shardName = LifestealTablistAPI.getCurrentShard();
+      String shardName = LifestealAPI.getCurrentShard();
       if (shardName == null || shardName.isBlank()) {
          return false;
       }
@@ -453,10 +473,19 @@ public final class XaeroPoiWaypointIntegration implements TickEventListener, Ser
     * @return true if shard name contains "nether"
     */
    private boolean isShardNether() {
-      String shardName = LifestealTablistAPI.getCurrentShard();
+      String shardName = LifestealAPI.getCurrentShard();
       if (shardName == null || shardName.isBlank()) {
          return false;
       }
       return shardName.toLowerCase().contains(SHARD_KEYWORD_NETHER);
+   }
+
+   /**
+    * Checks if Xaero's Minimap is installed.
+    *
+    * @return true when xaero minimap is present
+    */
+   public static boolean isXaeroMinimapInstalled() {
+      return FabricLoader.getInstance().isModLoaded("xaerominimap");
    }
 }

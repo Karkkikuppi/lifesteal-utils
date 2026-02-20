@@ -1,7 +1,7 @@
 package dev.candycup.lifestealutils.mixin;
 
-import dev.candycup.lifestealutils.event.EventBus;
-import dev.candycup.lifestealutils.event.events.SplashTextRequestEvent;
+import dev.candycup.lifestealutils.event.LifestealUtilsEvents;
+import dev.candycup.lifestealutils.event.LifestealUtilsEvents.SplashTextRequestEvent;
 import dev.candycup.lifestealutils.interapi.MessagingUtils;
 import net.minecraft.client.gui.components.SplashRenderer;
 import net.minecraft.client.resources.SplashManager;
@@ -15,7 +15,7 @@ public class SplashManagerMixin {
    @Inject(method = "getSplash", at = @At("HEAD"), cancellable = true)
    private void getSplashHead(CallbackInfoReturnable<SplashRenderer> cir) {
       SplashTextRequestEvent event = new SplashTextRequestEvent();
-      EventBus.getInstance().post(event);
+      LifestealUtilsEvents.SPLASH_TEXT_REQUEST.invoker().onSplashTextRequest(event);
 
       if (event.getSplashText() != null) {
          cir.setReturnValue(new SplashRenderer(

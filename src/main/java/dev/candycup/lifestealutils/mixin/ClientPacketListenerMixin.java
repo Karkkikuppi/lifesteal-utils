@@ -2,15 +2,20 @@ package dev.candycup.lifestealutils.mixin;
 
 import dev.candycup.lifestealutils.Config;
 import dev.candycup.lifestealutils.LifestealUtils;
+import dev.candycup.lifestealutils.api.LifestealAPI;
 import dev.candycup.lifestealutils.api.LifestealServerDetector;
 import dev.candycup.lifestealutils.api.LifestealTablistAPI;
 import dev.candycup.lifestealutils.event.EventBus;
 import dev.candycup.lifestealutils.event.events.CommandSentEvent;
+import dev.candycup.lifestealutils.api.TablistDataController;
+import dev.candycup.lifestealutils.event.LifestealUtilsEvents;
+import dev.candycup.lifestealutils.event.LifestealUtilsEvents.ServerChangeEvent;
 import dev.candycup.lifestealutils.features.baltop.BaltopScraper;
 import dev.candycup.lifestealutils.ui.BaltopScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.client.multiplayer.ClientPacketListener;
+import net.minecraft.network.protocol.game.ClientboundLoginPacket;
 import net.minecraft.network.protocol.game.ClientboundOpenScreenPacket;
 import net.minecraft.network.protocol.game.ClientboundTabListPacket;
 import org.spongepowered.asm.mixin.Mixin;
@@ -24,13 +29,28 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(ClientPacketListener.class)
 public class ClientPacketListenerMixin {
 
-   @Inject(method = "handleTabListCustomisation", at = @At("RETURN"))
-   private void onTabListUpdate(ClientboundTabListPacket packet, CallbackInfo ci) {
-      if (LifestealServerDetector.isOnLifestealServer()) {
-         LifestealTablistAPI.updateFromFooter(packet.footer());
-      } else {
-         LifestealTablistAPI.reset();
+   @Inject(method = "handleLogin", at = @At("RETURN"))
+   private void onHandleLogin(ClientboundLoginPacket packet, CallbackInfo ci) {
+      // fire server connection event
+      String serverAddress = "";
+      Minecraft minecraft = Minecraft.getInstance();
+      if (minecraft.getCurrentServer() != null) {
+         serverAddress = minecraft.getCurrentServer().ip;
       }
+
+      LifestealUtilsEvents.SERVER_CHANGE.invoker().onServerChange(new ServerChangeEvent(ServerChangeEvent.Type.CONNECTED, serverAddress));
+   }
+
+   @Inject(method = "close", at = @At("HEAD"))
+   private void onClose(CallbackInfo ci) {
+      // fire server disconnection event
+      String serverAddress = "";
+      Minecraft minecraft = Minecraft.getInstance();
+      if (minecraft.getCurrentServer() != null) {
+         serverAddress = minecraft.getCurrentServer().ip;
+      }
+
+      LifestealUtilsEvents.SERVER_CHANGE.invoker().onServerChange(new ServerChangeEvent(ServerChangeEvent.Type.DISCONNECTED, serverAddress));
    }
 
    /**
@@ -59,15 +79,16 @@ public class ClientPacketListenerMixin {
    private void onSendCommand(String command, CallbackInfo ci) {
       EventBus.getInstance().post(new CommandSentEvent(command));
 
+      String loweredCommand = command.trim().toLowerCase();
       if (!Config.isCustomBaltopInterfaceEnabled()) {
          return;
       }
 
-      if (!LifestealServerDetector.isOnLifestealServer()) {
+      if (!LifestealAPI.isOnLifestealNetwork()) {
          return;
       }
 
-      String lowered = command.toLowerCase();
+      String lowered = loweredCommand;
       if (!lowered.equals("baltop") && !lowered.startsWith("baltop ")) {
          return;
       }

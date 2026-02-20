@@ -37,7 +37,7 @@ public final class MessageCustomizer {
 
    private static String getFormat() {
       try {
-         return Config.pmFormat;
+         return Config.getPmFormat();
       } catch (Exception e) {
          return "<light_purple><bold>{{direction}}</bold> {{sender}}</light_purple> <white>➡ {{message}}</white>";
       }

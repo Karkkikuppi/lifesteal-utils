@@ -1,9 +1,8 @@
 package dev.candycup.lifestealutils.features.messages;
 
 import dev.candycup.lifestealutils.Config;
-import dev.candycup.lifestealutils.event.EventPriority;
-import dev.candycup.lifestealutils.event.events.ChatMessageReceivedEvent;
-import dev.candycup.lifestealutils.event.listener.ChatEventListener;
+import dev.candycup.lifestealutils.event.LifestealUtilsEvents;
+import dev.candycup.lifestealutils.event.LifestealUtilsEvents.ChatMessageReceivedEvent;
 import dev.candycup.lifestealutils.interapi.MessagingUtils;
 import net.kyori.adventure.platform.modcommon.MinecraftClientAudiences;
 import net.kyori.adventure.text.minimessage.MiniMessage;
@@ -11,25 +10,30 @@ import net.minecraft.network.chat.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * removes chat tags (e.g., [No-Life]) from player messages.
  * example: "[LEGEND+] [No-Life] Player: msg" -> "[LEGEND+] Player: msg"
  */
-public class ChatTagRemover implements ChatEventListener {
+public class ChatTagRemover {
    private static final Logger LOGGER = LoggerFactory.getLogger("lifestealutils/chattag");
    private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
 
-   @Override
+   public ChatTagRemover() {
+      LifestealUtilsEvents.CHAT_MESSAGE_RECEIVED.register(event -> {
+         if (!isEnabled()) {
+            return;
+         }
+         onChatMessageReceived(event);
+      });
+   }
+
    public boolean isEnabled() {
-      return Config.getDisableChatTags();
+      return Config.isDisableChatTags();
    }
 
-   @Override
-   public EventPriority getPriority() {
-      return EventPriority.NORMAL;
-   }
-
-   @Override
    public void onChatMessageReceived(ChatMessageReceivedEvent event) {
       Component original = event.getModifiedMessage();
       String serialized = MINI_MESSAGE.serialize(
@@ -54,7 +58,7 @@ public class ChatTagRemover implements ChatEventListener {
       }
 
       StringBuilder visible = new StringBuilder();
-      java.util.List<BracketSpan> spans = new java.util.ArrayList<>();
+      List<BracketSpan> spans = new ArrayList<>();
 
       boolean inTag = false;
       int bracketStartVisible = -1;
