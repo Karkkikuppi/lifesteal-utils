@@ -156,7 +156,7 @@ public final class BasicTimerManager {
             CompoundTag custom = nbt.getCompound("minecraft:custom_data").orElse(null);
             if (custom == null) continue;
 
-            CompoundTag pbv = custom.getCompound("PublicBukkitValues").orElse(null);;
+            CompoundTag pbv = custom.getCompound("PublicBukkitValues").orElse(null);
             if (pbv == null) continue;
 
             if (pbv.contains(definition.nbtId())) {
