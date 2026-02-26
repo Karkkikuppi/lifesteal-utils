@@ -1,0 +1,81 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Alliance {
+  id          String            @id @default(uuid())
+  name        String            @db.VarChar(30)
+  prefix      String?           @db.VarChar(30)
+  color       String?           @db.VarChar(7)
+  description String            @db.VarChar(200)
+  motd        String            @db.VarChar(300)
+  ownedBy     String
+  members     AllianceMember[]
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@map("alliances")
+}
+
+enum MembershipState {
+  INVITED
+  JOINED
+  DECLINED
+}
+
+model AllianceMember {
+  id              String          @id @default(uuid())
+  uuid            String
+  cachedName      String
+  membershipState MembershipState @default(INVITED)
+  addedAt         DateTime        @default(now())
+  addedBy         String
+  permissions     String[]
+  
+  alliance        Alliance        @relation(fields: [allianceId], references: [id], onDelete: Cascade)
+  allianceId      String
+
+  @@map("alliance_members")
+}
+
+enum CurrencyType {
+  COINS
+}
+
+model CurrencySubmission {
+  id            String           @id @default(uuid())
+  submitterName String
+  submitterUuid String
+  submittedAt   DateTime         @default(now())
+  modVersion    String
+  records       CurrencyRecord[]
+
+  @@index([submittedAt])
+  @@map("currency_submissions")
+}
+
+model CurrencyRecord {
+  id           String           @id @default(uuid())
+  username     String
+  uuid         String
+  currencyType CurrencyType
+  amount       BigInt
+
+  submission   CurrencySubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  submissionId String
+
+  @@index([uuid])
+  @@index([submissionId])
+  @@map("currency_records")
+}

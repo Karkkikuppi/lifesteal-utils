@@ -2,9 +2,8 @@ package dev.candycup.lifestealutils.features.titlescreen;
 
 import dev.candycup.lifestealutils.Config;
 import dev.candycup.lifestealutils.FeatureFlagController;
-import dev.candycup.lifestealutils.event.EventPriority;
-import dev.candycup.lifestealutils.event.events.SplashTextRequestEvent;
-import dev.candycup.lifestealutils.event.listener.UIEventListener;
+import dev.candycup.lifestealutils.event.LifestealUtilsEvents;
+import dev.candycup.lifestealutils.event.LifestealUtilsEvents.SplashTextRequestEvent;
 import dev.candycup.lifestealutils.interapi.MessagingUtils;
 
 import java.util.ArrayList;
@@ -14,22 +13,24 @@ import java.util.List;
  * provides custom splash texts for the title screen.
  * reads splashes from the global feature flag payload.
  */
-public final class CustomSplashes implements UIEventListener {
+public final class CustomSplashes {
    private static final List<String> FALLBACK_SPLASHES = new ArrayList<>() {{
       add("<yellow>uhoh...</yellow>");
    }};
 
-   @Override
+   public CustomSplashes() {
+      LifestealUtilsEvents.SPLASH_TEXT_REQUEST.register(event -> {
+         if (!isEnabled()) {
+            return;
+         }
+         onSplashTextRequest(event);
+      });
+   }
+
    public boolean isEnabled() {
-      return Config.getCustomSplashes();
+      return Config.isCustomSplashesEnabled();
    }
 
-   @Override
-   public EventPriority getPriority() {
-      return EventPriority.NORMAL;
-   }
-
-   @Override
    public void onSplashTextRequest(SplashTextRequestEvent event) {
       List<String> splashes = FeatureFlagController.getSplashes();
       if (splashes.isEmpty()) {

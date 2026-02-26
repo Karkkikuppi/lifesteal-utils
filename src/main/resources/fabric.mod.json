@@ -10,6 +10,7 @@
   "contributors": [
     "Jonnite (Code Contributions <3)",
     "_milkmc (Early Feedback & Feature Ideas)",
+    "bitmc (Code Contributions <3)",
     "linnyflower (Contributing Custom Enchantments for Testing)"
   ],
   "contact": {
@@ -28,7 +29,8 @@
     ]
   },
   "mixins": [
-    "lifestealutils.mixins.json"
+    "lifestealutils.mixins.json",
+    "tiertagger-fairplay.mixins.json"
   ],
   "depends": {
     "fabricloader": ">=0.18.3",

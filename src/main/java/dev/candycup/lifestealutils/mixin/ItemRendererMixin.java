@@ -2,8 +2,8 @@ package dev.candycup.lifestealutils.mixin;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import dev.candycup.lifestealutils.ItemClusterRenderStateDuck;
-import dev.candycup.lifestealutils.event.EventBus;
-import dev.candycup.lifestealutils.event.events.ItemRenderEvent;
+import dev.candycup.lifestealutils.event.LifestealUtilsEvents;
+import dev.candycup.lifestealutils.event.LifestealUtilsEvents.ItemRenderEvent;
 //? if > 1.21.8
 import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.MultiBufferSource;
@@ -32,7 +32,7 @@ public class ItemRendererMixin {
       boolean isRare = duck.lifestealutils$isRare();
 
       ItemRenderEvent event = new ItemRenderEvent(itemStack, poseStack, isRare);
-      EventBus.getInstance().post(event);
+      LifestealUtilsEvents.ITEM_RENDER.invoker().onItemRender(event);
       if (event.isCancelled()) {
          ci.cancel();
       }
@@ -57,7 +57,7 @@ public class ItemRendererMixin {
       boolean isRare = duck.lifestealutils$isRare();
       
       ItemRenderEvent event = new ItemRenderEvent(itemStack, poseStack, isRare);
-      EventBus.getInstance().post(event);
+      LifestealUtilsEvents.ITEM_RENDER.invoker().onItemRender(event);
       if (event.isCancelled()) {
          ci.cancel();
          return;

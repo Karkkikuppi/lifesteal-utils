@@ -1,12 +1,10 @@
 package dev.candycup.lifestealutils.features.qol;
 
 import dev.candycup.lifestealutils.Config;
-import dev.candycup.lifestealutils.api.LifestealTablistAPI;
-import dev.candycup.lifestealutils.event.EventPriority;
-import dev.candycup.lifestealutils.event.events.LifestealShardSwapEvent;
-import dev.candycup.lifestealutils.event.events.ClientTickEvent;
-import dev.candycup.lifestealutils.event.listener.ServerEventListener;
-import dev.candycup.lifestealutils.event.listener.TickEventListener;
+import dev.candycup.lifestealutils.api.LifestealAPI;
+import dev.candycup.lifestealutils.event.LifestealUtilsEvents;
+import dev.candycup.lifestealutils.event.LifestealUtilsEvents.ClientTickEvent;
+import dev.candycup.lifestealutils.event.LifestealUtilsEvents.LifestealShardSwapEvent;
 import dev.candycup.lifestealutils.interapi.MessagingUtils;
 import net.minecraft.client.Minecraft;
 import org.slf4j.Logger;
@@ -16,7 +14,7 @@ import org.slf4j.LoggerFactory;
  * automatically joins the Lifesteal gamemode when connecting to a hub shard.
  * triggered by detecting shard names starting with 'hub-' via the lifesteal API.
  */
-public class AutoJoinLifesteal implements ServerEventListener, TickEventListener {
+public class AutoJoinLifesteal {
    private static final Logger LOGGER = LoggerFactory.getLogger("lifestealutils/autojoin");
    private static final int HUB_CHECK_INTERVAL = 100; // check every 5 seconds
    private static final int JOIN_COOLDOWN = 100; // 5 second cooldown after executing command
@@ -24,33 +22,158 @@ public class AutoJoinLifesteal implements ServerEventListener, TickEventListener
    private int pendingJoinTicks = -1;
    private int hubCheckTicks = 0;
    private int joinCooldownTicks = 0;
+   private String previousShard = null;
+   private boolean wasConnected = false;
+   private int disconnectTicks = 0;
+   private static final int DISCONNECT_THRESHOLD_TICKS = 100;
+   private boolean shouldAutoRejoin = false;
+   private boolean pendingManualHubCommand = false;
+   private boolean manualHubSwapActive = false;
 
-   @Override
+   public AutoJoinLifesteal() {
+
+      LifestealUtilsEvents.SHARD_SWAP.register(event -> {
+         if (!isEnabled()) {
+            return;
+         }
+         onShardSwap(event);
+      });
+      LifestealUtilsEvents.CLIENT_TICK.register(event -> {
+         if (!isEnabled()) {
+            return;
+         }
+         onClientTick(event);
+      });
+      LifestealUtilsEvents.SERVER_CHANGE.register(event -> {
+         if (!isEnabled()) {
+            return;
+         }
+         onServerChange(event);
+      });
+      LifestealUtilsEvents.COMMAND_SENT.register(command -> {
+         if (!isEnabled()) {
+            return;
+         }
+         onCommandSent(command);
+      });
+   }
+
    public boolean isEnabled() {
       return Config.isAutoJoinLifestealOnHub();
    }
 
-   @Override
-   public EventPriority getPriority() {
-      return EventPriority.NORMAL;
+   // tracks server changes
+   public void onServerChange(LifestealUtilsEvents.ServerChangeEvent event) {
+      previousShard = null;
+      pendingJoinTicks = -1;
+      wasConnected = false;
+      disconnectTicks = 0;
+      shouldAutoRejoin = false;
+      pendingManualHubCommand = false;
+      manualHubSwapActive = false;
    }
 
-   @Override
-   public void onShardSwap(LifestealShardSwapEvent event) {
-      String shardName = event.getShardName();
-      if (shardName == null || shardName.isBlank()) {
+   public void onCommandSent(String command) {
+      if (!LifestealAPI.isOnLifestealNetwork() || command == null) {
          return;
       }
 
-      // check if we're in a hub shard (starts with 'hub-')
-      if (shardName.startsWith("hub-")) {
-         pendingJoinTicks = 20;
-         LOGGER.debug("[lsu-autojoin] detected hub shard '{}', scheduling /joinlifesteal in 1 second", shardName);
+      String normalized = command.trim().toLowerCase();
+      if (normalized.startsWith("/")) {
+         normalized = normalized.substring(1).trim();
+      }
+
+      int firstSpaceIndex = normalized.indexOf(' ');
+      String commandRoot = firstSpaceIndex >= 0 ? normalized.substring(0, firstSpaceIndex) : normalized;
+      if (commandRoot.equals("hub") || commandRoot.equals("lobby") || commandRoot.equals("safelogout")) {
+         pendingManualHubCommand = true;
       }
    }
 
-   @Override
+   public void onShardSwap(LifestealShardSwapEvent event) {
+      String shardName = event.getShardName();
+      if (shardName == null || shardName.isBlank()) {
+         previousShard = null;
+         return;
+      }
+
+      String fromShard = event.getFromShard();
+      boolean isHubShard = isHubShard(shardName);
+      boolean wasHubShard = isHubShard(fromShard);
+
+      if (pendingManualHubCommand && !wasHubShard && isHubShard) {
+         manualHubSwapActive = true;
+         pendingManualHubCommand = false;
+         shouldAutoRejoin = false;
+         pendingJoinTicks = -1;
+         previousShard = shardName;
+         LOGGER.debug("[lsu-autojoin] detected manual transfer to hub shard '{}', skipping auto-rejoin", shardName);
+         return;
+      }
+
+      if (!isHubShard) {
+         pendingManualHubCommand = false;
+         manualHubSwapActive = false;
+      }
+
+      // if the player is in a lifesteal- shard  it resets the tracking 
+      if (shardName.startsWith("lifesteal-")) {
+         shouldAutoRejoin = false;
+         previousShard = shardName;
+         return;
+      }
+
+      // checks if you joined the first time or if you were on a lifesteal- shard before
+      if (shardName.startsWith("hub-")) {
+         boolean wasOnLifesteal = previousShard != null && previousShard.startsWith("lifesteal-");
+         boolean isFirstJoin = previousShard == null;
+
+         if (wasOnLifesteal) {
+            if (manualHubSwapActive) {
+               LOGGER.debug("[lsu-autojoin] detected manual swap to hub shard '{}', skipping auto-rejoin", shardName);
+               shouldAutoRejoin = false;
+               previousShard = shardName;
+               return;
+            }
+
+            shouldAutoRejoin = true;
+            pendingJoinTicks = 20;
+         } else if (isFirstJoin) {
+            shouldAutoRejoin = true;
+            pendingJoinTicks = 20;
+         } else {
+         }
+      }
+
+      previousShard = shardName;
+   }
+
    public void onClientTick(ClientTickEvent event) {
+      Minecraft client = Minecraft.getInstance();
+
+      if (client.player == null) {
+         if (wasConnected) {
+            disconnectTicks++;
+
+            if (disconnectTicks >= DISCONNECT_THRESHOLD_TICKS) {
+               previousShard = null;
+               pendingJoinTicks = -1;
+               shouldAutoRejoin = false;
+               pendingManualHubCommand = false;
+               manualHubSwapActive = false;
+               wasConnected = false;
+               disconnectTicks = 0;
+            }
+         }
+         return;
+      }
+
+      disconnectTicks = 0;
+
+      if (!wasConnected) {
+         wasConnected = true;
+      }
+
       // decrement cooldown
       if (joinCooldownTicks > 0) {
          joinCooldownTicks--;
@@ -75,15 +198,23 @@ public class AutoJoinLifesteal implements ServerEventListener, TickEventListener
    }
 
    private void performHubCheck() {
-      // skip if still on cooldown
       if (joinCooldownTicks > 0) {
          return;
       }
 
-      String currentShard = LifestealTablistAPI.getCurrentShard();
+      if (manualHubSwapActive) {
+         LOGGER.debug("[lsu-autojoin] failsafe: skipping hub check due to recent manual swap");
+         shouldAutoRejoin = false;
+         return;
+      }
+
+      String currentShard = LifestealAPI.getCurrentShard();
+
       if (currentShard != null && currentShard.startsWith("hub-")) {
-         LOGGER.debug("[lsu-autojoin] failsafe: still in hub shard '{}', executing /joinlifesteal", currentShard);
-         executeJoinCommand();
+         if (shouldAutoRejoin) {
+            LOGGER.debug("[lsu-autojoin] periodic retry: still in hub shard '{}', executing /joinlifesteal", currentShard);
+            executeJoinCommand();
+         }
       }
    }
 
@@ -95,5 +226,9 @@ public class AutoJoinLifesteal implements ServerEventListener, TickEventListener
          LOGGER.info("[lsu-autojoin] executed /joinlifesteal command");
          joinCooldownTicks = JOIN_COOLDOWN;
       }
+   }
+
+   private static boolean isHubShard(String shardName) {
+      return shardName != null && shardName.startsWith("hub");
    }
 }

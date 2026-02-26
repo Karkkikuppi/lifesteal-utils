@@ -7,7 +7,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.resources.Identifier;
-import net.minecraft.util.Mth;
 
 /**
  * Renders a directional compass indicator that points toward the currently tracked POI.
@@ -92,7 +91,7 @@ public final class PoiDirectionalIndicator {
     * @param guiHeight the current gui height
     */
    public void render(GuiGraphics graphics, int guiWidth, int guiHeight) {
-      if (!Config.isPoiHudCompassEnabled()) {
+      if (!isPoiHudCompassEnabled()) {
          return;
       }
       if (tracker.isIndicatorsSuppressedForShard()) {
@@ -142,8 +141,8 @@ public final class PoiDirectionalIndicator {
 
       // get position from HUD manager
       HudPosition position = HudElementManager.positionFor(HUD_ELEMENT_ID);
-      int indicatorX = pixelCoordinate(position.x(), guiWidth, TEXTURE_SIZE);
-      int indicatorY = pixelCoordinate(position.y(), guiHeight, TEXTURE_SIZE);
+      int indicatorX = HudElementManager.pixelCoordinate(position.x(), guiWidth, TEXTURE_SIZE);
+      int indicatorY = HudElementManager.pixelCoordinate(position.y(), guiHeight, TEXTURE_SIZE);
 
       // draw the compass texture
       graphics.blit(
@@ -166,20 +165,6 @@ public final class PoiDirectionalIndicator {
       // format: compass_00 to compass_31
       String frameName = String.format("compass_%02d", frameIndex);
       return Identifier.fromNamespaceAndPath("minecraft", "textures/item/" + frameName + ".png");
-   }
-
-   /**
-    * Calculates pixel coordinate from normalized position.
-    *
-    * @param normalized  the normalized coordinate (0-1)
-    * @param guiSize     the total gui size
-    * @param elementSize the element size
-    * @return the pixel coordinate
-    */
-   private int pixelCoordinate(float normalized, int guiSize, int elementSize) {
-      int available = Math.max(guiSize - elementSize, 0);
-      float clamped = Mth.clamp(normalized, 0F, 1F);
-      return Mth.floor(clamped * available);
    }
 
    /**
@@ -206,12 +191,36 @@ public final class PoiDirectionalIndicator {
     * @return true if the indicator should render
     */
    public boolean isVisible() {
-      if (!Config.isPoiHudCompassEnabled()) {
+      if (!isPoiHudCompassEnabled()) {
          return false;
       }
       if (tracker.isIndicatorsSuppressedForShard()) {
          return false;
       }
       return tracker.getCurrentTarget() != null;
+   }
+
+   /**
+    * Checks if the POI HUD text should be displayed.
+    *
+    * @return true if the text should render
+    */
+   public static boolean isPoiHudTextEnabled() {
+      if (!Config.isPoiWaypointsEnabled()) {
+         return false;
+      }
+      return Config.getPoiHudIndicatorMode().isShowsTextIndicator();
+   }
+
+   /**
+    * Checks if the POI HUD compass indicator should be displayed.
+    *
+    * @return true if the compass should render
+    */
+   public static boolean isPoiHudCompassEnabled() {
+      if (!Config.isPoiWaypointsEnabled()) {
+         return false;
+      }
+      return Config.getPoiHudIndicatorMode().isShowsCompassIndicator();
    }
 }

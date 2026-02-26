@@ -1,4 +1,5 @@
 import dev.kikugie.stonecutter.data.ParsedVersion
+import java.io.File
 import java.net.URI
 
 plugins {
@@ -45,32 +46,39 @@ repositories {
         name = "Xaero's Maven"
         url = URI.create("https://chocolateminecraft.com/maven")
     }
+
+    maven {
+        name = "UkuLib Maven"
+        url = URI.create("https://maven.uku3lig.net/releases")
+    }
+
+    maven {
+        name = "Jitpack"
+        url = URI.create("https://jitpack.io")
+    }
 }
 
 dependencies {
-    /**
-     * Fetches only the required Fabric API modules to not waste time downloading all of them for each version.
-     * @see <a href="https://github.com/FabricMC/fabric">List of Fabric API modules</a>
-     */
-    // unused for now
-    fun fapi(vararg modules: String) {
-        for (it in modules) modImplementation(fabricApi.module(it, property("deps.fabric_api") as String))
-    }
-
+    // minecraft things
     minecraft("com.mojang:minecraft:${sc.current.version}")
     mappings(loom.officialMojangMappings())
     modImplementation("net.fabricmc:fabric-loader:${property("deps.fabric_loader")}")
-    modImplementation("com.terraformersmc:modmenu:${property("deps.modmenu")}")
-    if (sc.current.parsed == ParsedVersion("1.21.9")) {
-        modImplementation(fletchingTable.modrinth("xaeros-minimap", property("mod.mc_dep") as String, "fabric"))
-    } else {
-        modImplementation("xaero.minimap:xaerominimap-fabric-${property("deps.xaerominimap")}")
-    }
+
+    // mod dependencies / integrations
+    modImplementation("net.uku3lig:ukulib:${property("deps.ukulib")}")
     modImplementation("dev.isxander:yet-another-config-lib:${property("deps.yacl")}")
     modImplementation("net.kyori:adventure-platform-fabric:${property("deps.adventure")}")
     modImplementation("net.fabricmc.fabric-api:fabric-api:${property("deps.fabric_api")}")
+
+    // bundled dependencies & libraries
     include("net.kyori:adventure-platform-fabric:${property("deps.adventure")}")
-    //fapi("fabric-lifecycle-events-v1", "fabric-resource-loader-v0", "fabric-content-registries-v0")
+    compileOnly("org.projectlombok:lombok:1.18.42")
+    annotationProcessor("org.projectlombok:lombok:1.18.42")
+
+    // mod integrations
+    modApi(fletchingTable.modrinth("modmenu", property("mod.mc_dep") as String, "fabric"))
+    modApi(fletchingTable.modrinth("tiertagger", property("mod.mc_dep") as String, "fabric"))
+    modApi(fletchingTable.modrinth("xaeros-minimap", property("mod.mc_dep") as String, "fabric"))
 }
 
 loom {
@@ -94,7 +102,79 @@ java {
     sourceCompatibility = requiredJava
 }
 
+val generatedConfigContainerIndexDir = layout.buildDirectory.dir("generated/sources/configContainerIndex/java/main")
+
+sourceSets.named("main") {
+    java.srcDir(generatedConfigContainerIndexDir)
+}
+
 tasks {
+    register("generateConfigContainerIndex") {
+        group = "build"
+        description = "Generates config container index from @Configurable* declarations"
+
+        val sourceRoot = rootProject.file("src/main/java")
+        val outputRoot = generatedConfigContainerIndexDir
+        val outputFile = outputRoot.map {
+            File(it.asFile, "dev/candycup/lifestealutils/config/generated/GeneratedConfigContainerIndex.java")
+        }
+
+        inputs.dir(sourceRoot)
+        outputs.file(outputFile)
+
+        doLast {
+            val configurableRegex = Regex("@Configurable(Boolean|String|Minimessage|Float|Enum|List)\\b")
+            val packageRegex = Regex("(?m)^\\s*package\\s+([a-zA-Z0-9_.]+)\\s*;")
+            val classRegex = Regex("\\b(public\\s+)?(final\\s+)?(abstract\\s+)?(class|enum|interface|record)\\s+([A-Za-z_][A-Za-z0-9_]*)")
+            val discoveredClasses = linkedSetOf<String>()
+
+            sourceRoot.walkTopDown()
+                .filter { it.isFile && it.extension == "java" }
+                .forEach { javaFile ->
+                    val source = javaFile.readText()
+                    if (!configurableRegex.containsMatchIn(source)) {
+                        return@forEach
+                    }
+
+                    val packageName = packageRegex.find(source)?.groupValues?.get(1) ?: return@forEach
+                    val className = classRegex.find(source)?.groupValues?.get(5) ?: return@forEach
+                    discoveredClasses.add("$packageName.$className")
+                }
+
+            val sortedClasses = discoveredClasses.toList().sorted()
+            val output = outputFile.get()
+            output.parentFile.mkdirs()
+
+            val content = buildString {
+                appendLine("package dev.candycup.lifestealutils.config.generated;")
+                appendLine()
+                appendLine("import dev.candycup.lifestealutils.config.ConfigContainerRegistry;")
+                appendLine()
+                appendLine("public final class GeneratedConfigContainerIndex {")
+                appendLine("   private GeneratedConfigContainerIndex() {")
+                appendLine("   }")
+                appendLine()
+                appendLine("   public static void registerAll() {")
+                appendLine("      ConfigContainerRegistry.clear();")
+                sortedClasses.forEach { fqcn ->
+                    appendLine("      ConfigContainerRegistry.registerContainer($fqcn.class);")
+                }
+                appendLine("   }")
+                appendLine("}")
+            }
+
+            output.writeText(content)
+        }
+    }
+
+    named("compileJava") {
+        dependsOn("generateConfigContainerIndex")
+    }
+
+    named("sourcesJar") {
+        dependsOn("generateConfigContainerIndex")
+    }
+
     processResources {
         inputs.property("id", project.property("mod.id"))
         inputs.property("name", project.property("mod.name"))

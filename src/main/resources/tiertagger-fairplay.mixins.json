@@ -1,0 +1,17 @@
+{
+  "required": true,
+  "package": "dev.candycup.lifestealutils.integrations.tiertagger",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "TierTaggerMixin"
+  ],
+  "client": [
+    "UkuLibFairplayMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "overwrites": {
+    "requireAnnotations": true
+  }
+}

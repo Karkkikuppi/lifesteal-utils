@@ -1,9 +1,11 @@
 package dev.candycup.lifestealutils.features.messages;
 
 import dev.candycup.lifestealutils.Config;
-import dev.candycup.lifestealutils.event.EventPriority;
-import dev.candycup.lifestealutils.event.events.ChatMessageReceivedEvent;
-import dev.candycup.lifestealutils.event.listener.ChatEventListener;
+import dev.candycup.lifestealutils.api.LifestealAPI;
+import dev.candycup.lifestealutils.api.LifestealServerDetector;
+import dev.candycup.lifestealutils.event.LifestealUtilsEvents;
+import dev.candycup.lifestealutils.event.LifestealUtilsEvents.ChatMessageReceivedEvent;
+import dev.candycup.lifestealutils.event.LifestealUtilsEvents.PlayerNameRenderEvent;
 import dev.candycup.lifestealutils.interapi.MessagingUtils;
 import net.kyori.adventure.platform.modcommon.MinecraftClientAudiences;
 import net.kyori.adventure.text.minimessage.MiniMessage;
@@ -16,33 +18,50 @@ import org.slf4j.LoggerFactory;
  * example: "<bold><#FF7200>HEROIC</#FF7200></bold><green>+</green>"
  * -> "<bold><#FF7200>HEROIC+</#FF7200></bold>"
  */
-public class RankPlusColorNormalizer implements ChatEventListener {
+public class RankPlusColorNormalizer {
    private static final Logger LOGGER = LoggerFactory.getLogger("lifestealutils/rankplus");
    private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
 
-   @Override
+   public RankPlusColorNormalizer() {
+      LifestealUtilsEvents.CHAT_MESSAGE_RECEIVED.register(event -> {
+         if (!isEnabled()) {
+            return;
+         }
+         onChatMessageReceived(event);
+      });
+      LifestealUtilsEvents.PLAYER_NAME_RENDER.register(event -> {
+         if (!isEnabled()) {
+            return;
+         }
+         onPlayerNameRender(event);
+      });
+   }
+
    public boolean isEnabled() {
-      return Config.getRemoveUniquePlusColor();
+      return Config.isRemoveUniquePlusColor();
    }
 
-   @Override
-   public EventPriority getPriority() {
-      return EventPriority.NORMAL;
-   }
-
-   @Override
    public void onChatMessageReceived(ChatMessageReceivedEvent event) {
-      Component original = event.getModifiedMessage();
-      String serialized = MINI_MESSAGE.serialize(
-              MinecraftClientAudiences.of().asAdventure(original)
-      );
+      Component normalized = normalizeComponent(event.getModifiedMessage());
+      if (normalized != event.getModifiedMessage()) {
+         event.setModifiedMessage(normalized);
+         LOGGER.debug("[lsu-rankplus] normalized plus color in chat");
+      }
+   }
 
-      String filtered = normalizePlusColor(serialized);
+   public void onPlayerNameRender(PlayerNameRenderEvent event) {
+      if (event.getRenderContext() != PlayerNameRenderEvent.RenderContext.TABLIST) {
+         return;
+      }
 
-      if (!filtered.equals(serialized)) {
-         Component modified = MessagingUtils.miniMessage(filtered);
-         event.setModifiedMessage(modified);
-         LOGGER.debug("[lsu-rankplus] normalized plus color");
+      if (!LifestealAPI.isOnLifestealNetwork()) {
+         return;
+      }
+
+      Component normalized = normalizeComponent(event.getModifiedDisplayName());
+      if (normalized != event.getModifiedDisplayName()) {
+         event.setModifiedDisplayName(normalized);
+         LOGGER.debug("[lsu-rankplus] normalized plus color in tablist");
       }
    }
 
@@ -63,5 +82,22 @@ public class RankPlusColorNormalizer implements ChatEventListener {
       result = result.replaceAll("[\\s\\u00A0]+", " ").trim();
 
       return result;
+   }
+
+   private Component normalizeComponent(Component component) {
+      if (component == null) {
+         return null;
+      }
+
+      String serialized = MINI_MESSAGE.serialize(
+              MinecraftClientAudiences.of().asAdventure(component)
+      );
+
+      String filtered = normalizePlusColor(serialized);
+      if (filtered.equals(serialized)) {
+         return component;
+      }
+
+      return MessagingUtils.miniMessage(filtered);
    }
 }

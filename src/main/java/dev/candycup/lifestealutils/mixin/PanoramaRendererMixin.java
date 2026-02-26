@@ -22,7 +22,7 @@ public class PanoramaRendererMixin {
 
    @Inject(method = "<init>", at = @At("TAIL"))
    private void replaceCubeMap(CubeMap original, CallbackInfo ci) {
-      if (Config.getCustomPanoramaEnabled()) {
+      if (Config.isCustomPanoramaEnabled()) {
          this.cubeMap = new CubeMap(Identifier.fromNamespaceAndPath("lifestealutils", "textures/gui/title/background/panorama"));
       }
    }

@@ -1,7 +1,6 @@
 package dev.candycup.lifestealutils.mixin;
 
-import dev.candycup.lifestealutils.event.EventBus;
-import dev.candycup.lifestealutils.event.events.TitleScreenInitEvent;
+import dev.candycup.lifestealutils.event.LifestealUtilsEvents;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.network.chat.Component;
@@ -18,7 +17,6 @@ public class TitleScreenMixin extends Screen {
 
    @Inject(method = "init", at = @At("TAIL"))
    public void init(CallbackInfo ci) {
-      TitleScreenInitEvent event = new TitleScreenInitEvent((TitleScreen) (Object) this);
-      EventBus.getInstance().post(event);
+      LifestealUtilsEvents.TITLE_SCREEN_INIT.invoker().onTitleScreenInit((TitleScreen) (Object) this);
    }
 }

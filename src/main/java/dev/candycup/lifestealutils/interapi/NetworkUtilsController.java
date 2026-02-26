@@ -37,6 +37,7 @@ public final class NetworkUtilsController {
    private static final Logger LOGGER = LoggerFactory.getLogger("lifestealutils/network");
    private static final String USER_AGENT = "LifestealUtils/" + detectModVersion();
    private static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(5);
+   private static final String LINE_SEPARATOR = "\n";
 
    private static final Map<String, Long> lastRequestTimePerHost = new ConcurrentHashMap<>();
    private static final long DEFAULT_RATE_LIMIT_MS = TimeUnit.SECONDS.toMillis(1);
@@ -128,6 +129,227 @@ public final class NetworkUtilsController {
             StringBuilder response = new StringBuilder();
             String line;
             while ((line = reader.readLine()) != null) {
+               if (!response.isEmpty()) {
+                  response.append(LINE_SEPARATOR);
+               }
+               response.append(line);
+            }
+            return HttpResult.success(responseCode, response.toString());
+         }
+      } catch (Exception e) {
+         LOGGER.debug("http request failed for {}: {}", url, e.getMessage());
+         return HttpResult.failure("request failed: " + e.getMessage());
+      }
+   }
+
+   /**
+    * makes a blocking POST request with a JSON body.
+    *
+    * @param url  the url to request
+    * @param body the json body to send
+    * @return the result of the request
+    */
+   public static HttpResult postJson(String url, String body) {
+      return postJson(url, body, DEFAULT_TIMEOUT, 0);
+   }
+
+   /**
+    * makes a blocking POST request with a JSON body and custom timeout.
+    *
+    * @param url         the url to request
+    * @param body        the json body to send
+    * @param timeout     the request timeout
+    * @param rateLimitMs minimum milliseconds between requests to the same host (0 to disable)
+    * @return the result of the request
+    */
+   public static HttpResult postJson(String url, String body, Duration timeout, long rateLimitMs) {
+      if (url == null || url.isBlank()) {
+         return HttpResult.failure("url is null or blank");
+      }
+
+      if (body == null) {
+         return HttpResult.failure("body is null");
+      }
+
+      try {
+         URI uri = new URI(url);
+         String host = uri.getHost();
+
+         if (rateLimitMs > 0 && host != null) {
+            Long lastRequest = lastRequestTimePerHost.get(host);
+            if (lastRequest != null && System.currentTimeMillis() - lastRequest < rateLimitMs) {
+               return HttpResult.failure("rate limited");
+            }
+         }
+
+         if (host != null) {
+            lastRequestTimePerHost.put(host, System.currentTimeMillis());
+         }
+
+         HttpURLConnection connection = (HttpURLConnection) uri.toURL().openConnection();
+         connection.setRequestMethod("POST");
+         connection.setConnectTimeout((int) timeout.toMillis());
+         connection.setReadTimeout((int) timeout.toMillis());
+         connection.setRequestProperty("User-Agent", USER_AGENT);
+         connection.setRequestProperty("Content-Type", "application/json");
+         connection.setDoOutput(true);
+
+         byte[] payload = body.getBytes(StandardCharsets.UTF_8);
+         try (var outputStream = connection.getOutputStream()) {
+            outputStream.write(payload);
+         }
+
+         int responseCode = connection.getResponseCode();
+         if (responseCode < 200 || responseCode >= 300) {
+            return HttpResult.failure(responseCode, "non-ok status code: " + responseCode);
+         }
+
+         try (BufferedReader reader = new BufferedReader(
+                 new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8))) {
+            StringBuilder response = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) {
+               if (!response.isEmpty()) {
+                  response.append(LINE_SEPARATOR);
+               }
+               response.append(line);
+            }
+            return HttpResult.success(responseCode, response.toString());
+         }
+      } catch (Exception e) {
+         LOGGER.debug("http request failed for {}: {}", url, e.getMessage());
+         return HttpResult.failure("request failed: " + e.getMessage());
+      }
+   }
+
+   /**
+    * makes a blocking GET request with authentication.
+    *
+    * @param url         the url to request
+    * @param authToken   the bearer token for authentication
+    * @param timeout     the request timeout
+    * @param rateLimitMs minimum milliseconds between requests to the same host (0 to disable)
+    * @return the result of the request
+    */
+   public static HttpResult getWithAuth(String url, String authToken, Duration timeout, long rateLimitMs) {
+      if (url == null || url.isBlank()) {
+         return HttpResult.failure("url is null or blank");
+      }
+
+      if (authToken == null || authToken.isBlank()) {
+         return HttpResult.failure("auth token is null or blank");
+      }
+
+      try {
+         URI uri = new URI(url);
+         String host = uri.getHost();
+
+         if (rateLimitMs > 0 && host != null) {
+            Long lastRequest = lastRequestTimePerHost.get(host);
+            if (lastRequest != null && System.currentTimeMillis() - lastRequest < rateLimitMs) {
+               return HttpResult.failure("rate limited");
+            }
+         }
+
+         if (host != null) {
+            lastRequestTimePerHost.put(host, System.currentTimeMillis());
+         }
+
+         HttpURLConnection connection = (HttpURLConnection) uri.toURL().openConnection();
+         connection.setRequestMethod("GET");
+         connection.setConnectTimeout((int) timeout.toMillis());
+         connection.setReadTimeout((int) timeout.toMillis());
+         connection.setRequestProperty("User-Agent", USER_AGENT);
+         connection.setRequestProperty("Authorization", "Bearer " + authToken);
+
+         int responseCode = connection.getResponseCode();
+         if (responseCode < 200 || responseCode >= 300) {
+            return HttpResult.failure(responseCode, "non-ok status code: " + responseCode);
+         }
+
+         try (BufferedReader reader = new BufferedReader(
+                 new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8))) {
+            StringBuilder response = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) {
+               if (!response.isEmpty()) {
+                  response.append(LINE_SEPARATOR);
+               }
+               response.append(line);
+            }
+            return HttpResult.success(responseCode, response.toString());
+         }
+      } catch (Exception e) {
+         LOGGER.debug("http request failed for {}: {}", url, e.getMessage());
+         return HttpResult.failure("request failed: " + e.getMessage());
+      }
+   }
+
+   /**
+    * makes a blocking POST request with a JSON body and authentication.
+    *
+    * @param url         the url to request
+    * @param body        the json body to send
+    * @param authToken   the bearer token for authentication
+    * @param timeout     the request timeout
+    * @param rateLimitMs minimum milliseconds between requests to the same host (0 to disable)
+    * @return the result of the request
+    */
+   public static HttpResult postJsonWithAuth(String url, String body, String authToken, Duration timeout, long rateLimitMs) {
+      if (url == null || url.isBlank()) {
+         return HttpResult.failure("url is null or blank");
+      }
+
+      if (body == null) {
+         return HttpResult.failure("body is null");
+      }
+
+      if (authToken == null || authToken.isBlank()) {
+         return HttpResult.failure("auth token is null or blank");
+      }
+
+      try {
+         URI uri = new URI(url);
+         String host = uri.getHost();
+
+         if (rateLimitMs > 0 && host != null) {
+            Long lastRequest = lastRequestTimePerHost.get(host);
+            if (lastRequest != null && System.currentTimeMillis() - lastRequest < rateLimitMs) {
+               return HttpResult.failure("rate limited");
+            }
+         }
+
+         if (host != null) {
+            lastRequestTimePerHost.put(host, System.currentTimeMillis());
+         }
+
+         HttpURLConnection connection = (HttpURLConnection) uri.toURL().openConnection();
+         connection.setRequestMethod("POST");
+         connection.setConnectTimeout((int) timeout.toMillis());
+         connection.setReadTimeout((int) timeout.toMillis());
+         connection.setRequestProperty("User-Agent", USER_AGENT);
+         connection.setRequestProperty("Content-Type", "application/json");
+         connection.setRequestProperty("Authorization", "Bearer " + authToken);
+         connection.setDoOutput(true);
+
+         byte[] payload = body.getBytes(StandardCharsets.UTF_8);
+         try (var outputStream = connection.getOutputStream()) {
+            outputStream.write(payload);
+         }
+
+         int responseCode = connection.getResponseCode();
+         if (responseCode < 200 || responseCode >= 300) {
+            return HttpResult.failure(responseCode, "non-ok status code: " + responseCode);
+         }
+
+         try (BufferedReader reader = new BufferedReader(
+                 new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8))) {
+            StringBuilder response = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) {
+               if (!response.isEmpty()) {
+                  response.append(LINE_SEPARATOR);
+               }
                response.append(line);
             }
             return HttpResult.success(responseCode, response.toString());
