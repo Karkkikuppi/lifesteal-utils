@@ -133,9 +133,7 @@ public final class BasicTimerManager {
    }
 
    private String textFor(String id, BasicTimerDefinition definition) {
-      if (!Config.isBasicTimerEnabled(id)) {
-         return "";
-      }
+      if (!Config.isBasicTimerEnabled(id)) return "";
 
       boolean hasEnchant = true;
       boolean inEditor = Minecraft.getInstance().screen instanceof HudElementEditor;
