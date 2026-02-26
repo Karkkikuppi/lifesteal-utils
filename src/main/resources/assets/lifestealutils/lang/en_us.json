@@ -207,6 +207,8 @@
   "lsu.config.timers.heavenly.valuedisplay.numeric": "Numeric",
   "lsu.config.timers.heavenly.valuedisplay.percentage": "Percentage",
   "lsu.config.timers.customenchanttimers": "Custom Enchant Timers",
+  "lsu.config.timers.customenchanttimers.autohide": "Toggle Autohide",
+  "lsu.config.timers.customenchanttimers.autohide.desc": "Automatically hide custom timers if you don't have the custom in your inventory",
   "lsu.config.alliances": "⚐ Alliances",
   "lsu.config.alliances.general": "Alliance Settings",
   "lsu.config.alliances.general.enablealliances": "⧈ Enable Alliances",

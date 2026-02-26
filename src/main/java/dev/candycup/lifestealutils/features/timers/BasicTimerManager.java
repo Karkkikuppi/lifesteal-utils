@@ -1,5 +1,7 @@
 package dev.candycup.lifestealutils.features.timers;
 
+import com.mojang.serialization.DataResult;
+import com.mojang.serialization.DynamicOps;
 import dev.candycup.lifestealutils.Config;
 import dev.candycup.lifestealutils.event.LifestealUtilsEvents;
 import dev.candycup.lifestealutils.event.LifestealUtilsEvents.ChatMessageReceivedEvent;
@@ -7,7 +9,15 @@ import dev.candycup.lifestealutils.event.LifestealUtilsEvents.ClientTickEvent;
 import dev.candycup.lifestealutils.hud.HudAnchor;
 import dev.candycup.lifestealutils.hud.HudElementDefinition;
 import dev.candycup.lifestealutils.hud.HudPosition;
+import dev.candycup.lifestealutils.ui.HudElementEditor;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.component.DataComponentPatch;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NbtOps;
+import net.minecraft.nbt.Tag;
 import net.minecraft.resources.Identifier;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.item.ItemStack;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -126,8 +136,41 @@ public final class BasicTimerManager {
       if (!Config.isBasicTimerEnabled(id)) {
          return "";
       }
+
+      boolean hasEnchant = true;
+      boolean inEditor = Minecraft.getInstance().screen instanceof HudElementEditor;
+      if (Config.isTimerAutoHide() && !inEditor) {
+         hasEnchant = false;
+
+         Inventory inventory = Minecraft.getInstance().player.getInventory();
+
+         for (int slot = 0; slot < inventory.getContainerSize(); slot++) {
+            ItemStack stack = inventory.getItem(slot);
+
+            if (stack.isEmpty()) continue;
+
+            Tag tag = encodeStack(stack, Minecraft.getInstance().player.registryAccess().createSerializationContext(NbtOps.INSTANCE));
+
+            if (!(tag instanceof CompoundTag nbt)) continue;
+
+            CompoundTag custom = nbt.getCompound("minecraft:custom_data").orElse(null);
+            if (custom == null) continue;
+
+            CompoundTag pbv = custom.getCompound("PublicBukkitValues").orElse(null);;
+            if (pbv == null) continue;
+
+            if (pbv.contains(definition.nbtId())) {
+               hasEnchant = true;
+               break;
+            }
+         }
+
+         if (!hasEnchant) return "";
+      }
+
       TimerState state = states.get(id);
       int remainingTicks = state != null ? state.remainingTicks : 0;
+
       String value;
       if (remainingTicks > 0) {
          int remainingSeconds = (remainingTicks + 19) / 20;
@@ -140,9 +183,11 @@ public final class BasicTimerManager {
       if (format == null || format.isBlank()) {
          format = "{{timer}}";
       }
+
       if (format.contains("{{timer}}")) {
          return format.replace("{{timer}}", value);
       }
+
       return format + " " + value;
    }
 
@@ -184,6 +229,12 @@ public final class BasicTimerManager {
       return candidate;
    }
 
+   private static CompoundTag encodeStack(ItemStack stack, DynamicOps<Tag> ops) {
+      DataResult<Tag> result = DataComponentPatch.CODEC.encodeStart(ops, stack.getComponentsPatch());
+      Tag nbtElement = result.getOrThrow();
+      return (CompoundTag) nbtElement;
+   }
+
    private static final class TimerState {
       int remainingTicks;
 
@@ -191,4 +242,5 @@ public final class BasicTimerManager {
          this.remainingTicks = remainingTicks;
       }
    }
+
 }

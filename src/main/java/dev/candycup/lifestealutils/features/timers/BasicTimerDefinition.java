@@ -6,6 +6,7 @@ public record BasicTimerDefinition(
         String toggleOption,
         String defaultFormat,
         String passiveState,
-        int durationSeconds
+        int durationSeconds,
+        String nbtId
 ) {
 }
