@@ -2,193 +2,138 @@ package dev.candycup.lifestealutils.features.alliances.service;
 
 import com.mojang.brigadier.suggestion.Suggestions;
 import com.mojang.brigadier.suggestion.SuggestionsBuilder;
-import dev.candycup.lifestealutils.Config;
-import dev.candycup.lifestealutils.features.alliances.AllianceNameRenderHandler;
-import dev.candycup.lifestealutils.features.alliances.models.Alliance;
-import dev.candycup.lifestealutils.features.alliances.models.AllianceMember;
+import dev.candycup.lifestealutils.features.alliances.Alliances;
 import dev.candycup.lifestealutils.interapi.MessagingUtils;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.resources.language.I18n;
+import net.minecraft.client.multiplayer.ClientPacketListener;
+import net.minecraft.commands.SharedSuggestionProvider;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 public final class AllianceSelectionController {
    private AllianceSelectionController() {
    }
 
-   public static CompletableFuture<Suggestions> suggestAllianceNames(String remaining, SuggestionsBuilder builder) {
-      return AllianceManagers.fetchPlayerAlliances().thenApply(playerAlliances -> {
-         Set<String> seen = new HashSet<>();
-         for (Alliance alliance : playerAlliances) {
-            if (alliance == null) {
-               continue;
-            }
-
-            String displayName = alliance.getDisplayName();
-            if (displayName != null && !displayName.isBlank()) {
-               String key = displayName.toLowerCase(Locale.ROOT);
-               if ((remaining.isBlank() || key.contains(remaining)) && seen.add(key)) {
-                  builder.suggest(displayName);
-               }
-            }
-
-            String name = alliance.name();
-            if (name != null && !name.isBlank()) {
-               String key = name.toLowerCase(Locale.ROOT);
-               if ((remaining.isBlank() || key.contains(remaining)) && seen.add(key)) {
-                  builder.suggest(name);
-               }
-            }
+   public static CompletableFuture<Suggestions> suggestOnlinePlayerNames(String remaining, SuggestionsBuilder builder) {
+      Set<String> suggestions = new HashSet<>();
+      for (String playerName : getOnlinePlayerNames()) {
+         if (matchesSuggestion(remaining, playerName)) {
+            suggestions.add(playerName);
          }
-         return builder.build();
-      }).exceptionally(error -> builder.build());
+      }
+
+      suggestions.stream()
+              .sorted(String.CASE_INSENSITIVE_ORDER)
+              .forEach(builder::suggest);
+      return builder.buildFuture();
    }
 
-   public static int selectAllianceByName(String rawAllianceName) {
-      String allianceName = rawAllianceName == null ? "" : rawAllianceName.trim();
-      if (allianceName.isEmpty()) {
-         MessagingUtils.showMiniMessage(I18n.get("lsu.alliances.select.required"));
+   public static CompletableFuture<Suggestions> suggestCurrentAllianceMemberNames(String remaining, SuggestionsBuilder builder) {
+      Set<String> suggestions = new HashSet<>();
+      for (String playerName : Alliances.getAllianceDisplayNames()) {
+         if (matchesSuggestion(remaining, playerName)) {
+            suggestions.add(playerName);
+         }
+      }
+
+      suggestions.stream()
+              .sorted(String.CASE_INSENSITIVE_ORDER)
+              .forEach(builder::suggest);
+      return builder.buildFuture();
+   }
+
+   public static int addCurrentAllianceMemberByName(String rawPlayerName) {
+      String playerName = rawPlayerName == null ? "" : rawPlayerName.trim();
+      if (playerName.isEmpty()) {
+         MessagingUtils.showMiniMessage("<red>Please provide a player name.</red>");
          return 0;
       }
 
-      AllianceManagers.fetchPlayerAlliances().thenAccept(playerAlliances -> {
-         Minecraft.getInstance().execute(() -> {
-            Alliance selectedAlliance = findAllianceByName(playerAlliances, allianceName);
-            if (selectedAlliance == null) {
-               MessagingUtils.showMiniMessage(I18n.get("lsu.alliances.select.not_found", MiniMessage.miniMessage().escapeTags(allianceName)));
-               return;
-            }
-
-            Config.setSelectedAllianceId(selectedAlliance.id());
-            MessagingUtils.showMiniMessage(I18n.get("lsu.alliances.select.success", MiniMessage.miniMessage().escapeTags(selectedAlliance.getDisplayName())));
-         });
-      });
-
+      String resolvedName = resolveOnlinePlayerName(playerName);
+      Alliances.addAllianceAsync(resolvedName, added -> Minecraft.getInstance().execute(() -> {
+         String escapedName = escapeMiniMessage(resolvedName);
+         if (added) {
+            MessagingUtils.showMiniMessage(Alliances.withDisabledWarning("<green>Added <white>" + escapedName + "</white> to your alliance.</green>"));
+         } else {
+            MessagingUtils.showMiniMessage(Alliances.withDisabledWarning("<red>Could not find player <white>" + escapedName + "</white>.</red>"));
+         }
+      }));
       return 1;
    }
 
-   public static void toggleSelectedAllianceMember(String targetUuid, String targetName) {
-      String selectedAllianceId = Config.getSelectedAllianceId();
-      if (selectedAllianceId.isBlank()) {
-         MessagingUtils.showMiniMessage(I18n.get("lsu.alliances.select.none"));
-         return;
+   public static int removeCurrentAllianceMemberByName(String rawPlayerName) {
+      String playerName = rawPlayerName == null ? "" : rawPlayerName.trim();
+      if (playerName.isEmpty()) {
+         MessagingUtils.showMiniMessage("<red>Please provide a player from the current friend list.</red>");
+         return 0;
       }
 
-      AllianceManagers.fetchPlayerAlliances().thenAccept(playerAlliances -> {
-         Minecraft.getInstance().execute(() -> {
-            Alliance selectedAlliance = findAllianceById(playerAlliances, selectedAllianceId);
-            if (selectedAlliance == null) {
-               Config.setSelectedAllianceId("");
-               MessagingUtils.showMiniMessage(I18n.get("lsu.alliances.select.stale"));
-               return;
-            }
-
-            String escapedName = MiniMessage.miniMessage().escapeTags(targetName);
-            String escapedAllianceName = MiniMessage.miniMessage().escapeTags(selectedAlliance.getDisplayName());
-            AllianceMember existingMember = findMemberByUuid(selectedAlliance, targetUuid);
-            if (existingMember != null) {
-               AllianceManagers.removeMember(selectedAlliance, existingMember.id()).thenAccept(success -> {
-                  Minecraft.getInstance().execute(() -> {
-                     if (success) {
-                        AllianceNameRenderHandler.refreshPrefixCandidatesNow();
-                        MessagingUtils.showMiniMessage(I18n.get("lsu.alliances.select.remove_success", escapedName, escapedAllianceName));
-                     } else {
-                        MessagingUtils.showMiniMessage(I18n.get("lsu.alliances.select.remove_failed", escapedName, escapedAllianceName));
-                     }
-                  });
-               });
-               return;
-            }
-
-            AllianceManagers.addMember(selectedAlliance, targetUuid, targetName).thenAccept(success -> {
-               Minecraft.getInstance().execute(() -> {
-                  if (success) {
-                     cacheResolvedName(targetUuid, targetName);
-                     AllianceNameRenderHandler.refreshPrefixCandidatesNow();
-                     MessagingUtils.showMiniMessage(I18n.get("lsu.alliances.select.add_success", escapedName, escapedAllianceName));
-                  } else {
-                     MessagingUtils.showMiniMessage(I18n.get("lsu.alliances.select.add_failed", escapedName, escapedAllianceName));
-                  }
-               });
-            });
-         });
-      });
-   }
-
-   private static void cacheResolvedName(String targetUuid, String targetName) {
-      if (targetUuid == null || targetUuid.isBlank() || targetName == null || targetName.isBlank()) {
-         return;
-      }
-
-      try {
-         PlayerUuidResolver.updateCache(UUID.fromString(targetUuid), targetName);
-      } catch (IllegalArgumentException ignored) {
-      }
-   }
-
-   private static AllianceMember findMemberByUuid(Alliance alliance, String targetUuid) {
-      if (alliance == null || targetUuid == null || targetUuid.isBlank()) {
-         return null;
-      }
-
-      String normalizedTargetUuid = normalizeUuid(targetUuid);
-      for (AllianceMember member : alliance.members()) {
-         if (member == null || member.uuid() == null) {
-            continue;
+      Alliances.removeAllianceAsync(playerName, removed -> Minecraft.getInstance().execute(() -> {
+         String escapedName = escapeMiniMessage(playerName);
+         if (removed) {
+            MessagingUtils.showMiniMessage(Alliances.withDisabledWarning("<yellow>Removed <white>" + escapedName + "</white> from your alliance.</yellow>"));
+         } else {
+            MessagingUtils.showMiniMessage(Alliances.withDisabledWarning("<red>Could not find player <white>" + escapedName + "</white> in your alliance.</red>"));
          }
-         if (normalizeUuid(member.uuid()).equalsIgnoreCase(normalizedTargetUuid)) {
-            return member;
-         }
-      }
-      return null;
+      }));
+      return 1;
    }
 
-   private static Alliance findAllianceById(List<Alliance> alliances, String allianceId) {
-      for (Alliance alliance : alliances) {
-         if (alliance != null && alliance.id().equals(allianceId)) {
-            return alliance;
-         }
-      }
-      return null;
+   public static int listCurrentAllianceMembers() {
+      Alliances.showAllianceList();
+      return 1;
    }
 
-   private static Alliance findAllianceByName(List<Alliance> alliances, String query) {
-      String lowered = query.toLowerCase(Locale.ROOT);
-      for (Alliance alliance : alliances) {
-         if (alliance == null) {
+   private static List<String> getOnlinePlayerNames() {
+      ClientPacketListener connection = Minecraft.getInstance().getConnection();
+      if (connection == null) {
+         return List.of();
+      }
+
+      List<String> playerNames = new ArrayList<>();
+      for (var playerInfo : connection.getOnlinePlayers()) {
+         if (playerInfo == null || playerInfo.getProfile() == null) {
             continue;
          }
 
-         if (alliance.getDisplayName().equalsIgnoreCase(query) || alliance.name().equalsIgnoreCase(query)) {
-            return alliance;
+         //? if >1.21.8 {
+         String playerName = playerInfo.getProfile().name();
+         //?} else {
+         /*String playerName = playerInfo.getProfile().getName();
+          *///?}
+         if (playerName != null && !playerName.isBlank()) {
+            playerNames.add(playerName);
          }
       }
-
-      for (Alliance alliance : alliances) {
-         if (alliance == null) {
-            continue;
-         }
-
-         String displayName = alliance.getDisplayName().toLowerCase(Locale.ROOT);
-         String name = alliance.name().toLowerCase(Locale.ROOT);
-         if (displayName.contains(lowered) || name.contains(lowered)) {
-            return alliance;
-         }
-      }
-
-      return null;
+      return playerNames;
    }
 
-   private static String normalizeUuid(String uuid) {
-      if (uuid == null) {
-         return "";
+   private static String resolveOnlinePlayerName(String query) {
+      for (String playerName : getOnlinePlayerNames()) {
+         if (playerName.equalsIgnoreCase(query)) {
+            return playerName;
+         }
       }
-      return uuid.replace("-", "");
+      return query;
+   }
+
+   private static boolean matchesSuggestion(String remaining, String suggestion) {
+      if (suggestion == null || suggestion.isBlank()) {
+         return false;
+      }
+      if (remaining == null || remaining.isBlank()) {
+         return true;
+      }
+      return SharedSuggestionProvider.matchesSubStr(remaining, suggestion.toLowerCase(Locale.ROOT));
+   }
+
+   private static String escapeMiniMessage(String value) {
+      return MiniMessage.miniMessage().escapeTags(value == null ? "" : value);
    }
 }

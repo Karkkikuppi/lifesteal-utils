@@ -1,6 +1,8 @@
 package dev.candycup.lifestealutils.features.alliances.service;
 
+import dev.candycup.lifestealutils.features.alliances.Alliances;
 import dev.candycup.lifestealutils.interapi.MessagingUtils;
+import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.EntityHitResult;
@@ -32,9 +34,16 @@ public final class AllianceTargetSelectionHandler {
          return;
       }
 
-      String targetUuid = targetPlayer.getStringUUID();
-      String targetName = targetPlayer.getName().getString();
-      AllianceSelectionController.toggleSelectedAllianceMember(targetUuid, targetName);
+      Boolean added = Alliances.toggleAlliance(targetPlayer);
+      String name = targetPlayer.getName().getString();
+      String escapedName = MiniMessage.miniMessage().escapeTags(name);
+      if (added == null) {
+         MessagingUtils.showMiniMessage(Alliances.withDisabledWarning("<red>Couldn't update alliance for <white>" + escapedName + "</white>.</red>"));
+      } else if (added) {
+         MessagingUtils.showMiniMessage(Alliances.withDisabledWarning("<green>Added <white>" + escapedName + "</white> to your alliance.</green>"));
+      } else {
+         MessagingUtils.showMiniMessage(Alliances.withDisabledWarning("<yellow>Removed <white>" + escapedName + "</white> from your alliance.</yellow>"));
+      }
    }
 
    /**

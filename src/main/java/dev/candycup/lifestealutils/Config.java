@@ -25,7 +25,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static dev.candycup.lifestealutils.features.alliances.LocalAllianceMigrationUtils.ensureLocalAllianceMigration;
 import static dev.candycup.lifestealutils.integrations.xaero.XaeroPoiWaypointIntegration.isXaeroMinimapInstalled;
 
 public class Config {
@@ -88,40 +87,31 @@ public class Config {
 
    @Getter
    @Setter
+   @SerialEntry(comment = "Alliance name color as ARGB int")
+   private static int allianceNameColor = 0xFF55FF55;
+
+   @Getter
+   @Setter
+   @SerialEntry(comment = "Whether to color your own hitbox in third person while alliances are enabled")
+   @ConfigurableBoolean(location = "alliances.general.showownthirdpersonhitbox")
+   private static boolean showOwnAllianceHitboxInThirdPerson = false;
+
+   @Getter
+   @Setter
    @SerialEntry(comment = "Whether to render alliance prefixes in nametags")
-   @ConfigurableBoolean(location = "alliances.general.allianceprefixenabled")
    private static boolean allianceNamePrefixEnabled = true;
 
-   @Getter
-   @Setter
    @SerialEntry(comment = "Alliance priority list for choosing which prefix and color to display")
-   @ConfigurableList(location = "alliances.allianceprefixpriority")
    private static List<String> alliancePrefixPriority = new ArrayList<>();
 
-   @Getter
-   @Setter
-   @SerialEntry(comment = "Selected alliance id used by quick-add actions")
-   private static String selectedAllianceId = "";
-
-   @Getter
-   @Setter
    @SerialEntry(comment = "List of allied player UUIDs")
    private static List<String> allianceUuids = new ArrayList<>();
 
-   @Getter
-   @Setter
    @SerialEntry(comment = "Cache of UUID to username mappings for alliance members")
    private static Map<String, String> uuidUsernameCache = new HashMap<>();
 
-   @Getter
-   @Setter
    @SerialEntry(comment = "Locally stored alliances")
    private static List<LocalAllianceConfigEntry> localAlliances = new ArrayList<>();
-
-   @Getter
-   @Setter
-   @SerialEntry(comment = "Whether legacy alliance UUIDs have been migrated to local alliances")
-   private static boolean localAllianceMigrationDone = false;
 
    @Getter
    @Setter
@@ -276,6 +266,42 @@ public class Config {
       return localAlliances == null ? new ArrayList<>() : new ArrayList<>(localAlliances);
    }
 
+   public static void setLocalAlliances(List<LocalAllianceConfigEntry> alliances) {
+      localAlliances = alliances == null ? new ArrayList<>() : new ArrayList<>(alliances);
+      HANDLER.save();
+   }
+
+   public static List<String> getAlliancePrefixPriority() {
+      return alliancePrefixPriority == null ? new ArrayList<>() : new ArrayList<>(alliancePrefixPriority);
+   }
+
+   public static void setAlliancePrefixPriority(List<String> priority) {
+      alliancePrefixPriority = priority == null ? new ArrayList<>() : new ArrayList<>(priority);
+      HANDLER.save();
+   }
+
+   public static List<String> getAllianceUuids() {
+      return allianceUuids == null ? new ArrayList<>() : new ArrayList<>(allianceUuids);
+   }
+
+   public static void setAllianceUuids(List<String> uuids) {
+      allianceUuids = uuids == null ? new ArrayList<>() : new ArrayList<>(uuids);
+      HANDLER.save();
+   }
+
+   public static Map<String, String> getUuidUsernameCache() {
+      return uuidUsernameCache == null ? new HashMap<>() : new HashMap<>(uuidUsernameCache);
+   }
+
+   public static void setUuidUsernameCache(Map<String, String> cache) {
+      uuidUsernameCache = cache == null ? new HashMap<>() : new HashMap<>(cache);
+      HANDLER.save();
+   }
+
+   public static String getAllianceNameColorTag() {
+      return String.format("#%06X", allianceNameColor & 0xFFFFFF);
+   }
+
    public static boolean isBasicTimerEnabled(String id) {
       return basicTimerEnabled.getOrDefault(id, false);
    }
@@ -324,7 +350,6 @@ public class Config {
       FeatureFlagController.ensureLoaded();
       HANDLER.load();
       enforceGaiaConsentDependentStates();
-      ensureLocalAllianceMigration();
    }
 
    /**
@@ -351,4 +376,5 @@ public class Config {
          }
       }
    }
+
 }

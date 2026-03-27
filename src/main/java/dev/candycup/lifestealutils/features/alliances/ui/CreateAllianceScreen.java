@@ -7,8 +7,9 @@ import dev.candycup.lifestealutils.ui.framework.core.UiInputState;
 import dev.candycup.lifestealutils.ui.framework.core.UiLayoutContext;
 import dev.candycup.lifestealutils.ui.framework.core.UiSize;
 import dev.candycup.lifestealutils.ui.framework.screens.DrawableScreen;
-import dev.candycup.lifestealutils.gaia.AlliancesAPIClient;
 import dev.candycup.lifestealutils.features.alliances.models.Alliance;
+import dev.candycup.lifestealutils.features.alliances.models.AllianceType;
+import dev.candycup.lifestealutils.features.alliances.service.AllianceManagers;
 import dev.candycup.lifestealutils.interapi.MessagingUtils;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.components.EditBox;
@@ -40,6 +41,7 @@ public class CreateAllianceScreen extends DrawableScreen {
    private static final Component CREATING_TEXT = Component.translatable("lsu.alliances.creating");
    private static final Component REQUIRED_TEXT = Component.translatable("lsu.alliances.create.error.required");
    private static final Component FAILED_TEXT = Component.translatable("lsu.alliances.create.error.failed");
+   private static final Component LIMIT_REACHED_TEXT = Component.translatable("lsu.alliances.create.limit_reached");
    private static final Component NAME_HINT = Component.translatable("lsu.alliances.create.hint.name");
 
    private static final int MAX_NAME_LENGTH = 30;
@@ -183,8 +185,22 @@ public class CreateAllianceScreen extends DrawableScreen {
       String motd = motdField.getValue().trim();
 
       setCreatingState(true);
-      AlliancesAPIClient.createAlliance(name, prefix.isEmpty() ? null : prefix, color.isEmpty() ? null : color, description, motd).thenAccept(alliance -> {
-         this.minecraft.execute(() -> handleCreateResult(alliance));
+      AllianceManagers.fetchPlayerAlliances().thenAccept(alliances -> {
+         if (AllianceManagers.hasActiveAlliance(alliances)) {
+            this.minecraft.execute(() -> {
+               setCreatingState(false);
+               MessagingUtils.showMiniMessage(I18n.get("lsu.alliances.create.limit_reached"));
+               status.set(LIMIT_REACHED_TEXT, AlliancesListStyle.TEXT_ERROR);
+            });
+            return;
+         }
+
+         AllianceManagers.createAlliance(AllianceType.MODERN, name, prefix.isEmpty() ? null : prefix, color.isEmpty() ? null : color, description, motd).thenAccept(alliance -> {
+            this.minecraft.execute(() -> handleCreateResult(alliance));
+         });
+      }).exceptionally(error -> {
+         this.minecraft.execute(() -> handleCreateResult(null));
+         return null;
       });
    }
 

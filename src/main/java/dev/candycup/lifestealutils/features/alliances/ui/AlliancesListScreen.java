@@ -43,6 +43,7 @@ public class AlliancesListScreen extends DrawableScreen {
    private static final Component CREATING_TEXT = Component.translatable("lsu.alliances.creating");
    private static final Component REQUIRED_TEXT = Component.translatable("lsu.alliances.create.error.required");
    private static final Component FAILED_TEXT = Component.translatable("lsu.alliances.create.error.failed");
+   private static final Component LIMIT_REACHED_TEXT = Component.translatable("lsu.alliances.create.limit_reached");
    private static final Component NAME_HINT = Component.translatable("lsu.alliances.create.hint.name");
    private static final Component PREFIX_HINT = Component.translatable("lsu.alliances.create.prefix");
    private static final Component COLOR_HINT = Component.translatable("lsu.alliances.create.hint.color");
@@ -105,7 +106,7 @@ public class AlliancesListScreen extends DrawableScreen {
       this.footerBlock = new AlliancesFooterBlock(
               CREATE_LABEL,
               this::onCreateAlliance,
-              () -> !loading
+              () -> !loading && !hasExistingAlliance()
       );
       this.listView = new AlliancesListView(
               () -> alliances,
@@ -132,7 +133,7 @@ public class AlliancesListScreen extends DrawableScreen {
       this.createDialogSubmitButton = AllianceDetailButton.primary(
               () -> CREATE_SUBMIT_LABEL,
               this::onCreateDialogSubmit,
-              () -> !creating && isCreateFormValid()
+              () -> !creating && !hasExistingAlliance() && isCreateFormValid()
       );
       this.createDialogCancelButton = AllianceDetailButton.secondary(
               () -> CANCEL_LABEL,
@@ -235,6 +236,10 @@ public class AlliancesListScreen extends DrawableScreen {
    }
 
    private void onCreateAlliance() {
+      if (hasExistingAlliance()) {
+         MessagingUtils.showMiniMessage(I18n.get("lsu.alliances.create.limit_reached"));
+         return;
+      }
       openTypeDialog();
    }
 
@@ -249,6 +254,9 @@ public class AlliancesListScreen extends DrawableScreen {
    }
 
    private void openTypeDialog() {
+      if (hasExistingAlliance()) {
+         return;
+      }
       this.typeDialogOpen = true;
       this.createDialogOpen = false;
       setCreateFieldsVisible(false);
@@ -268,7 +276,7 @@ public class AlliancesListScreen extends DrawableScreen {
    }
 
    private void openCreateDialog(AllianceType type) {
-      if (creating) {
+      if (creating || hasExistingAlliance()) {
          return;
       }
       this.createAllianceType = type == null ? AllianceType.MODERN : type;
@@ -323,6 +331,11 @@ public class AlliancesListScreen extends DrawableScreen {
          return;
       }
 
+      if (hasExistingAlliance()) {
+         createStatus.set(LIMIT_REACHED_TEXT, AlliancesListStyle.TEXT_ERROR);
+         return;
+      }
+
       if (!isCreateFormValid()) {
          createStatus.set(REQUIRED_TEXT, AlliancesListStyle.TEXT_ERROR);
          return;
@@ -347,6 +360,12 @@ public class AlliancesListScreen extends DrawableScreen {
       if (alliance != null) {
          MessagingUtils.showMiniMessage(I18n.get("lsu.alliances.create.success"));
          this.minecraft.setScreen(new AllianceDetailScreen(this, alliance));
+         return;
+      }
+
+      if (hasExistingAlliance()) {
+         MessagingUtils.showMiniMessage(I18n.get("lsu.alliances.create.limit_reached"));
+         createStatus.set(LIMIT_REACHED_TEXT, AlliancesListStyle.TEXT_ERROR);
          return;
       }
 
@@ -391,6 +410,10 @@ public class AlliancesListScreen extends DrawableScreen {
             MessagingUtils.showMiniMessage("<red>Failed to decline invitation.</red>");
          }
       }));
+   }
+
+   private boolean hasExistingAlliance() {
+      return AllianceManagers.hasActiveAlliance(alliances);
    }
 
    private static final class AlliancesActionButton implements Drawable {

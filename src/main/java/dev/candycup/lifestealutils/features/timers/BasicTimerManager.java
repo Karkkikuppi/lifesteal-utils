@@ -41,6 +41,11 @@ public final class BasicTimerManager {
          }
          onClientTick(event);
       });
+      LifestealUtilsEvents.SERVER_CHANGE.register(event -> {
+         if (event.isDisconnected()) {
+            resetAll();
+         }
+      });
    }
 
    private void configure(List<BasicTimerDefinition> definitions) {
@@ -111,6 +116,32 @@ public final class BasicTimerManager {
          if (state.remainingTicks > 0) {
             state.remainingTicks--;
          }
+      }
+   }
+
+   public boolean startTimerByName(String timerName) {
+      if (timerName == null || timerName.isBlank()) {
+         return false;
+      }
+
+      for (Map.Entry<String, BasicTimerDefinition> entry : definitions.entrySet()) {
+         BasicTimerDefinition definition = entry.getValue();
+         if (definition == null || !definition.name().equalsIgnoreCase(timerName)) {
+            continue;
+         }
+         if (!Config.isBasicTimerEnabled(entry.getKey())) {
+            return false;
+         }
+         start(entry.getKey(), definition.durationSeconds());
+         return true;
+      }
+
+      return false;
+   }
+
+   public void resetAll() {
+      for (TimerState state : states.values()) {
+         state.remainingTicks = 0;
       }
    }
 

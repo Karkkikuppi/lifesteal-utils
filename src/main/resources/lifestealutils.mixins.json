@@ -12,6 +12,7 @@
     "ClientPacketListenerMixin",
     "DownloadedPackSourceMixin",
     "ConnectingScreenMixin",
+    "EntityHitboxDebugRendererMixin",
     "ItemClusterMixin",
     "ItemRendererMixin",
     "JoinMultiplayerScreenMixin",

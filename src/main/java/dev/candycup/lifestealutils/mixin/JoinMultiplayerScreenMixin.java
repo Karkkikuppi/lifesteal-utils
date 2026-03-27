@@ -20,7 +20,7 @@ public class JoinMultiplayerScreenMixin extends Screen {
       super(title);
    }
 
-   @Inject(method = "init", at = @At("HEAD"))
+   @Inject(method = "init", at = @At("TAIL"))
    private void init(CallbackInfo ci) {
       if (!GaiaConsentController.shouldShowConsent()) {
          return;
@@ -29,6 +29,15 @@ public class JoinMultiplayerScreenMixin extends Screen {
       if (minecraft.screen instanceof GaiaConsentScreen) {
          return;
       }
-      minecraft.setScreen(new GaiaConsentScreen(this));
+      Screen currentScreen = this;
+      minecraft.execute(() -> {
+         if (minecraft.screen != currentScreen) {
+            return;
+         }
+         if (!GaiaConsentController.shouldShowConsent()) {
+            return;
+         }
+         minecraft.setScreen(new GaiaConsentScreen(currentScreen));
+      });
    }
 }

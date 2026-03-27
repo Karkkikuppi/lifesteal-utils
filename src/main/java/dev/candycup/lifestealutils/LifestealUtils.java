@@ -1,5 +1,6 @@
 package dev.candycup.lifestealutils;
 
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import dev.candycup.lifestealutils.api.observers.ScoreboardObserver;
@@ -9,13 +10,13 @@ import dev.candycup.lifestealutils.config.ConfigDescriptorRegistry;
 import dev.candycup.lifestealutils.config.ConfigResolver;
 import dev.candycup.lifestealutils.event.LifestealUtilsEvents;
 import dev.candycup.lifestealutils.event.LifestealUtilsEvents.ClientTickEvent;
+import dev.candycup.lifestealutils.features.alliances.Alliances;
 import dev.candycup.lifestealutils.features.alliances.service.AllianceSelectionController;
 import dev.candycup.lifestealutils.features.alliances.service.AllianceTargetSelectionHandler;
-import dev.candycup.lifestealutils.features.alliances.ui.AlliancesListScreen;
-import dev.candycup.lifestealutils.features.alliances.AllianceMotdListener;
 import dev.candycup.lifestealutils.features.alliances.AllianceNameRenderHandler;
 import dev.candycup.lifestealutils.features.afk.AfkMode;
 import dev.candycup.lifestealutils.features.baltop.BaltopScrapeCoordinator;
+import dev.candycup.lifestealutils.features.combat.BulwarkCooldownTracker;
 import dev.candycup.lifestealutils.features.combat.HeavenlyDurabilityCalculator;
 import dev.candycup.lifestealutils.features.gaia.GaiaConnectionToastListener;
 import dev.candycup.lifestealutils.features.items.RareItemHighlight;
@@ -48,6 +49,7 @@ import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
+import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
@@ -63,6 +65,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.function.Supplier;
 
 public final class LifestealUtils implements ClientModInitializer {
@@ -76,9 +80,9 @@ public final class LifestealUtils implements ClientModInitializer {
    private static int pendingGaiaConsentOpenTicks = -1;
    private static int pendingHudEditorOpenTicks = -1;
    private static int pendingRadarOpenTicks = -1;
-   private static int pendingAlliancesScreenOpenTicks = -1;
 
    private static UnbrokenChainTracker unbrokenChainTracker;
+   private static BulwarkCooldownTracker bulwarkCooldownTracker;
    private static HeavenlyDurabilityCalculator heavenlyDurabilityCalculator;
    @Getter
    private static BasicTimerManager basicTimerManager;
@@ -86,7 +90,6 @@ public final class LifestealUtils implements ClientModInitializer {
    private static ChatTagRemover chatTagRemover;
    private static RankPlusColorNormalizer rankPlusColorNormalizer;
    private static GhostedChatMessageFilter ghostedChatMessageFilter;
-   private static AllianceMotdListener allianceMotdListener;
    private static AllianceNameRenderHandler allianceNameRenderHandler;
    private static RareItemHighlight rareItemHighlight;
    private static QuickJoinButton quickJoinButton;
@@ -136,7 +139,9 @@ public final class LifestealUtils implements ClientModInitializer {
    }
 
    public static void registerFeatures() {
-      basicTimerManager = new BasicTimerManager(FeatureFlagController.getBasicTimers());
+      List<dev.candycup.lifestealutils.features.timers.BasicTimerDefinition> timerDefinitions = new ArrayList<>(FeatureFlagController.getBasicTimers());
+      timerDefinitions.add(BulwarkCooldownTracker.timerDefinition());
+      basicTimerManager = new BasicTimerManager(timerDefinitions);
       for (HudElementDefinition definition : basicTimerManager.getHudDefinitions()) {
          HudElementManager.register(definition);
       }
@@ -144,6 +149,7 @@ public final class LifestealUtils implements ClientModInitializer {
       unbrokenChainTracker = new UnbrokenChainTracker();
       HudElementManager.register(unbrokenChainTracker.getHudDefinition());
 
+      bulwarkCooldownTracker = new BulwarkCooldownTracker();
       heavenlyDurabilityCalculator = new HeavenlyDurabilityCalculator();
       HudElementManager.register(heavenlyDurabilityCalculator.getHudDefinition());
 
@@ -154,8 +160,6 @@ public final class LifestealUtils implements ClientModInitializer {
       rankPlusColorNormalizer = new RankPlusColorNormalizer();
 
       ghostedChatMessageFilter = new GhostedChatMessageFilter();
-
-      allianceMotdListener = new AllianceMotdListener();
 
       allianceNameRenderHandler = new AllianceNameRenderHandler();
 
@@ -254,18 +258,36 @@ public final class LifestealUtils implements ClientModInitializer {
                                  }))
                          .then(ClientCommandManager.literal("alliances")
                                  .executes(commandContext -> {
-                                    pendingAlliancesScreenOpenTicks = 2;
+                                    Alliances.showAllianceList();
                                     return 1;
                                  })
-                                 .then(ClientCommandManager.literal("select")
-                                         .then(ClientCommandManager.argument("allianceName", StringArgumentType.greedyString())
-                                                 .suggests((context, builder) -> {
-                                                    return AllianceSelectionController.suggestAllianceNames(builder.getRemainingLowerCase(), builder);
-                                                 })
-                                                 .executes(commandContext -> {
-                                                    String rawAllianceName = StringArgumentType.getString(commandContext, "allianceName");
-                                                    return AllianceSelectionController.selectAllianceByName(rawAllianceName);
-                                                 }))))
+                                 .then(ClientCommandManager.literal("list")
+                                         .executes(commandContext -> {
+                                            Alliances.showAllianceList();
+                                            return 1;
+                                         }))
+                                 .then(ClientCommandManager.literal("add")
+                                         .then(ClientCommandManager.argument("username", StringArgumentType.word())
+                                                 .suggests((context, builder) ->
+                                                         AllianceSelectionController.suggestOnlinePlayerNames(builder.getRemainingLowerCase(), builder))
+                                                 .executes(commandContext ->
+                                                         AllianceSelectionController.addCurrentAllianceMemberByName(
+                                                                 StringArgumentType.getString(commandContext, "username")
+                                                         ))))
+                                 .then(ClientCommandManager.literal("remove")
+                                         .then(ClientCommandManager.argument("username", StringArgumentType.word())
+                                                 .suggests((context, builder) ->
+                                                         AllianceSelectionController.suggestCurrentAllianceMemberNames(builder.getRemainingLowerCase(), builder))
+                                                 .executes(commandContext ->
+                                                         AllianceSelectionController.removeCurrentAllianceMemberByName(
+                                                                 StringArgumentType.getString(commandContext, "username")
+                                                         ))))
+                                 .then(ClientCommandManager.literal("clear")
+                                         .executes(commandContext -> {
+                                            Alliances.clearAlliances();
+                                            MessagingUtils.showMiniMessage(Alliances.withDisabledWarning("<yellow>Cleared all alliance members.</yellow>"));
+                                            return 1;
+                                         })))
                          .then(ClientCommandManager.literal("track-poi")
                                  .then(ClientCommandManager.argument("poi", StringArgumentType.greedyString())
                                          .suggests((context, builder) -> {
@@ -304,13 +326,43 @@ public final class LifestealUtils implements ClientModInitializer {
                                                   client.player.sendMessage(
                                                           MiniMessage.miniMessage().deserialize(
                                                                   "<gray><italic>[Lifesteal Utils] snip snap! panorama taken! open your screenshots folder to see it!"
-                                                          )
+                                                         )
                                                   );
                                                }
                                             });
                                             return 1;
                                          }))));
+         dispatcher.register(createFriendCommand("lsnuf"));
+         dispatcher.register(createFriendCommand("lsufriend"));
       });
+   }
+
+   private static LiteralArgumentBuilder<FabricClientCommandSource> createFriendCommand(String name) {
+      return ClientCommandManager.literal(name)
+              .then(ClientCommandManager.literal("add")
+                      .then(ClientCommandManager.argument("player", StringArgumentType.word())
+                              .suggests((context, builder) ->
+                                      AllianceSelectionController.suggestOnlinePlayerNames(builder.getRemainingLowerCase(), builder))
+                              .executes(commandContext ->
+                                      AllianceSelectionController.addCurrentAllianceMemberByName(
+                                              StringArgumentType.getString(commandContext, "player")
+                                      ))))
+              .then(ClientCommandManager.literal("remove")
+                      .then(ClientCommandManager.argument("player", StringArgumentType.word())
+                              .suggests((context, builder) ->
+                                      AllianceSelectionController.suggestCurrentAllianceMemberNames(builder.getRemainingLowerCase(), builder))
+                              .executes(commandContext ->
+                                      AllianceSelectionController.removeCurrentAllianceMemberByName(
+                                              StringArgumentType.getString(commandContext, "player")
+                                      ))))
+              .then(ClientCommandManager.literal("list")
+                      .executes(commandContext -> AllianceSelectionController.listCurrentAllianceMembers()))
+              .then(ClientCommandManager.literal("clear")
+                      .executes(commandContext -> {
+                         Alliances.clearAlliances();
+                         MessagingUtils.showMiniMessage(Alliances.withDisabledWarning("<yellow>Cleared all alliance members.</yellow>"));
+                         return 1;
+                      }));
    }
 
    /**
@@ -379,12 +431,6 @@ public final class LifestealUtils implements ClientModInitializer {
                  () -> new HudElementEditor(Component.translatable("lsu.screen.hudEditor"))
          );
          pendingRadarOpenTicks = handleScheduledScreenOpen(client, pendingRadarOpenTicks, true, RadarScreen::new);
-         pendingAlliancesScreenOpenTicks = handleScheduledScreenOpen(
-                 client,
-                 pendingAlliancesScreenOpenTicks,
-                 true,
-                 () -> new AlliancesListScreen(null)
-         );
          BaltopScrapeCoordinator.tick(client);
 
          if (openHudEditorKeyBinding.consumeClick()) {
