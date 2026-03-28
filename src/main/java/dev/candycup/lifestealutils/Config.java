@@ -131,8 +131,6 @@ public class Config {
    @SerialEntry(comment = "Cache of UUID to username mappings for alliance members")
    private static Map<String, String> uuidUsernameCache = new HashMap<>();
 
-   @Getter
-   @Setter
    @SerialEntry(comment = "Locally stored alliances")
    private static List<LocalAllianceConfigEntry> localAlliances = new ArrayList<>();
 
@@ -295,6 +293,11 @@ public class Config {
 
    public static List<LocalAllianceConfigEntry> getLocalAlliances() {
       return localAlliances == null ? new ArrayList<>() : new ArrayList<>(localAlliances);
+   }
+
+   public static void setLocalAlliances(List<LocalAllianceConfigEntry> alliances) {
+      localAlliances = alliances == null ? new ArrayList<>() : new ArrayList<>(alliances);
+      HANDLER.save();
    }
 
    public static String getAllianceHitboxColorOverride(String allianceId, String fallback) {

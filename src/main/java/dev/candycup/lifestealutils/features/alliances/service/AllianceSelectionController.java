@@ -34,21 +34,8 @@ public final class AllianceSelectionController {
                continue;
             }
 
-            String displayName = alliance.getDisplayName();
-            if (displayName != null && !displayName.isBlank()) {
-               String key = displayName.toLowerCase(Locale.ROOT);
-               if ((remaining.isBlank() || key.contains(remaining)) && seen.add(key)) {
-                  builder.suggest(displayName);
-               }
-            }
-
-            String name = alliance.name();
-            if (name != null && !name.isBlank()) {
-               String key = name.toLowerCase(Locale.ROOT);
-               if ((remaining.isBlank() || key.contains(remaining)) && seen.add(key)) {
-                  builder.suggest(name);
-               }
-            }
+            suggestAllianceSuggestion(builder, seen, remaining, toAllianceCommandAlias(alliance.name()));
+            suggestAllianceSuggestion(builder, seen, remaining, toAllianceCommandAlias(alliance.getDisplayName()));
          }
          return builder.build();
       }).exceptionally(error -> builder.build());
@@ -431,7 +418,7 @@ public final class AllianceSelectionController {
             continue;
          }
 
-         if (alliance.getDisplayName().equalsIgnoreCase(query) || alliance.name().equalsIgnoreCase(query)) {
+         if (matchesAllianceQuery(alliance, query)) {
             return alliance;
          }
       }
@@ -443,12 +430,50 @@ public final class AllianceSelectionController {
 
          String displayName = alliance.getDisplayName().toLowerCase(Locale.ROOT);
          String name = alliance.name().toLowerCase(Locale.ROOT);
-         if (displayName.contains(lowered) || name.contains(lowered)) {
+         String displayAlias = toAllianceCommandAlias(alliance.getDisplayName());
+         String nameAlias = toAllianceCommandAlias(alliance.name());
+         if (displayName.contains(lowered) || name.contains(lowered)
+                 || (!displayAlias.isBlank() && displayAlias.contains(lowered))
+                 || (!nameAlias.isBlank() && nameAlias.contains(lowered))) {
             return alliance;
          }
       }
 
       return null;
+   }
+
+   private static void suggestAllianceSuggestion(SuggestionsBuilder builder, Set<String> seen, String remaining, String suggestion) {
+      if (suggestion == null || suggestion.isBlank()) {
+         return;
+      }
+
+      String key = suggestion.toLowerCase(Locale.ROOT);
+      if ((remaining.isBlank() || SharedSuggestionProvider.matchesSubStr(remaining, key)) && seen.add(key)) {
+         builder.suggest(suggestion);
+      }
+   }
+
+   private static boolean matchesAllianceQuery(Alliance alliance, String query) {
+      if (alliance == null || query == null || query.isBlank()) {
+         return false;
+      }
+
+      return alliance.getDisplayName().equalsIgnoreCase(query)
+              || alliance.name().equalsIgnoreCase(query)
+              || toAllianceCommandAlias(alliance.getDisplayName()).equalsIgnoreCase(query)
+              || toAllianceCommandAlias(alliance.name()).equalsIgnoreCase(query);
+   }
+
+   private static String toAllianceCommandAlias(String value) {
+      if (value == null) {
+         return "";
+      }
+
+      return value.trim()
+              .toLowerCase(Locale.ROOT)
+              .replaceAll("[^a-z0-9]+", "_")
+              .replaceAll("_+", "_")
+              .replaceAll("^_+|_+$", "");
    }
 
    private static String normalizeUuid(String uuid) {
