@@ -94,6 +94,24 @@ public class Config {
 
    @Getter
    @Setter
+   @SerialEntry(comment = "Whether to recolor vanilla F3+B hitboxes for alliance members")
+   @ConfigurableBoolean(location = "alliances.hitboxes.enabled")
+   private static boolean allianceHitboxColorsEnabled = true;
+
+   @Getter
+   @Setter
+   @SerialEntry(comment = "Whether to color your own vanilla hitbox while in third person")
+   @ConfigurableBoolean(location = "alliances.hitboxes.showownthirdpersonhitbox")
+   private static boolean showOwnAllianceHitboxInThirdPerson = false;
+
+   @Getter
+   @Setter
+   @SerialEntry(comment = "Color used for your own vanilla hitbox while in third person")
+   @ConfigurableString(location = "alliances.hitboxes.owncolor")
+   private static String ownAllianceHitboxColor = "#55FF55";
+
+   @Getter
+   @Setter
    @SerialEntry(comment = "Alliance priority list for choosing which prefix and color to display")
    @ConfigurableList(location = "alliances.allianceprefixpriority")
    private static List<String> alliancePrefixPriority = new ArrayList<>();
@@ -117,6 +135,9 @@ public class Config {
    @Setter
    @SerialEntry(comment = "Locally stored alliances")
    private static List<LocalAllianceConfigEntry> localAlliances = new ArrayList<>();
+
+   @SerialEntry(comment = "Per-alliance hitbox color overrides keyed by alliance id")
+   private static Map<String, String> allianceHitboxColorOverrides = new HashMap<>();
 
    @Getter
    @Setter
@@ -274,6 +295,34 @@ public class Config {
 
    public static List<LocalAllianceConfigEntry> getLocalAlliances() {
       return localAlliances == null ? new ArrayList<>() : new ArrayList<>(localAlliances);
+   }
+
+   public static String getAllianceHitboxColorOverride(String allianceId, String fallback) {
+      if (allianceId == null || allianceId.isBlank()) {
+         return fallback;
+      }
+      if (allianceHitboxColorOverrides == null) {
+         allianceHitboxColorOverrides = new HashMap<>();
+      }
+      String value = allianceHitboxColorOverrides.get(allianceId);
+      return value == null || value.isBlank() ? fallback : value;
+   }
+
+   public static void setAllianceHitboxColorOverride(String allianceId, String color) {
+      if (allianceId == null || allianceId.isBlank()) {
+         return;
+      }
+      if (allianceHitboxColorOverrides == null) {
+         allianceHitboxColorOverrides = new HashMap<>();
+      }
+
+      String trimmed = color == null ? "" : color.trim();
+      if (trimmed.isEmpty()) {
+         allianceHitboxColorOverrides.remove(allianceId);
+      } else {
+         allianceHitboxColorOverrides.put(allianceId, trimmed);
+      }
+      HANDLER.save();
    }
 
    public static boolean isBasicTimerEnabled(String id) {

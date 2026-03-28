@@ -223,6 +223,20 @@ public final class AllianceNameRenderHandler {
       }
    }
 
+   public static List<HitboxAllianceCandidate> getHitboxCandidates() {
+      return cachedPrefixCandidates.stream()
+              .map(candidate -> new HitboxAllianceCandidate(candidate.allianceId(), candidate.displayName(), candidate.color()))
+              .toList();
+   }
+
+   public static HitboxAllianceCandidate resolveHitboxCandidate(String playerUuid) {
+      PrefixCandidate candidate = resolveHitboxPrefixCandidate(playerUuid);
+      if (candidate == null) {
+         return null;
+      }
+      return new HitboxAllianceCandidate(candidate.allianceId(), candidate.displayName(), candidate.color());
+   }
+
    private static PrefixCandidate resolveSelectedPrefixCandidate() {
       List<PrefixCandidate> candidates = cachedPrefixCandidates;
       if (candidates.isEmpty()) {
@@ -246,6 +260,33 @@ public final class AllianceNameRenderHandler {
 
       for (PrefixCandidate candidate : candidates) {
          if (hasFormatting(candidate)) {
+            return candidate;
+         }
+      }
+
+      return null;
+   }
+
+   private static PrefixCandidate resolveHitboxPrefixCandidate(String playerUuid) {
+      String normalizedPlayerUuid = normalizeUuid(playerUuid);
+      if (normalizedPlayerUuid.isBlank()) {
+         return null;
+      }
+
+      List<PrefixCandidate> candidates = cachedPrefixCandidates;
+      if (candidates.isEmpty()) {
+         return null;
+      }
+
+      for (String preferredAllianceId : Config.getAlliancePrefixPriority()) {
+         PrefixCandidate candidate = resolvePriorityEntry(preferredAllianceId, candidates);
+         if (candidate != null && candidate.memberUuids().contains(normalizedPlayerUuid)) {
+            return candidate;
+         }
+      }
+
+      for (PrefixCandidate candidate : candidates) {
+         if (candidate.memberUuids().contains(normalizedPlayerUuid)) {
             return candidate;
          }
       }
@@ -382,6 +423,9 @@ public final class AllianceNameRenderHandler {
 
    private record PrefixCandidate(String allianceId, String displayName, String prefix, String color,
                                   long joinedAtMillis, List<String> memberUuids) {
+   }
+
+   public record HitboxAllianceCandidate(String allianceId, String displayName, String color) {
    }
 
    private static boolean hasFormatting(PrefixCandidate candidate) {
