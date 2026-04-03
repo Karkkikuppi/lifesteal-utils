@@ -3,17 +3,16 @@ package dev.candycup.lifestealutils.features.alliances;
 import dev.candycup.lifestealutils.Config;
 import dev.candycup.lifestealutils.event.LifestealUtilsEvents;
 import dev.candycup.lifestealutils.event.LifestealUtilsEvents.PlayerNameRenderEvent;
+import dev.candycup.lifestealutils.event.LifestealUtilsEvents.ServerChangeEvent;
 import dev.candycup.lifestealutils.features.alliances.models.Alliance;
 import dev.candycup.lifestealutils.features.alliances.models.AllianceMember;
 import dev.candycup.lifestealutils.features.alliances.service.AllianceManagers;
 import dev.candycup.lifestealutils.features.alliances.service.PlayerUuidResolver;
-import dev.candycup.lifestealutils.interapi.MessagingUtils;
-import net.kyori.adventure.platform.modcommon.MinecraftClientAudiences;
-import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.chat.Style;
 import net.minecraft.network.chat.TextColor;
 
 import java.util.ArrayList;
@@ -23,13 +22,14 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
 public final class AllianceNameRenderHandler {
-   private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
-
+   private static final Object PREFIX_REFRESH_LOCK = new Object();
    private static volatile boolean prefixRefreshInFlight = false;
+   private static volatile boolean prefixRefreshQueued = false;
    private static volatile List<PrefixCandidate> cachedPrefixCandidates = List.of();
 
    public AllianceNameRenderHandler() {
@@ -38,6 +38,18 @@ public final class AllianceNameRenderHandler {
             return;
          }
          onPlayerNameRender(event);
+      });
+      LifestealUtilsEvents.SERVER_CHANGE.register(event -> {
+         if (!isEnabled()) {
+            return;
+         }
+         onServerChange(event);
+      });
+      LifestealUtilsEvents.GATEWAY_CONNECTED.register(event -> {
+         if (!isEnabled()) {
+            return;
+         }
+         refreshPrefixCandidatesNow();
       });
    }
 
@@ -49,17 +61,33 @@ public final class AllianceNameRenderHandler {
       applyAllianceFormatting(event);
    }
 
+   public void onServerChange(ServerChangeEvent event) {
+      if (event == null) {
+         return;
+      }
+
+      if (event.isDisconnected()) {
+         clearPrefixCandidates();
+         return;
+      }
+
+      if (event.isConnected()) {
+         refreshPrefixCandidatesNow();
+      }
+   }
+
    private static boolean applyAllianceFormatting(PlayerNameRenderEvent event) {
-      PrefixCandidate selectedCandidate = resolveSelectedPrefixCandidate();
+      String eventPlayerUuid = resolveEventPlayerUuid(event);
+      if (eventPlayerUuid == null || eventPlayerUuid.isBlank()) {
+         return false;
+      }
+
+      PrefixCandidate selectedCandidate = resolveHitboxPrefixCandidate(eventPlayerUuid);
       if (selectedCandidate == null) {
          return false;
       }
 
-      if (!isEventPlayerInCandidate(event, selectedCandidate)) {
-         return false;
-      }
-
-      String colorTag = normalizeColorTag(selectedCandidate.color());
+      String colorTag = resolveEffectiveColorTag(selectedCandidate);
       Component result = event.getModifiedDisplayName();
       if (colorTag != null) {
          result = colorizeNameTag(result, colorTag);
@@ -87,36 +115,36 @@ public final class AllianceNameRenderHandler {
       return true;
    }
 
-   private static boolean isEventPlayerInCandidate(PlayerNameRenderEvent event, PrefixCandidate candidate) {
+   private static String resolveEventPlayerUuid(PlayerNameRenderEvent event) {
       String eventPlayerUuid = null;
       UUID resolved = PlayerUuidResolver.resolveOnlineUuidCached(event.getPlayerName());
       if (resolved != null) {
          eventPlayerUuid = normalizeUuid(resolved.toString());
       }
 
-      if (eventPlayerUuid == null || eventPlayerUuid.isBlank()) {
-         return false;
-      }
-
-      return candidate.memberUuids().contains(eventPlayerUuid);
+      return eventPlayerUuid;
    }
 
    public static void refreshPrefixCandidatesNow() {
-      if (prefixRefreshInFlight) {
-         return;
-      }
+      synchronized (PREFIX_REFRESH_LOCK) {
+         if (prefixRefreshInFlight) {
+            prefixRefreshQueued = true;
+            return;
+         }
 
-      prefixRefreshInFlight = true;
+         prefixRefreshInFlight = true;
+         prefixRefreshQueued = false;
+      }
 
       try {
          AllianceManagers.fetchPlayerAlliances()
                  .thenAccept(AllianceNameRenderHandler::updatePrefixCandidates)
                  .exceptionally(error -> {
-                    prefixRefreshInFlight = false;
+                    finishPrefixRefresh();
                     return null;
                  });
       } catch (RuntimeException ignored) {
-         prefixRefreshInFlight = false;
+         finishPrefixRefresh();
       }
    }
 
@@ -180,7 +208,28 @@ public final class AllianceNameRenderHandler {
          cachedPrefixCandidates = List.copyOf(candidates);
          syncPrefixPriorityConfig(candidates);
       } finally {
+         finishPrefixRefresh();
+      }
+   }
+
+   private static void clearPrefixCandidates() {
+      cachedPrefixCandidates = List.of();
+      synchronized (PREFIX_REFRESH_LOCK) {
          prefixRefreshInFlight = false;
+         prefixRefreshQueued = false;
+      }
+   }
+
+   private static void finishPrefixRefresh() {
+      boolean shouldRefreshAgain;
+      synchronized (PREFIX_REFRESH_LOCK) {
+         prefixRefreshInFlight = false;
+         shouldRefreshAgain = prefixRefreshQueued;
+         prefixRefreshQueued = false;
+      }
+
+      if (shouldRefreshAgain) {
+         refreshPrefixCandidatesNow();
       }
    }
 
@@ -315,10 +364,52 @@ public final class AllianceNameRenderHandler {
    }
 
    private static Component colorizeNameTag(Component original, String colorTag) {
-      String serialized = MINI_MESSAGE.serialize(MinecraftClientAudiences.of().asAdventure(original));
-      String updated = applyColorToLastWord(serialized, colorTag);
-      if (updated.equals(serialized)) return original;
-      return ensureMutable(MessagingUtils.miniMessage(updated));
+      Integer rgb = parseHexRgb(colorTag);
+      if (rgb == null) {
+         return original;
+      }
+
+      try {
+         List<StyledTextSegment> segments = flattenStyledText(original);
+         if (segments.isEmpty()) {
+            return original;
+         }
+
+         WordRange lastWordRange = findLastWordRange(segments);
+         if (lastWordRange == null) {
+            return original;
+         }
+
+         MutableComponent rebuilt = Component.empty();
+         TextColor color = TextColor.fromRgb(rgb);
+         int offset = 0;
+         boolean changed = false;
+
+         for (StyledTextSegment segment : segments) {
+            String text = segment.text();
+            int segmentStart = offset;
+            int segmentEnd = offset + text.length();
+            int highlightStart = Math.max(lastWordRange.startInclusive(), segmentStart);
+            int highlightEnd = Math.min(lastWordRange.endExclusive(), segmentEnd);
+
+            if (highlightStart >= highlightEnd) {
+               appendStyledText(rebuilt, text, segment.style());
+            } else {
+               int localStart = highlightStart - segmentStart;
+               int localEnd = highlightEnd - segmentStart;
+               appendStyledText(rebuilt, text.substring(0, localStart), segment.style());
+               appendStyledText(rebuilt, text.substring(localStart, localEnd), segment.style().withColor(color));
+               appendStyledText(rebuilt, text.substring(localEnd), segment.style());
+               changed = true;
+            }
+
+            offset = segmentEnd;
+         }
+
+         return changed ? rebuilt : original;
+      } catch (RuntimeException ignored) {
+         return original;
+      }
    }
 
    private static Component ensureMutable(Component component) {
@@ -326,36 +417,6 @@ public final class AllianceNameRenderHandler {
       MutableComponent wrapper = Component.literal("");
       wrapper.append(component);
       return wrapper;
-   }
-
-   private static String applyColorToLastWord(String miniMessage, String colorTagRaw) {
-      if (miniMessage == null || miniMessage.isBlank()) return miniMessage;
-
-      String colorTag = normalizeColorTag(colorTagRaw);
-      if (colorTag == null) return miniMessage;
-
-      VisibleMapping mapping = VisibleMapping.fromMiniMessage(miniMessage);
-      String visible = mapping.visible;
-      int end = lastNonWhitespaceIndex(visible);
-      if (end < 0) return miniMessage;
-
-      int start = end;
-      while (start > 0 && !Character.isWhitespace(visible.charAt(start - 1))) {
-         start--;
-      }
-
-      if (start >= mapping.visibleToRaw.size() || end >= mapping.visibleToRaw.size()) return miniMessage;
-
-      int rawStart = mapping.visibleToRaw.get(start);
-      int rawEnd = mapping.visibleToRaw.get(end);
-
-      String openTag = "<" + colorTag + ">";
-      String closeTag = "</" + colorTag + ">";
-
-      StringBuilder sb = new StringBuilder(miniMessage);
-      sb.insert(rawEnd + 1, closeTag);
-      sb.insert(rawStart, openTag);
-      return sb.toString();
    }
 
    private static String normalizeColorTag(String raw) {
@@ -372,6 +433,18 @@ public final class AllianceNameRenderHandler {
          trimmed = "#" + trimmed;
       }
       return trimmed.isEmpty() ? null : trimmed;
+   }
+
+   private static String resolveEffectiveColorTag(PrefixCandidate candidate) {
+      if (candidate == null) {
+         return null;
+      }
+
+      String configuredColor = Config.getAllianceHitboxColorOverride(
+              candidate.allianceId(),
+              AllianceHitboxColorResolver.normalizeConfigColor(candidate.color())
+      );
+      return normalizeColorTag(configuredColor);
    }
 
    private static Integer parseHexRgb(String colorTag) {
@@ -398,27 +471,51 @@ public final class AllianceNameRenderHandler {
       return -1;
    }
 
-   private record VisibleMapping(String visible, List<Integer> visibleToRaw) {
-
-      private static VisibleMapping fromMiniMessage(String miniMessage) {
-         StringBuilder visible = new StringBuilder();
-         List<Integer> mapping = new ArrayList<>();
-         boolean inTag = false;
-         for (int i = 0; i < miniMessage.length(); i++) {
-            char c = miniMessage.charAt(i);
-            if (inTag) {
-               if (c == '>') inTag = false;
-               continue;
-            }
-            if (c == '<') {
-               inTag = true;
-               continue;
-            }
-            mapping.add(i);
-            visible.append(c);
+   private static List<StyledTextSegment> flattenStyledText(Component component) {
+      List<StyledTextSegment> segments = new ArrayList<>();
+      component.visit((style, text) -> {
+         if (text != null && !text.isEmpty()) {
+            segments.add(new StyledTextSegment(text, style));
          }
-         return new VisibleMapping(visible.toString(), mapping);
+         return Optional.empty();
+      }, Style.EMPTY);
+      return segments;
+   }
+
+   private static WordRange findLastWordRange(List<StyledTextSegment> segments) {
+      int totalLength = segments.stream().mapToInt(segment -> segment.text().length()).sum();
+      if (totalLength == 0) {
+         return null;
       }
+
+      StringBuilder visible = new StringBuilder(totalLength);
+      for (StyledTextSegment segment : segments) {
+         visible.append(segment.text());
+      }
+
+      int end = lastNonWhitespaceIndex(visible.toString());
+      if (end < 0) {
+         return null;
+      }
+
+      int start = end;
+      while (start > 0 && !Character.isWhitespace(visible.charAt(start - 1))) {
+         start--;
+      }
+      return new WordRange(start, end + 1);
+   }
+
+   private static void appendStyledText(MutableComponent target, String text, Style style) {
+      if (text == null || text.isEmpty()) {
+         return;
+      }
+      target.append(Component.literal(text).withStyle(style));
+   }
+
+   private record StyledTextSegment(String text, Style style) {
+   }
+
+   private record WordRange(int startInclusive, int endExclusive) {
    }
 
    private record PrefixCandidate(String allianceId, String displayName, String prefix, String color,

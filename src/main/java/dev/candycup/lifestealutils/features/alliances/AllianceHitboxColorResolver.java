@@ -12,41 +12,49 @@ public final class AllianceHitboxColorResolver {
    private AllianceHitboxColorResolver() {
    }
 
+   public static boolean shouldRenderInvisibleHitbox(Player player) {
+      return resolveColor(player) != null;
+   }
+
    public static Integer resolveColor(Player player) {
-      if (player == null || !Config.isEnableAlliances() || !Config.isAllianceHitboxColorsEnabled()) {
-         return null;
-      }
-
-      Minecraft client = Minecraft.getInstance();
-      if (client.player == null) {
-         return null;
-      }
-
-      if (player == client.player) {
-         if (!Config.isShowOwnAllianceHitboxInThirdPerson()) {
+      try {
+         if (player == null || !Config.isEnableAlliances() || !Config.isAllianceHitboxColorsEnabled()) {
             return null;
          }
 
-         CameraType cameraType = client.options.getCameraType();
-         if (cameraType.isFirstPerson()) {
+         Minecraft client = Minecraft.getInstance();
+         if (client.player == null || client.options == null) {
             return null;
          }
 
-         return parseColorOrDefault(Config.getOwnAllianceHitboxColor(), DEFAULT_COLOR);
-      }
+         if (player == client.player) {
+            if (!Config.isShowOwnAllianceHitboxInThirdPerson()) {
+               return null;
+            }
 
-      AllianceNameRenderHandler.HitboxAllianceCandidate candidate =
-              AllianceNameRenderHandler.resolveHitboxCandidate(player.getStringUUID());
-      if (candidate == null) {
+            CameraType cameraType = client.options.getCameraType();
+            if (cameraType == null || cameraType.isFirstPerson()) {
+               return null;
+            }
+
+            return parseColorOrDefault(Config.getOwnAllianceHitboxColor(), DEFAULT_COLOR);
+         }
+
+         AllianceNameRenderHandler.HitboxAllianceCandidate candidate =
+                 AllianceNameRenderHandler.resolveHitboxCandidate(player.getStringUUID());
+         if (candidate == null || candidate.allianceId() == null || candidate.allianceId().isBlank()) {
+            return null;
+         }
+
+         int fallback = parseColorOrDefault(candidate.color(), DEFAULT_COLOR);
+         String configuredColor = Config.getAllianceHitboxColorOverride(
+                 candidate.allianceId(),
+                 normalizeConfigColor(candidate.color())
+         );
+         return parseColorOrDefault(configuredColor, fallback);
+      } catch (RuntimeException ignored) {
          return null;
       }
-
-      int fallback = parseColorOrDefault(candidate.color(), DEFAULT_COLOR);
-      String configuredColor = Config.getAllianceHitboxColorOverride(
-              candidate.allianceId(),
-              normalizeConfigColor(candidate.color())
-      );
-      return parseColorOrDefault(configuredColor, fallback);
    }
 
    public static String normalizeConfigColor(String rawColor) {

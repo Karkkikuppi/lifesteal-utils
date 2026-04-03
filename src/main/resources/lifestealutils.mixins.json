@@ -13,6 +13,7 @@
     "ClientPacketListenerMixin",
     "DownloadedPackSourceMixin",
     "ConnectingScreenMixin",
+    "GuiHotbarCompatibilityMixin",
     "ItemClusterMixin",
     "ItemRendererMixin",
     "JoinMultiplayerScreenMixin",
