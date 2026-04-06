@@ -8,6 +8,7 @@ import net.minecraft.util.Mth;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -15,6 +16,7 @@ import java.util.Map;
 public final class HudElementManager {
    private static final Map<Identifier, HudElementDefinition> DEFINITIONS = new LinkedHashMap<>();
    private static final Map<Identifier, HudPosition> POSITIONS = new LinkedHashMap<>();
+   private static final Map<Identifier, CachedHudText> TEXT_CACHE = new HashMap<>();
 
    private HudElementManager() {
    }
@@ -22,11 +24,13 @@ public final class HudElementManager {
    public static void init() {
       POSITIONS.clear();
       POSITIONS.putAll(HudLayoutStorage.load());
+      TEXT_CACHE.clear();
    }
 
    public static void register(HudElementDefinition definition) {
       DEFINITIONS.put(definition.id(), definition);
       POSITIONS.putIfAbsent(definition.id(), definition.defaultPosition());
+      TEXT_CACHE.remove(definition.id());
    }
 
    public static Collection<HudElementDefinition> definitions() {
@@ -113,13 +117,32 @@ public final class HudElementManager {
    }
 
    public static RenderedHudElement renderable(HudElementDefinition definition, Font font, int guiWidth, int guiHeight) {
-      Component component = MessagingUtils.miniMessage(definition.miniMessageSupplier().get());
-      int textWidth = font.width(component);
+      CachedHudText cached = cachedText(definition, font);
+      Component component = cached.component();
+      int textWidth = cached.width();
       int textHeight = font.lineHeight;
       HudPosition position = positionFor(definition.id());
       int x = pixelX(position, guiWidth, textWidth);
       int y = pixelCoordinate(position.y(), guiHeight, textHeight);
       return new RenderedHudElement(definition, component, x, y, textWidth, textHeight);
+   }
+
+   private static CachedHudText cachedText(HudElementDefinition definition, Font font) {
+      Identifier id = definition.id();
+      String miniMessage = definition.miniMessageSupplier().get();
+      if (miniMessage == null) {
+         miniMessage = "";
+      }
+
+      CachedHudText cached = TEXT_CACHE.get(id);
+      if (cached != null && cached.rawMiniMessage().equals(miniMessage)) {
+         return cached;
+      }
+
+      Component component = MessagingUtils.miniMessage(miniMessage);
+      CachedHudText updated = new CachedHudText(miniMessage, component, font.width(component));
+      TEXT_CACHE.put(id, updated);
+      return updated;
    }
 
    private static int pixelX(HudPosition position, int guiWidth, int elementWidth) {
@@ -158,12 +181,19 @@ public final class HudElementManager {
    }
 
    public record RenderedHudElement(
-           HudElementDefinition definition,
-           Component component,
-           int x,
+            HudElementDefinition definition,
+            Component component,
+            int x,
            int y,
            int textWidth,
            int textHeight
+   ) {
+   }
+
+   private record CachedHudText(
+           String rawMiniMessage,
+           Component component,
+           int width
    ) {
    }
 }

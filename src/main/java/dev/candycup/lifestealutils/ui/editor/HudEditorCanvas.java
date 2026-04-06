@@ -87,7 +87,7 @@ public final class HudEditorCanvas implements Drawable {
          return;
       }
       renderIndicator(context);
-      List<HudElementManager.RenderedHudElement> elements = HudElementManager.renderables(font, guiWidth, guiHeight);
+      List<HudElementManager.RenderedHudElement> elements = renderElements();
       for (HudElementManager.RenderedHudElement element : elements) {
          drawTextElement(context, element, element.definition().id());
       }
@@ -200,7 +200,7 @@ public final class HudEditorCanvas implements Drawable {
    }
 
    private void handleTextInput(UiInputState input) {
-      List<HudElementManager.RenderedHudElement> elements = HudElementManager.renderables(font, guiWidth, guiHeight);
+      List<HudElementManager.RenderedHudElement> elements = renderElements();
       for (HudElementManager.RenderedHudElement element : elements) {
          Identifier id = element.definition().id();
          AnchorControlLayout controls = anchorControlLayout(element);
@@ -237,6 +237,10 @@ public final class HudEditorCanvas implements Drawable {
             );
          }
       }
+   }
+
+   private List<HudElementManager.RenderedHudElement> renderElements() {
+      return HudElementManager.renderables(font, guiWidth, guiHeight);
    }
 
    private void drawTextElement(UiContext context, HudElementManager.RenderedHudElement element, Identifier id) {
