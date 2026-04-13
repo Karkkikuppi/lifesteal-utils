@@ -46,9 +46,9 @@ public class GaiaConsentScreen extends Screen {
    private final TabManager tabManager;
    private TabNavigationBar tabNavigationBar;
    private final Screen lastScreen;
+   private final boolean declineOnClose;
 
    private ConsentTextList consentList;
-   private boolean decisionMade = false;
    private int lastContentVersion = -1;
 
    /**
@@ -57,8 +57,19 @@ public class GaiaConsentScreen extends Screen {
     * @param lastScreen the screen to return to when closing
     */
    public GaiaConsentScreen(Screen lastScreen) {
+      this(lastScreen, false);
+   }
+
+   /**
+    * Creates a new Gaia consent screen.
+    *
+    * @param lastScreen the screen to return to when closing
+    * @param declineOnClose whether closing without a choice should be treated as deny
+    */
+   public GaiaConsentScreen(Screen lastScreen, boolean declineOnClose) {
       super(TITLE);
       this.lastScreen = lastScreen;
+      this.declineOnClose = declineOnClose;
       this.tabManager = new TabManager(
               guiEventListener -> addRenderableWidget(guiEventListener),
               this::removeWidget
@@ -146,14 +157,13 @@ public class GaiaConsentScreen extends Screen {
 
    @Override
    public void onClose() {
-      if (!decisionMade) {
+      if (declineOnClose) {
          GaiaConsentController.recordConsentDecision(false);
       }
       this.minecraft.setScreen(this.lastScreen);
    }
 
    private void handleConsent(boolean enabled) {
-      decisionMade = true;
       GaiaConsentController.recordConsentDecision(enabled);
       this.minecraft.setScreen(this.lastScreen);
    }

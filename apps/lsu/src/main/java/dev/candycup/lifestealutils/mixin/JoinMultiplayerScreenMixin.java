@@ -45,6 +45,6 @@ public class JoinMultiplayerScreenMixin extends Screen {
       if (minecraft.screen != this) {
          return;
       }
-      minecraft.setScreen(new GaiaConsentScreen(this));
+      minecraft.setScreen(new GaiaConsentScreen(this, true));
    }
 }

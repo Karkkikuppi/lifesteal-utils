@@ -50,7 +50,7 @@ public final class QuickJoinButton {
             return;
          }
          if (GaiaConsentController.shouldShowConsent()) {
-            mc.setScreen(new GaiaConsentScreen(lastScreen));
+            mc.setScreen(new GaiaConsentScreen(lastScreen, true));
             return;
          }
 
