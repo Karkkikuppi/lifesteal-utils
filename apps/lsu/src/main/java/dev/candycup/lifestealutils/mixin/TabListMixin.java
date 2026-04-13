@@ -26,33 +26,4 @@ public abstract class TabListMixin {
 
    @Shadow
    public abstract Component getNameForDisplay(PlayerInfo playerInfo);
-
-   @Inject(method = "render", at = @At("HEAD"))
-   private void renderHead(GuiGraphics guiGraphics, int i, Scoreboard scoreboard, Objective objective, CallbackInfo ci) {
-      List<PlayerInfo> list = getPlayerInfos();
-
-
-      for (PlayerInfo playerInfo : list) {
-         if (playerInfo == null) continue;
-         Component component = getNameForDisplay(playerInfo);
-      }
-   }
-
-   @Inject(method = "decorateName", at = @At("HEAD"), cancellable = true)
-   private void decorateNameHead(PlayerInfo playerInfo, MutableComponent mutableComponent, CallbackInfoReturnable<Component> cir) {
-      Component result = mutableComponent;
-
-      //? if > 1.21.8 {
-      String plainName = playerInfo.getProfile().name();
-      //?} else {
-      /*String plainName = playerInfo.getProfile().getName();
-       *///?}
-      if (plainName != null && !plainName.isBlank()) {
-         PlayerNameRenderEvent event = new PlayerNameRenderEvent(plainName, PlayerNameRenderEvent.RenderContext.TABLIST, result);
-         LifestealUtilsEvents.PLAYER_NAME_RENDER.invoker().onPlayerNameRender(event);
-         result = event.getModifiedDisplayName();
-      }
-
-      cir.setReturnValue(result);
-   }
 }

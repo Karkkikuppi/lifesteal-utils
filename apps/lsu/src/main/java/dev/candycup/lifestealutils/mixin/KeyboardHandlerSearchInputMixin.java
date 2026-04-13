@@ -1,5 +1,6 @@
 package dev.candycup.lifestealutils.mixin;
 
+import dev.candycup.lifestealutils.api.LifestealAPI;
 import dev.candycup.lifestealutils.features.ah.AhOverlaySearchInput;
 import net.minecraft.client.KeyboardHandler;
 import net.minecraft.client.Minecraft;
@@ -22,6 +23,8 @@ public class KeyboardHandlerSearchInputMixin {
    //? if >1.21.8 {
    @Inject(method = "charTyped", at = @At("HEAD"), cancellable = true)
    private void lifestealutils$forwardOverlaySearchInput(long window, CharacterEvent characterEvent, CallbackInfo ci) {
+      if (!LifestealAPI.isOnLifestealNetwork()) return;
+
       if (!(this.minecraft.screen instanceof AhOverlaySearchInput overlaySearchInput)) {
          return;
       }

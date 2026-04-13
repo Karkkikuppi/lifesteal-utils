@@ -1,6 +1,7 @@
 package dev.candycup.lifestealutils.mixin;
 
 import dev.candycup.lifestealutils.Config;
+import dev.candycup.lifestealutils.api.LifestealAPI;
 import dev.candycup.lifestealutils.features.ah.AhOverlaySearchInput;
 import dev.candycup.lifestealutils.features.ah.AhOverlaySearchState;
 import dev.candycup.lifestealutils.features.ah.AhSearchAutomation;
@@ -243,6 +244,8 @@ public abstract class AuctionContainerOverlayMixin<T extends AbstractContainerMe
 
    @Inject(method = "render", at = @At("HEAD"), cancellable = true)
    private void lifestealutils$renderAuctionOverlay(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
+      if (!LifestealAPI.isOnLifestealNetwork()) return;
+
       AbstractContainerScreen<?> self = (AbstractContainerScreen<?>) (Object) this;
       int mode = lifestealutils$getWrappedMode(self);
       if (mode == MODE_NONE) {
@@ -259,6 +262,8 @@ public abstract class AuctionContainerOverlayMixin<T extends AbstractContainerMe
 
    @Inject(method = "render", at = @At("TAIL"))
    private void lifestealutils$renderAuctionOverlayTail(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
+      if (!LifestealAPI.isOnLifestealNetwork()) return;
+
       if (!DEBUG_RENDER_UNDERLYING_GUI) {
          return;
       }
@@ -298,6 +303,8 @@ public abstract class AuctionContainerOverlayMixin<T extends AbstractContainerMe
 
    @Inject(method = "renderBackground", at = @At("HEAD"), cancellable = true)
    private void lifestealutils$cancelVanillaBackground(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
+      if (!LifestealAPI.isOnLifestealNetwork()) return;
+
       AbstractContainerScreen<?> self = (AbstractContainerScreen<?>) (Object) this;
       if (!DEBUG_RENDER_UNDERLYING_GUI && lifestealutils$getWrappedMode(self) != MODE_NONE) {
          ci.cancel();
@@ -307,6 +314,8 @@ public abstract class AuctionContainerOverlayMixin<T extends AbstractContainerMe
    //? if >1.21.8 {
    @Inject(method = "keyPressed", at = @At("HEAD"), cancellable = true)
    private void lifestealutils$handleArrowPaging(KeyEvent keyEvent, CallbackInfoReturnable<Boolean> cir) {
+      if (!LifestealAPI.isOnLifestealNetwork()) return;
+
       AbstractContainerScreen<?> self = (AbstractContainerScreen<?>) (Object) this;
       int mode = lifestealutils$getWrappedMode(self);
       if (mode == MODE_NONE) {
@@ -361,6 +370,8 @@ public abstract class AuctionContainerOverlayMixin<T extends AbstractContainerMe
    //? if >1.21.8 {
    @Inject(method = "mouseClicked", at = @At("HEAD"), cancellable = true)
    private void lifestealutils$handleOverlayClick(MouseButtonEvent mouseButtonEvent, boolean doubleClick, CallbackInfoReturnable<Boolean> cir) {
+      if (!LifestealAPI.isOnLifestealNetwork()) return;
+
       AbstractContainerScreen<?> self = (AbstractContainerScreen<?>) (Object) this;
       int mode = lifestealutils$getWrappedMode(self);
       if (mode == MODE_NONE) {
@@ -398,6 +409,8 @@ public abstract class AuctionContainerOverlayMixin<T extends AbstractContainerMe
 
    @Inject(method = "mouseScrolled", at = @At("HEAD"), cancellable = true)
    private void lifestealutils$handleCardScroll(double mouseX, double mouseY, double horizontalAmount, double verticalAmount, CallbackInfoReturnable<Boolean> cir) {
+      if (!LifestealAPI.isOnLifestealNetwork()) return;
+
       AbstractContainerScreen<?> self = (AbstractContainerScreen<?>) (Object) this;
       int mode = lifestealutils$getWrappedMode(self);
       if (mode == MODE_NONE) {
@@ -425,6 +438,8 @@ public abstract class AuctionContainerOverlayMixin<T extends AbstractContainerMe
    //?} else {
    /*@Inject(method = "mouseClicked", at = @At("HEAD"), cancellable = true)
    private void lifestealutils$handleOverlayClick(double mouseX, double mouseY, int button, CallbackInfoReturnable<Boolean> cir) {
+      if (!LifestealAPI.isOnLifestealNetwork()) return;
+
       AbstractContainerScreen<?> self = (AbstractContainerScreen<?>) (Object) this;
       int mode = lifestealutils$getWrappedMode(self);
       if (mode == MODE_NONE) {

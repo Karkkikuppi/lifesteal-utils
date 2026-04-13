@@ -29,6 +29,8 @@ public class MessageReceiver {
 
    @Inject(at = @At("HEAD"), method = "addMessage(Lnet/minecraft/network/chat/Component;)V", cancellable = true)
    private void addMessage(Component component, CallbackInfo ci) {
+      if (!LifestealAPI.isOnLifestealNetwork()) return;
+
       Component modified = lifestealutils$filter(component);
       if (modified == null) {
          ci.cancel();
@@ -52,6 +54,8 @@ public class MessageReceiver {
            cancellable = true
    )
    private void addMessage(Component component, MessageSignature messageSignature, GuiMessageTag guiMessageTag, CallbackInfo ci) {
+      if (!LifestealAPI.isOnLifestealNetwork()) return;
+
       Component modified = lifestealutils$filter(component);
       if (modified == null) {
          ci.cancel();

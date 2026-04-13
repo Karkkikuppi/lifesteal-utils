@@ -1,6 +1,7 @@
 package dev.candycup.lifestealutils.mixin;
 
 import com.llamalad7.mixinextras.injector.ModifyReturnValue;
+import dev.candycup.lifestealutils.api.LifestealAPI;
 import dev.candycup.lifestealutils.event.LifestealUtilsEvents;
 import dev.candycup.lifestealutils.event.LifestealUtilsEvents.PlayerNameRenderEvent;
 import net.minecraft.network.chat.Component;
@@ -12,6 +13,8 @@ import org.spongepowered.asm.mixin.injection.At;
 public abstract class PlayerEntityMixin {
    @ModifyReturnValue(method = "getDisplayName", at = @At("RETURN"))
    public Component lsu$modifyDisplayName(Component original) {
+      if (!LifestealAPI.isOnLifestealNetwork()) return original;
+
       if (original == null) return null;
 
       Component nameComponent = ((Player) (Object) this).getName();

@@ -2,6 +2,7 @@ package dev.candycup.lifestealutils.mixin;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import dev.candycup.lifestealutils.ItemClusterRenderStateDuck;
+import dev.candycup.lifestealutils.api.LifestealAPI;
 import dev.candycup.lifestealutils.event.LifestealUtilsEvents;
 import dev.candycup.lifestealutils.event.LifestealUtilsEvents.ItemRenderEvent;
 //? if > 1.21.8
@@ -27,6 +28,8 @@ public class ItemRendererMixin {
            at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/vertex/PoseStack;mulPose(Lorg/joml/Quaternionfc;)V"),
            cancellable = true)
    private void dispatchItemRenderEvent(ItemEntityRenderState state, PoseStack poseStack, SubmitNodeCollector collector, CameraRenderState cameraState, CallbackInfo ci) {
+      if (!LifestealAPI.isOnLifestealNetwork()) return;
+
       ItemClusterRenderStateDuck duck = (ItemClusterRenderStateDuck) state;
       ItemStack itemStack = duck.lifestealutils$getItemStack();
       boolean isRare = duck.lifestealutils$isRare();

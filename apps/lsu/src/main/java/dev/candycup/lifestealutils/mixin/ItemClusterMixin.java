@@ -3,6 +3,7 @@ package dev.candycup.lifestealutils.mixin;
 import com.mojang.serialization.DataResult;
 import com.mojang.serialization.DynamicOps;
 import dev.candycup.lifestealutils.ItemClusterRenderStateDuck;
+import dev.candycup.lifestealutils.api.LifestealAPI;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.entity.state.ItemClusterRenderState;
 import net.minecraft.client.renderer.item.ItemModelResolver;
@@ -32,6 +33,8 @@ public class ItemClusterMixin implements ItemClusterRenderStateDuck {
    @Inject(method = "extractItemGroupRenderState", at = @At("HEAD"))
 
    private void lifestealutils$captureRare(Entity entity, ItemStack stack, ItemModelResolver resolver, CallbackInfo ci) {
+      if (!LifestealAPI.isOnLifestealNetwork()) return;
+
       lifestealutils$setRare(false);
       lifestealutils$setItemStack(stack.copy());
 

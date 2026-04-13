@@ -70,6 +70,8 @@ public class ClientPacketListenerMixin {
     */
    @Inject(method = "handleOpenScreen", at = @At("RETURN"))
    private void onOpenScreen(ClientboundOpenScreenPacket packet, CallbackInfo ci) {
+      if (!LifestealAPI.isOnLifestealNetwork()) return;
+
       if (BaltopScraper.getInstance().isScraping()) {
          Minecraft client = Minecraft.getInstance();
          // vanilla has now set up containerMenu, but it also replaced our screen
