@@ -10,6 +10,7 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.Tooltip;
 //? if >1.21.8 {
 import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.MouseButtonEvent;
@@ -125,6 +126,13 @@ public abstract class AuctionContainerOverlayMixin<T extends AbstractContainerMe
    private static final String NEXT_PAGE_NAME = "Next Page";
    private static final String PREV_PAGE_NAME = "Previous Page";
    private static final String ALT_PREV_PAGE_NAME = "Last Page";
+   private static final String CLAIM_ITEMS_NAME = "Claim Items";
+   private static final String YOUR_LISTINGS_NAME = "Your Listings";
+
+   private static final String AUCTION_CLAIM_ITEMS_BUTTON_KEY = "lsu.auction.sidebar.claim_items";
+   private static final String AUCTION_YOUR_LISTINGS_BUTTON_KEY = "lsu.auction.sidebar.your_listings";
+   private static final String AUCTION_CLAIM_ITEMS_UNAVAILABLE_KEY = "lsu.auction.sidebar.claim_items.unavailable";
+   private static final String AUCTION_YOUR_LISTINGS_UNAVAILABLE_KEY = "lsu.auction.sidebar.your_listings.unavailable";
 
    private static final int MODE_NONE = 0;
    private static final int MODE_ITEMS = 1;
@@ -204,6 +212,18 @@ public abstract class AuctionContainerOverlayMixin<T extends AbstractContainerMe
 
    @Unique
    private Button lifestealutils$filterCancelButton;
+
+   @Unique
+   private Button lifestealutils$claimItemsButton;
+
+   @Unique
+   private Button lifestealutils$yourListingsButton;
+
+   @Unique
+   private int lifestealutils$claimItemsSlotIndex = -1;
+
+   @Unique
+   private int lifestealutils$yourListingsSlotIndex = -1;
 
    @Unique
    private long lifestealutils$lastPageKeyClickMs = 0L;
@@ -288,13 +308,15 @@ public abstract class AuctionContainerOverlayMixin<T extends AbstractContainerMe
       lifestealutils$refreshSortState(mode);
       lifestealutils$refreshSearchState(mode);
       lifestealutils$refreshFilterState(mode);
+      lifestealutils$refreshSidebarActionState();
       guiGraphics.fillGradient(0, 0, screenWidth, screenHeight, BACKGROUND_TOP, BACKGROUND_BOTTOM);
       guiGraphics.fill(0, 0, screenWidth, screenHeight, BACKGROUND_DARKEN_OVERLAY);
 
       lifestealutils$ensureFooterButtons(self);
       lifestealutils$ensureSearchControls(self);
       lifestealutils$ensureFilterHeaderButtons(self);
-      lifestealutils$renderSidebar(guiGraphics, font, metrics, mode);
+      lifestealutils$ensureSidebarActionButtons(self);
+      lifestealutils$renderSidebar(guiGraphics, font, metrics, mode, mouseX, mouseY);
       Slot hoveredCardSlot = lifestealutils$renderMainContentCards(guiGraphics, font, metrics, mode, mouseX, mouseY);
       lifestealutils$layoutAndRenderFooter(guiGraphics, metrics, mode, mouseX, mouseY);
       this.hoveredSlot = hoveredCardSlot;
@@ -333,8 +355,7 @@ public abstract class AuctionContainerOverlayMixin<T extends AbstractContainerMe
       }
 
       if (mode == MODE_ITEMS && this.lifestealutils$searchBox != null && this.lifestealutils$searchBox.isFocused()) {
-         if (keyEvent.key() == GLFW.GLFW_KEY_E && !lifestealutils$isSearchActiveInUi()) {
-            this.lifestealutils$searchBox.insertText("e");
+         if (Minecraft.getInstance().options.keyInventory.matches(keyEvent)) {
             cir.setReturnValue(true);
             return;
          }
@@ -396,6 +417,10 @@ public abstract class AuctionContainerOverlayMixin<T extends AbstractContainerMe
          return;
       }
       if (lifestealutils$tryFilterHeaderButtonClick(mode, mouseButtonEvent.x(), mouseButtonEvent.y())) {
+         cir.setReturnValue(true);
+         return;
+      }
+      if (lifestealutils$trySidebarActionButtonClick(mode, mouseButtonEvent.x(), mouseButtonEvent.y())) {
          cir.setReturnValue(true);
          return;
       }
@@ -477,7 +502,7 @@ public abstract class AuctionContainerOverlayMixin<T extends AbstractContainerMe
    }
 
    @Unique
-   private void lifestealutils$renderSidebar(GuiGraphics guiGraphics, Font font, int[] metrics, int mode) {
+   private void lifestealutils$renderSidebar(GuiGraphics guiGraphics, Font font, int[] metrics, int mode, int mouseX, int mouseY) {
       int contentY = metrics[IDX_CONTENT_Y];
       int sidebarX = metrics[IDX_SIDEBAR_X];
       int sidebarWidth = metrics[IDX_SIDEBAR_WIDTH];
@@ -496,13 +521,14 @@ public abstract class AuctionContainerOverlayMixin<T extends AbstractContainerMe
          lifestealutils$renderSearchText(guiGraphics, font);
       }
       if (this.lifestealutils$searchButton != null) {
-         this.lifestealutils$searchButton.render(guiGraphics, 0, 0, 0.0f);
+         this.lifestealutils$searchButton.render(guiGraphics, mouseX, mouseY, 0.0f);
       }
 
       currentY += SEARCH_HEIGHT + SECTION_GAP;
       currentY = lifestealutils$renderSortContainer(guiGraphics, font, sectionX, currentY, sectionWidth, mode);
       currentY += SECTION_GAP;
-      lifestealutils$renderFiltersContainer(guiGraphics, font, sectionX, currentY, sectionWidth, mode);
+      currentY = lifestealutils$renderFiltersContainer(guiGraphics, font, sectionX, currentY, sectionWidth, mode, mouseX, mouseY);
+      lifestealutils$layoutAndRenderSidebarActionButtons(guiGraphics, sectionX, currentY + SECTION_GAP, sectionWidth, mode, mouseX, mouseY);
    }
 
    @Unique
@@ -542,6 +568,81 @@ public abstract class AuctionContainerOverlayMixin<T extends AbstractContainerMe
       accessor.invokeAddRenderableWidget(this.lifestealutils$filterEditButton);
       accessor.invokeAddRenderableWidget(this.lifestealutils$filterSaveButton);
       accessor.invokeAddRenderableWidget(this.lifestealutils$filterCancelButton);
+   }
+
+   @Unique
+   private void lifestealutils$ensureSidebarActionButtons(AbstractContainerScreen<?> self) {
+      if (this.lifestealutils$claimItemsButton != null && this.lifestealutils$yourListingsButton != null) {
+         return;
+      }
+
+      this.lifestealutils$claimItemsButton = Button.builder(Component.translatable(AUCTION_CLAIM_ITEMS_BUTTON_KEY), button -> {
+      }).width(100).build();
+      this.lifestealutils$yourListingsButton = Button.builder(Component.translatable(AUCTION_YOUR_LISTINGS_BUTTON_KEY), button -> {
+      }).width(100).build();
+
+      ScreenAccessor accessor = (ScreenAccessor) self;
+      accessor.invokeAddRenderableWidget(this.lifestealutils$claimItemsButton);
+      accessor.invokeAddRenderableWidget(this.lifestealutils$yourListingsButton);
+   }
+
+   @Unique
+   private void lifestealutils$layoutAndRenderSidebarActionButtons(GuiGraphics guiGraphics, int x, int y, int width, int mode, int mouseX, int mouseY) {
+      if (this.lifestealutils$claimItemsButton == null || this.lifestealutils$yourListingsButton == null) {
+         return;
+      }
+
+      boolean visible = mode != MODE_NONE;
+      this.lifestealutils$claimItemsButton.visible = visible;
+      this.lifestealutils$yourListingsButton.visible = visible;
+      if (!visible) {
+         return;
+      }
+
+      this.lifestealutils$claimItemsButton.setX(x);
+      this.lifestealutils$claimItemsButton.setY(y);
+      this.lifestealutils$claimItemsButton.setWidth(width);
+      this.lifestealutils$claimItemsButton.setHeight(HEADER_HEIGHT);
+      this.lifestealutils$claimItemsButton.active = this.lifestealutils$claimItemsSlotIndex >= 0;
+      this.lifestealutils$claimItemsButton.setTooltip(this.lifestealutils$claimItemsButton.active ? null : Tooltip.create(Component.translatable(AUCTION_CLAIM_ITEMS_UNAVAILABLE_KEY)));
+      this.lifestealutils$claimItemsButton.render(guiGraphics, mouseX, mouseY, 0.0F);
+
+      int listingsY = y + HEADER_HEIGHT;
+      this.lifestealutils$yourListingsButton.setX(x);
+      this.lifestealutils$yourListingsButton.setY(listingsY);
+      this.lifestealutils$yourListingsButton.setWidth(width);
+      this.lifestealutils$yourListingsButton.setHeight(HEADER_HEIGHT);
+      this.lifestealutils$yourListingsButton.active = this.lifestealutils$yourListingsSlotIndex >= 0;
+      this.lifestealutils$yourListingsButton.setTooltip(this.lifestealutils$yourListingsButton.active ? null : Tooltip.create(Component.translatable(AUCTION_YOUR_LISTINGS_UNAVAILABLE_KEY)));
+      this.lifestealutils$yourListingsButton.render(guiGraphics, mouseX, mouseY, 0.0F);
+   }
+
+   @Unique
+   private boolean lifestealutils$trySidebarActionButtonClick(int mode, double mouseX, double mouseY) {
+      if (mode == MODE_NONE) {
+         return false;
+      }
+      if (this.lifestealutils$claimItemsButton == null || this.lifestealutils$yourListingsButton == null) {
+         return false;
+      }
+
+      if (this.lifestealutils$claimItemsButton.visible
+              && lifestealutils$isInside(mouseX, mouseY, this.lifestealutils$claimItemsButton.getX(), this.lifestealutils$claimItemsButton.getY(), this.lifestealutils$claimItemsButton.getWidth(), this.lifestealutils$claimItemsButton.getHeight())) {
+         if (!this.lifestealutils$claimItemsButton.active) {
+            return true;
+         }
+         return lifestealutils$clickClaimItemsButton();
+      }
+
+      if (this.lifestealutils$yourListingsButton.visible
+              && lifestealutils$isInside(mouseX, mouseY, this.lifestealutils$yourListingsButton.getX(), this.lifestealutils$yourListingsButton.getY(), this.lifestealutils$yourListingsButton.getWidth(), this.lifestealutils$yourListingsButton.getHeight())) {
+         if (!this.lifestealutils$yourListingsButton.active) {
+            return true;
+         }
+         return lifestealutils$clickYourListingsButton();
+      }
+
+      return false;
    }
 
    @Unique
@@ -622,7 +723,7 @@ public abstract class AuctionContainerOverlayMixin<T extends AbstractContainerMe
    }
 
    @Unique
-   private int lifestealutils$renderFiltersContainer(GuiGraphics guiGraphics, Font font, int x, int y, int width, int mode) {
+   private int lifestealutils$renderFiltersContainer(GuiGraphics guiGraphics, Font font, int x, int y, int width, int mode, int mouseX, int mouseY) {
       guiGraphics.fillGradient(x, y, x + width, y + HEADER_HEIGHT, HEADER_GRADIENT_TOP, HEADER_GRADIENT_BOTTOM);
       guiGraphics.fill(x, y, x + SIDEBAR_STROKE_WIDTH, y + HEADER_HEIGHT, ACCENT_STROKE);
 
@@ -630,7 +731,7 @@ public abstract class AuctionContainerOverlayMixin<T extends AbstractContainerMe
       int titleY = y + (HEADER_HEIGHT - font.lineHeight) / 2;
       String title = mode == MODE_FILTER_EDIT ? "Filter" : "Filters";
       guiGraphics.drawString(font, Component.literal(title).withStyle(style -> style.withBold(true)), textStartX, titleY, 0xFFFFFFFF);
-      lifestealutils$layoutAndRenderFilterHeaderButtons(guiGraphics, x, y, width, mode);
+      lifestealutils$layoutAndRenderFilterHeaderButtons(guiGraphics, x, y, width, mode, mouseX, mouseY);
 
       int rowY = y + HEADER_HEIGHT;
       if (mode == MODE_ITEMS) {
@@ -670,7 +771,7 @@ public abstract class AuctionContainerOverlayMixin<T extends AbstractContainerMe
    }
 
    @Unique
-   private void lifestealutils$layoutAndRenderFilterHeaderButtons(GuiGraphics guiGraphics, int x, int y, int width, int mode) {
+   private void lifestealutils$layoutAndRenderFilterHeaderButtons(GuiGraphics guiGraphics, int x, int y, int width, int mode, int mouseX, int mouseY) {
       if (this.lifestealutils$filterEditButton == null || this.lifestealutils$filterSaveButton == null || this.lifestealutils$filterCancelButton == null) {
          return;
       }
@@ -687,7 +788,7 @@ public abstract class AuctionContainerOverlayMixin<T extends AbstractContainerMe
          this.lifestealutils$filterEditButton.setHeight(HEADER_HEIGHT);
          this.lifestealutils$filterEditButton.visible = true;
          this.lifestealutils$filterEditButton.active = this.lifestealutils$filterItemSlotIndex >= 0;
-         this.lifestealutils$filterEditButton.render(guiGraphics, 0, 0, 0.0f);
+         this.lifestealutils$filterEditButton.render(guiGraphics, mouseX, mouseY, 0.0f);
          return;
       }
 
@@ -701,7 +802,7 @@ public abstract class AuctionContainerOverlayMixin<T extends AbstractContainerMe
          this.lifestealutils$filterSaveButton.setHeight(HEADER_HEIGHT);
          this.lifestealutils$filterSaveButton.visible = true;
          this.lifestealutils$filterSaveButton.active = this.lifestealutils$filterConfirmSlotIndex >= 0 || this.lifestealutils$filterGoBackSlotIndex >= 0;
-         this.lifestealutils$filterSaveButton.render(guiGraphics, 0, 0, 0.0f);
+         this.lifestealutils$filterSaveButton.render(guiGraphics, mouseX, mouseY, 0.0f);
 
          this.lifestealutils$filterCancelButton.setX(cancelX);
          this.lifestealutils$filterCancelButton.setY(buttonY);
@@ -709,7 +810,7 @@ public abstract class AuctionContainerOverlayMixin<T extends AbstractContainerMe
          this.lifestealutils$filterCancelButton.setHeight(HEADER_HEIGHT);
          this.lifestealutils$filterCancelButton.visible = true;
          this.lifestealutils$filterCancelButton.active = this.lifestealutils$filterGoBackSlotIndex >= 0;
-         this.lifestealutils$filterCancelButton.render(guiGraphics, 0, 0, 0.0f);
+         this.lifestealutils$filterCancelButton.render(guiGraphics, mouseX, mouseY, 0.0f);
       }
    }
 
@@ -1807,6 +1908,22 @@ public abstract class AuctionContainerOverlayMixin<T extends AbstractContainerMe
    @Unique
    private boolean lifestealutils$cancelFilterChanges() {
       return lifestealutils$clickSlot(this.lifestealutils$filterGoBackSlotIndex);
+   }
+
+   @Unique
+   private void lifestealutils$refreshSidebarActionState() {
+      this.lifestealutils$claimItemsSlotIndex = lifestealutils$findNamedControlSlot(CLAIM_ITEMS_NAME);
+      this.lifestealutils$yourListingsSlotIndex = lifestealutils$findNamedControlSlot(YOUR_LISTINGS_NAME);
+   }
+
+   @Unique
+   private boolean lifestealutils$clickClaimItemsButton() {
+      return lifestealutils$clickSlot(this.lifestealutils$claimItemsSlotIndex);
+   }
+
+   @Unique
+   private boolean lifestealutils$clickYourListingsButton() {
+      return lifestealutils$clickSlot(this.lifestealutils$yourListingsSlotIndex);
    }
 
    @Unique

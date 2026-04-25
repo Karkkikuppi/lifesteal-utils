@@ -257,4 +257,8 @@
   "lsu.alliances.command.control_required_remove": "<red>You cannot remove users from alliances you don't control!</red>",
   "lsu.alliances.command.list_required": "<red>No previous list selected this session and no list provided.</red>",
   "lsu.alliances.readonly": "Read-only (subscription)"
+  ,"lsu.auction.sidebar.claim_items": "Claim Items"
+  ,"lsu.auction.sidebar.your_listings": "Your Listings"
+  ,"lsu.auction.sidebar.claim_items.unavailable": "'Claim Items' is unavailable in this menu!"
+  ,"lsu.auction.sidebar.your_listings.unavailable": "'Your Listings' is unavailable in this menu!"
 }
