@@ -63,7 +63,6 @@ public final class HudElementManager {
 
    /**
     * Registers a position for an element that doesn't have a full definition.
-    * This is used for standalone elements like the POI indicator.
     *
     * @param id       the element identifier
     * @param position the position to register
@@ -181,9 +180,9 @@ public final class HudElementManager {
    }
 
    public record RenderedHudElement(
-            HudElementDefinition definition,
-            Component component,
-            int x,
+           HudElementDefinition definition,
+           Component component,
+           int x,
            int y,
            int textWidth,
            int textHeight

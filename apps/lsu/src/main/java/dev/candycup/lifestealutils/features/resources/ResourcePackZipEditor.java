@@ -48,7 +48,7 @@ public final class ResourcePackZipEditor {
     */
    public static void applyConfiguredOverrides(Path zipPath, Logger logger) {
       OverrideOptions options = OverrideOptions.fromConfig();
-      if (!options.hasAnyEnabledRule()) {
+      if (!options.hasAnyDisabledRule()) {
          return;
       }
 
@@ -121,14 +121,14 @@ public final class ResourcePackZipEditor {
     * feature layer: decides if an entry should be removed entirely.
     */
    private static boolean shouldRemoveEntry(String entryName, OverrideOptions options) {
-      return matchesRule(options.removeAllShieldOverrides(), SHIELD_PATHS, entryName)
-              || matchesRule(options.removeSwordSkins(), SWORD_PATHS, entryName)
-              || matchesRule(options.removeAxeSkins(), AXE_PATHS, entryName)
-              || matchesRule(options.removePickaxeSkins(), PICKAXE_PATHS, entryName)
-              || matchesRule(options.removeShovelSkins(), SHOVEL_PATHS, entryName)
-              || matchesRule(options.removeMaceSkins(), MACE_PATHS, entryName)
-              || matchesRule(options.removeBowSkins(), BOW_PATHS, entryName)
-              || matchesRule(options.removeCrossbowSkins(), CROSSBOW_PATHS, entryName);
+      return matchesRule(!options.enableShieldSkins(), SHIELD_PATHS, entryName)
+              || matchesRule(!options.enableSwordSkins(), SWORD_PATHS, entryName)
+              || matchesRule(!options.enableAxeSkins(), AXE_PATHS, entryName)
+              || matchesRule(!options.enablePickaxeSkins(), PICKAXE_PATHS, entryName)
+              || matchesRule(!options.enableShovelSkins(), SHOVEL_PATHS, entryName)
+              || matchesRule(!options.enableMaceSkins(), MACE_PATHS, entryName)
+              || matchesRule(!options.enableBowSkins(), BOW_PATHS, entryName)
+              || matchesRule(!options.enableCrossbowSkins(), CROSSBOW_PATHS, entryName);
    }
 
    private static boolean matchesRule(boolean enabled, Set<String> paths, String entryName) {
@@ -139,7 +139,7 @@ public final class ResourcePackZipEditor {
     * feature layer: transforms targeted JSON entry content while leaving unrelated entries untouched.
     */
    private static byte[] transformEntryContents(String entryName, byte[] entryBytes, Logger logger, OverrideOptions options) {
-      if (!options.removeEmojis()) {
+      if (options.enableEmojis()) {
          return entryBytes;
       }
 
@@ -173,40 +173,40 @@ public final class ResourcePackZipEditor {
    }
 
    private record OverrideOptions(
-           boolean removeEmojis,
-           boolean removeAllShieldOverrides,
-           boolean removeSwordSkins,
-           boolean removeAxeSkins,
-           boolean removePickaxeSkins,
-           boolean removeShovelSkins,
-           boolean removeMaceSkins,
-           boolean removeBowSkins,
-           boolean removeCrossbowSkins
+           boolean enableEmojis,
+           boolean enableShieldSkins,
+           boolean enableSwordSkins,
+           boolean enableAxeSkins,
+           boolean enablePickaxeSkins,
+           boolean enableShovelSkins,
+           boolean enableMaceSkins,
+           boolean enableBowSkins,
+           boolean enableCrossbowSkins
    ) {
       private static OverrideOptions fromConfig() {
          return new OverrideOptions(
-                 ResourcePackOverrides.isRemoveEmojis(),
-                 ResourcePackOverrides.isRemoveAllShieldOverrides(),
-                 ResourcePackOverrides.isRemoveSwordSkins(),
-                 ResourcePackOverrides.isRemoveAxeSkins(),
-                 ResourcePackOverrides.isRemovePickaxeSkins(),
-                 ResourcePackOverrides.isRemoveShovelSkins(),
-                 ResourcePackOverrides.isRemoveMaceSkins(),
-                 ResourcePackOverrides.isRemoveBowSkins(),
-                 ResourcePackOverrides.isRemoveCrossbowSkins()
+                 ResourcePackOverrides.isEnableEmojis(),
+                 ResourcePackOverrides.isEnableShieldSkins(),
+                 ResourcePackOverrides.isEnableSwordSkins(),
+                 ResourcePackOverrides.isEnableAxeSkins(),
+                 ResourcePackOverrides.isEnablePickaxeSkins(),
+                 ResourcePackOverrides.isEnableShovelSkins(),
+                 ResourcePackOverrides.isEnableMaceSkins(),
+                 ResourcePackOverrides.isEnableBowSkins(),
+                 ResourcePackOverrides.isEnableCrossbowSkins()
          );
       }
 
-      private boolean hasAnyEnabledRule() {
-         return removeEmojis
-                 || removeAllShieldOverrides
-                 || removeSwordSkins
-                 || removeAxeSkins
-                 || removePickaxeSkins
-                 || removeShovelSkins
-                 || removeMaceSkins
-                 || removeBowSkins
-                 || removeCrossbowSkins;
+      private boolean hasAnyDisabledRule() {
+         return !enableEmojis
+                 || !enableShieldSkins
+                 || !enableSwordSkins
+                 || !enableAxeSkins
+                 || !enablePickaxeSkins
+                 || !enableShovelSkins
+                 || !enableMaceSkins
+                 || !enableBowSkins
+                 || !enableCrossbowSkins;
       }
    }
 

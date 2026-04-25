@@ -24,7 +24,6 @@ public final class AllianceNameDecorator {
          return;
       }
       AllianceProfileCacheManager.initialize();
-      AllianceProfileCacheManager.observeWorldPlayers();
       String playerUuid = AllianceProfileCacheManager.getCachedUuidByName(playerName);
       if (playerUuid == null) {
          AllianceProfileCacheManager.queueUuidLookupForName(playerName);
@@ -108,8 +107,7 @@ public final class AllianceNameDecorator {
 
    private boolean applyColorToMatchingLiteral(MutableComponent component, String needle, int color) {
       boolean changed = false;
-      if (component.getContents() instanceof PlainTextContents.LiteralContents literal) {
-         String current = literal.text();
+      if (component.getContents() instanceof PlainTextContents.LiteralContents(String current)) {
          if (current != null && current.equalsIgnoreCase(needle)) {
             component.withStyle(style -> style.withColor(color));
             changed = true;

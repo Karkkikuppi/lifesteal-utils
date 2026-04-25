@@ -12,4 +12,6 @@ public @interface ConfigurableBoolean {
     * The full path to this entry, separated by dots. Goes in this order: category.group.entry
     */
    String location();
+
+   String icon() default "";
 }

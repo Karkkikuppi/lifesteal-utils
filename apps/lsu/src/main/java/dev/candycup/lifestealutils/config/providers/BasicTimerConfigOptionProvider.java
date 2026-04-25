@@ -2,7 +2,8 @@ package dev.candycup.lifestealutils.config.providers;
 
 import dev.candycup.lifestealutils.Config;
 import dev.candycup.lifestealutils.LifestealUtils;
-import dev.candycup.lifestealutils.LifestealUtilsConfigClassHandler;
+import dev.candycup.configura.core.Configura;
+import dev.candycup.configura.core.ConfiguraDynamicEntryDefinition;
 import dev.candycup.lifestealutils.config.ConfigOptionCollector;
 import dev.candycup.lifestealutils.config.ConfigOptionDescriptor;
 import dev.candycup.lifestealutils.config.ConfigOptionProvider;
@@ -27,8 +28,8 @@ public final class BasicTimerConfigOptionProvider implements ConfigOptionProvide
          Config.ensureBasicTimerKnown(id);
          Config.ensureBasicTimerFormat(id, entry.definition().defaultFormat());
 
-         LifestealUtilsConfigClassHandler.registerDynamicSerial(
-                 LifestealUtilsConfigClassHandler.DynamicSerialDefinition.create(
+         Configura.registerDynamicEntry(
+                 ConfiguraDynamicEntryDefinition.create(
                          "timer_" + id + "_enabled",
                          Optional.empty(),
                          false,
@@ -41,8 +42,8 @@ public final class BasicTimerConfigOptionProvider implements ConfigOptionProvide
                  )
          );
 
-         LifestealUtilsConfigClassHandler.registerDynamicSerial(
-                 LifestealUtilsConfigClassHandler.DynamicSerialDefinition.create(
+         Configura.registerDynamicEntry(
+                 ConfiguraDynamicEntryDefinition.create(
                          "timer_" + id + "_format",
                          Optional.empty(),
                          false,
@@ -65,7 +66,7 @@ public final class BasicTimerConfigOptionProvider implements ConfigOptionProvide
          ).hardTranslation(
                  toggleName,
                  "Enable or disable the %s timer overlay.".formatted(timerName)
-         ));
+         ).withAccordion(id, timerName));
 
          collector.add(ConfigOptionDescriptor.minimessage(
                  "timers",
@@ -77,7 +78,7 @@ public final class BasicTimerConfigOptionProvider implements ConfigOptionProvide
          ).hardTranslation(
                  timerName + " Format",
                  "Customize how the %s timer is rendered. Use {{timer}} for the timer value.".formatted(timerName)
-         ));
+         ).withAccordion(id, timerName));
       }
    }
 }

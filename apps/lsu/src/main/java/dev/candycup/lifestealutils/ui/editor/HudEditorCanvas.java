@@ -6,10 +6,8 @@ import dev.candycup.lifestealutils.ui.framework.core.UiContext;
 import dev.candycup.lifestealutils.ui.framework.core.UiInputState;
 import dev.candycup.lifestealutils.ui.framework.core.UiLayoutContext;
 import dev.candycup.lifestealutils.ui.framework.core.UiSize;
-import dev.candycup.lifestealutils.features.qol.PoiDirectionalIndicator;
 import dev.candycup.lifestealutils.hud.HudAnchor;
 import dev.candycup.lifestealutils.hud.HudElementManager;
-import dev.candycup.lifestealutils.hud.HudPosition;
 import dev.candycup.lifestealutils.interapi.SoundUtils;
 import net.minecraft.client.gui.Font;
 import net.minecraft.resources.Identifier;
@@ -26,7 +24,6 @@ public final class HudEditorCanvas implements Drawable {
    private static final int TEXT_DRAG_COLOR = 0xFF66FF66;
    private static final int OUTLINE_COLOR = 0xC0FFFFFF;
    private static final int OUTLINE_DRAG_COLOR = 0xC066FF66;
-   private static final int INDICATOR_OUTLINE_PADDING = 2;
    private static final int TEXT_OUTLINE_PADDING = 4;
    private static final int OUTLINE_STROKE = 1;
    private static final int ANCHOR_ROW_GAP = 6;
@@ -40,7 +37,6 @@ public final class HudEditorCanvas implements Drawable {
    private static final int ANCHOR_BUTTON_BORDER = 0xCCFFFFFF;
 
    private final HudEditorState state;
-   private final PoiDirectionalIndicator poiDirectionalIndicator;
    private final int snapStepPixels;
 
    private UiBounds bounds = UiBounds.empty();
@@ -50,7 +46,6 @@ public final class HudEditorCanvas implements Drawable {
 
    private HudEditorCanvas(Builder builder) {
       this.state = builder.state;
-      this.poiDirectionalIndicator = builder.poiDirectionalIndicator;
       this.snapStepPixels = builder.snapStepPixels;
    }
 
@@ -86,7 +81,6 @@ public final class HudEditorCanvas implements Drawable {
       if (font == null) {
          return;
       }
-      renderIndicator(context);
       List<HudElementManager.RenderedHudElement> elements = renderElements();
       for (HudElementManager.RenderedHudElement element : elements) {
          drawTextElement(context, element, element.definition().id());
@@ -108,7 +102,6 @@ public final class HudEditorCanvas implements Drawable {
          SoundUtils.playUiClick();
       }
 
-      handleIndicatorInput(input);
       handleTextInput(input);
 
       if (state.isDraggingAny() && input.leftReleased()) {
@@ -136,67 +129,6 @@ public final class HudEditorCanvas implements Drawable {
    @Override
    public UiSize preferredSize(UiLayoutContext layoutContext) {
       return new UiSize(layoutContext.availableBounds().width(), layoutContext.availableBounds().height());
-   }
-
-   private void renderIndicator(UiContext context) {
-      if (poiDirectionalIndicator == null) {
-         return;
-      }
-      poiDirectionalIndicator.ensurePositionRegistered(guiWidth, guiHeight);
-      poiDirectionalIndicator.render(context.graphics(), guiWidth, guiHeight);
-
-      Identifier indicatorId = poiDirectionalIndicator.getHudElementId();
-      int indicatorSize = poiDirectionalIndicator.getTextureSize();
-      HudPosition indicatorPos = HudElementManager.positionFor(indicatorId);
-      int indicatorX = HudElementManager.pixelCoordinate(indicatorPos.x(), guiWidth, indicatorSize);
-      int indicatorY = HudElementManager.pixelCoordinate(indicatorPos.y(), guiHeight, indicatorSize);
-
-      boolean hoveringIndicator = isHovering(indicatorX, indicatorY, indicatorSize, indicatorSize, context.input());
-      boolean draggingIndicator = state.isDragging(indicatorId);
-      if (hoveringIndicator || draggingIndicator) {
-         drawOutline(
-                 context,
-                 indicatorX - INDICATOR_OUTLINE_PADDING,
-                 indicatorY - INDICATOR_OUTLINE_PADDING,
-                 indicatorSize + INDICATOR_OUTLINE_PADDING * 2,
-                 indicatorSize + INDICATOR_OUTLINE_PADDING * 2,
-                 draggingIndicator ? OUTLINE_DRAG_COLOR : OUTLINE_COLOR
-         );
-      }
-   }
-
-   private void handleIndicatorInput(UiInputState input) {
-      if (poiDirectionalIndicator == null) {
-         return;
-      }
-      Identifier indicatorId = poiDirectionalIndicator.getHudElementId();
-      int indicatorSize = poiDirectionalIndicator.getTextureSize();
-      HudPosition indicatorPos = HudElementManager.positionFor(indicatorId);
-      int indicatorX = HudElementManager.pixelCoordinate(indicatorPos.x(), guiWidth, indicatorSize);
-      int indicatorY = HudElementManager.pixelCoordinate(indicatorPos.y(), guiHeight, indicatorSize);
-
-      boolean hoveringIndicator = isHovering(indicatorX, indicatorY, indicatorSize, indicatorSize, input);
-      if (hoveringIndicator && input.leftClicked()) {
-         state.beginDrag(indicatorId, (float) input.mouseX() - indicatorX, (float) input.mouseY() - indicatorY);
-      }
-
-      if (state.isDragging(indicatorId) && input.leftDown()) {
-         float dragX = (float) input.mouseX() - state.dragOffsetX();
-         float dragY = (float) input.mouseY() - state.dragOffsetY();
-         if (state.isSnappingActive()) {
-            dragX = snapPixelX(dragX, guiWidth, indicatorSize, snapStepPixels);
-            dragY = snapPixelY(dragY, guiHeight, indicatorSize, snapStepPixels);
-         }
-         HudElementManager.updatePositionFromPixels(
-                 indicatorId,
-                 dragX,
-                 dragY,
-                 guiWidth,
-                 guiHeight,
-                 indicatorSize,
-                 indicatorSize
-         );
-      }
    }
 
    private void handleTextInput(UiInputState input) {
@@ -386,7 +318,6 @@ public final class HudEditorCanvas implements Drawable {
     */
    public static final class Builder {
       private HudEditorState state;
-      private PoiDirectionalIndicator poiDirectionalIndicator;
       private int snapStepPixels;
 
       private Builder() {
@@ -400,17 +331,6 @@ public final class HudEditorCanvas implements Drawable {
        */
       public Builder state(HudEditorState state) {
          this.state = state;
-         return this;
-      }
-
-      /**
-       * sets the poi indicator instance.
-       *
-       * @param poiDirectionalIndicator the indicator
-       * @return the builder
-       */
-      public Builder poiIndicator(PoiDirectionalIndicator poiDirectionalIndicator) {
-         this.poiDirectionalIndicator = poiDirectionalIndicator;
          return this;
       }
 

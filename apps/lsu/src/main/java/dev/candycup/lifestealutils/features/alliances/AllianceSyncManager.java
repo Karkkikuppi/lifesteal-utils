@@ -31,8 +31,11 @@ public final class AllianceSyncManager {
          return;
       }
 
+      // null = API call failed (network/auth/disabled); don't touch local state
+      // empty list = server responded with no subscriptions; safe to remove stale local entries
       List<AllianceModels.AllianceRecord> remote = GaiaApiClient.getInstance().alliances().listSubscriptions();
-      if (remote.isEmpty()) {
+      if (remote == null) {
+         LOGGER.debug("syncSubscriptionsNow: skipping — API call failed");
          return;
       }
 
@@ -97,12 +100,12 @@ public final class AllianceSyncManager {
       }
       String eventType = data.has("eventType") ? data.get("eventType").getAsString() : "";
       String serverId = data.has("allianceId") ? data.get("allianceId").getAsString() : "";
-       if (serverId.isBlank() && data.has("id")) {
-          serverId = data.get("id").getAsString();
-       }
-       if (serverId.isBlank()) {
-          return;
-       }
+      if (serverId.isBlank() && data.has("id")) {
+         serverId = data.get("id").getAsString();
+      }
+      if (serverId.isBlank()) {
+         return;
+      }
 
       final String id = serverId;
       CompletableFuture.runAsync(() -> {
@@ -138,15 +141,15 @@ public final class AllianceSyncManager {
       AllianceService.save(remoteAlliance);
    }
 
-    private static boolean isCurrentUserOwner(String ownerUuid) {
-       if (ownerUuid == null || ownerUuid.isBlank()) {
-          return false;
-}
+   private static boolean isCurrentUserOwner(String ownerUuid) {
+      if (ownerUuid == null || ownerUuid.isBlank()) {
+         return false;
+      }
 
-       Minecraft minecraft = Minecraft.getInstance();
-       if (minecraft.player == null) {
-          return false;
-       }
-       return ownerUuid.replace("-", "").equalsIgnoreCase(minecraft.player.getUUID().toString().replace("-", ""));
-    }
+      Minecraft minecraft = Minecraft.getInstance();
+      if (minecraft.player == null) {
+         return false;
+      }
+      return ownerUuid.replace("-", "").equalsIgnoreCase(minecraft.player.getUUID().toString().replace("-", ""));
+   }
 }

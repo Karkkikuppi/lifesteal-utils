@@ -7,7 +7,7 @@ import dev.candycup.lifestealutils.config.configurables.ConfigurableMinimessage;
 import dev.candycup.lifestealutils.hud.HudAnchor;
 import dev.candycup.lifestealutils.hud.HudElementDefinition;
 import dev.candycup.lifestealutils.hud.HudPosition;
-import dev.isxander.yacl3.config.v2.api.SerialEntry;
+import dev.candycup.configura.serial.SerialEntry;
 import lombok.Getter;
 import lombok.Setter;
 import net.minecraft.client.Minecraft;

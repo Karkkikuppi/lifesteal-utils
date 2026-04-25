@@ -2,7 +2,12 @@ package dev.candycup.lifestealutils.features.alliances;
 
 import com.mojang.brigadier.suggestion.Suggestions;
 import com.mojang.brigadier.suggestion.SuggestionsBuilder;
+import dev.candycup.lifestealutils.Config;
+import dev.candycup.lifestealutils.gaia.GaiaApiClient;
+import dev.candycup.lifestealutils.gaia.modules.alliances.AlliancesModule;
 import dev.candycup.lifestealutils.interapi.MessagingUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.PlayerInfo;
 
@@ -13,6 +18,7 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
 public final class AllianceCommandController {
+   private static final Logger LOGGER = LoggerFactory.getLogger("lifestealutils/alliance-command");
    private static String lastProvidedListNameThisSession = "";
 
    private AllianceCommandController() {
@@ -87,7 +93,7 @@ public final class AllianceCommandController {
          name = playerInfo.getProfile().name();
          //?} else {
          /*name = playerInfo.getProfile().getName();
-         *///?}
+          *///?}
          if (name == null || name.isBlank()) {
             continue;
          }
@@ -98,26 +104,26 @@ public final class AllianceCommandController {
       return builder.buildFuture();
    }
 
-    public static int createAlliance(String name) {
-       if (name == null || name.isBlank()) {
-          MessagingUtils.showMiniMessage("<red>Alliance name cannot be empty.</red>");
-          return 0;
-       }
-       String trimmed = name.trim();
-       if (trimmed.length() > 32) {
-          MessagingUtils.showMiniMessage("<red>Alliance name must be 32 characters or fewer.</red>");
-          return 0;
-       }
-       AllianceModels.AllianceRecord existing = AllianceService.findByName(trimmed);
-       if (existing != null) {
-          MessagingUtils.showMiniMessage("<red>An alliance named <white>" + escape(trimmed) + "</white> already exists.</red>");
-          return 0;
-       }
-       AllianceModels.AllianceRecord record = AllianceService.createLocal(trimmed);
-       AllianceSyncManager.publishOrUpdateAsync(record);
-       MessagingUtils.showMiniMessage("<green>Created alliance <white>" + escape(record.data.name) + "</white>.</green>");
-       return 1;
-    }
+   public static int createAlliance(String name) {
+      if (name == null || name.isBlank()) {
+         MessagingUtils.showMiniMessage("<red>Alliance name cannot be empty.</red>");
+         return 0;
+      }
+      String trimmed = name.trim();
+      if (trimmed.length() > 32) {
+         MessagingUtils.showMiniMessage("<red>Alliance name must be 32 characters or fewer.</red>");
+         return 0;
+      }
+      AllianceModels.AllianceRecord existing = AllianceService.findByName(trimmed);
+      if (existing != null) {
+         MessagingUtils.showMiniMessage("<red>An alliance named <white>" + escape(trimmed) + "</white> already exists.</red>");
+         return 0;
+      }
+      AllianceModels.AllianceRecord record = AllianceService.createLocal(trimmed);
+      AllianceSyncManager.publishOrUpdateAsync(record);
+      MessagingUtils.showMiniMessage("<green>Created alliance <white>" + escape(record.data.name) + "</white>.</green>");
+      return 1;
+   }
 
    public static int addMemberToAlliance(String usernameOrUuid, String allianceName, String listNameOrNull) {
       AllianceModels.AllianceRecord alliance = AllianceService.findByName(allianceName);
@@ -205,6 +211,85 @@ public final class AllianceCommandController {
          return 0;
       }
       return removeMemberFromAlliance(usernameOrUuid, parsed.allianceName());
+   }
+
+   public static CompletableFuture<Suggestions> suggestSubscribedAllianceNames(String remaining, SuggestionsBuilder builder) {
+      String needle = remaining == null ? "" : remaining.trim().toLowerCase(Locale.ROOT);
+      for (AllianceModels.AllianceRecord alliance : AllianceService.listAll()) {
+         if (!"remote".equals(alliance.source)) {
+            continue;
+         }
+         String name = alliance.data == null ? "" : alliance.data.name;
+         if (name == null || name.isBlank()) {
+            continue;
+         }
+         if (needle.isBlank() || name.toLowerCase(Locale.ROOT).contains(needle)) {
+            builder.suggest(name);
+         }
+      }
+      return builder.buildFuture();
+   }
+
+   public static int subscribeToAlliance(String id) {
+      if (id == null || id.isBlank()) {
+         MessagingUtils.showMiniMessage("<red>Enter an invite code first.</red>");
+         return 0;
+      }
+      if (!Config.isGaiaAdvancedFeaturesEnabled()) {
+         MessagingUtils.showMiniMessage("<red>Gaia is disabled. Run /lsu consent-gaia to enable.</red>");
+         return 0;
+      }
+      AlliancesModule.SubscriptionResult result;
+      try {
+         result = GaiaApiClient.getInstance().alliances().subscribeWithDetails(id.trim());
+      } catch (Exception e) {
+         LOGGER.error("Failed to subscribe to alliance '{}'", id, e);
+         MessagingUtils.showMiniMessage("<red>Failed to contact alliance service.</red>");
+         return 0;
+      }
+      if (!result.success()) {
+         String msg = result.errorMessage() != null ? escape(result.errorMessage()) : "Subscribe failed. Please try again.";
+         MessagingUtils.showMiniMessage("<red>" + msg + "</red>");
+         return 0;
+      }
+      AllianceSyncManager.syncSubscriptionsNow();
+      AllianceService.reloadFromDisk();
+      MessagingUtils.showMiniMessage("<green>Subscribed to alliance.</green>");
+      return 1;
+   }
+
+   public static int unsubscribeFromAlliance(String nameOrId) {
+      if (nameOrId == null || nameOrId.isBlank()) {
+         MessagingUtils.showMiniMessage("<red>Provide an alliance name or ID.</red>");
+         return 0;
+      }
+      if (!Config.isGaiaAdvancedFeaturesEnabled()) {
+         MessagingUtils.showMiniMessage("<red>Gaia is disabled. Run /lsu consent-gaia to enable.</red>");
+         return 0;
+      }
+      String trimmed = nameOrId.trim();
+      AllianceModels.AllianceRecord alliance = AllianceService.findByName(trimmed);
+      String serverId = alliance != null ? alliance.serverId : trimmed;
+      if (serverId == null || serverId.isBlank()) {
+         MessagingUtils.showMiniMessage("<red>Could not resolve server ID for <white>" + escape(trimmed) + "</white>.</red>");
+         return 0;
+      }
+      boolean success;
+      try {
+         success = GaiaApiClient.getInstance().alliances().unsubscribe(serverId);
+      } catch (Exception e) {
+         LOGGER.error("Failed to unsubscribe from alliance '{}'", nameOrId, e);
+         MessagingUtils.showMiniMessage("<red>Failed to contact alliance service.</red>");
+         return 0;
+      }
+      if (!success) {
+         MessagingUtils.showMiniMessage("<red>Unsubscribe failed. Please try again.</red>");
+         return 0;
+      }
+      AllianceSyncManager.syncSubscriptionsNow();
+      AllianceService.reloadFromDisk();
+      MessagingUtils.showMiniMessage("<green>Unsubscribed from alliance.</green>");
+      return 1;
    }
 
    private static String escape(String input) {

@@ -9,12 +9,15 @@ import com.google.gson.JsonParser;
 import dev.candycup.lifestealutils.features.alliances.AllianceModels;
 import dev.candycup.lifestealutils.gaia.GaiaApiClient;
 import dev.candycup.lifestealutils.interapi.NetworkUtilsController;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 
 public final class AlliancesModule {
+   private static final Logger LOGGER = LoggerFactory.getLogger("lifestealutils/alliances");
    private static final Gson GSON = new GsonBuilder().create();
    private static final Duration API_TIMEOUT = Duration.ofSeconds(10);
    private static final String BASE_PATH = "/v1/alliances";
@@ -25,10 +28,20 @@ public final class AlliancesModule {
       this.apiClient = apiClient;
    }
 
+   /**
+    * Returns all subscribed alliances from the server, or null if the API call failed.
+    * An empty list means the server responded successfully with no subscriptions.
+    * Null means the request itself failed (network error, auth error, Gaia disabled, etc.).
+    */
    public List<AllianceModels.AllianceRecord> listSubscriptions() {
       NetworkUtilsController.HttpResult result = apiClient.getWithAuth(BASE_PATH + "/subscriptions", API_TIMEOUT, 0);
-      if (!result.success() || result.body() == null || result.body().isBlank()) {
-         return List.of();
+      if (!result.success()) {
+         LOGGER.warn("listSubscriptions failed: {}", resolveErrorMessage(result));
+         return null;
+      }
+      if (result.body() == null || result.body().isBlank()) {
+         LOGGER.warn("listSubscriptions returned empty body");
+         return null;
       }
 
       try {
@@ -48,8 +61,9 @@ public final class AlliancesModule {
             }
          }
          return out;
-      } catch (Exception ignored) {
-         return List.of();
+      } catch (Exception e) {
+         LOGGER.warn("listSubscriptions parse error: {}", e.getMessage());
+         return null;
       }
    }
 
@@ -59,7 +73,11 @@ public final class AlliancesModule {
       payload.add("data", GSON.toJsonTree(local.data));
 
       NetworkUtilsController.HttpResult result = apiClient.postJsonWithAuth(BASE_PATH, payload.toString(), API_TIMEOUT, 0);
-      if (!result.success() || result.body() == null || result.body().isBlank()) {
+      if (!result.success()) {
+         LOGGER.warn("createAlliance failed: {}", resolveErrorMessage(result));
+         return null;
+      }
+      if (result.body() == null || result.body().isBlank()) {
          return null;
       }
 
@@ -72,7 +90,8 @@ public final class AlliancesModule {
                  ? root.getAsJsonObject("alliance")
                  : root;
          return parseServerAlliance(allianceObject);
-      } catch (Exception ignored) {
+      } catch (Exception e) {
+         LOGGER.warn("createAlliance parse error: {}", e.getMessage());
          return null;
       }
    }
@@ -85,6 +104,9 @@ public final class AlliancesModule {
       payload.add("data", GSON.toJsonTree(local.data));
       payload.addProperty("subscriptionPermission", normalizePermission(local.subscriptionPermission));
       NetworkUtilsController.HttpResult result = apiClient.putJsonWithAuth(BASE_PATH + "/" + local.serverId + "/data", payload.toString(), API_TIMEOUT, 0);
+      if (!result.success()) {
+         LOGGER.warn("replaceAllianceData failed for {}: {}", local.serverId, resolveErrorMessage(result));
+      }
       return result.success();
    }
 
@@ -93,7 +115,11 @@ public final class AlliancesModule {
          return null;
       }
       NetworkUtilsController.HttpResult result = apiClient.getWithAuth(BASE_PATH + "/" + serverId, API_TIMEOUT, 0);
-      if (!result.success() || result.body() == null || result.body().isBlank()) {
+      if (!result.success()) {
+         LOGGER.warn("fetchById failed for {}: {}", serverId, resolveErrorMessage(result));
+         return null;
+      }
+      if (result.body() == null || result.body().isBlank()) {
          return null;
       }
       try {
@@ -105,7 +131,8 @@ public final class AlliancesModule {
                  ? root.getAsJsonObject("alliance")
                  : root;
          return parseServerAlliance(allianceObject);
-      } catch (Exception ignored) {
+      } catch (Exception e) {
+         LOGGER.warn("fetchById parse error for {}: {}", serverId, e.getMessage());
          return null;
       }
    }
@@ -130,6 +157,9 @@ public final class AlliancesModule {
          return false;
       }
       NetworkUtilsController.HttpResult result = apiClient.deleteWithAuth(BASE_PATH + "/" + serverId + "/subscribe", API_TIMEOUT, 0);
+      if (!result.success()) {
+         LOGGER.warn("unsubscribe failed for {}: {}", serverId, resolveErrorMessage(result));
+      }
       return result.success();
    }
 
@@ -192,20 +222,24 @@ public final class AlliancesModule {
    }
 
    private static String resolveSubscribeErrorMessage(NetworkUtilsController.HttpResult result) {
-      String apiMessage = extractApiErrorMessage(result);
+      String apiMessage = resolveErrorMessage(result);
       if (apiMessage != null && !apiMessage.isBlank()) {
          return apiMessage;
       }
       return "Subscribe failed. Please try again.";
    }
 
-   private static String extractApiErrorMessage(NetworkUtilsController.HttpResult result) {
+   /**
+    * Extracts a human-readable error message from an HTTP result.
+    * Tries the server-provided error body first, then falls back to the transport-level error string.
+    */
+   static String resolveErrorMessage(NetworkUtilsController.HttpResult result) {
       String source = result.body();
       if (source == null || source.isBlank()) {
          source = result.error();
       }
       if (source == null || source.isBlank()) {
-         return null;
+         return "unknown error";
       }
       try {
          JsonElement element = JsonParser.parseString(source);
@@ -226,9 +260,9 @@ public final class AlliancesModule {
             }
          }
       } catch (Exception ignored) {
-         return null;
+         // fall through
       }
-      return null;
+      return source;
    }
 
    public record SubscriptionResult(boolean success, String errorMessage) {

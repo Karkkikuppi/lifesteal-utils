@@ -2,7 +2,6 @@ package dev.candycup.lifestealutils.mixin;
 
 import dev.candycup.lifestealutils.Config;
 import dev.candycup.lifestealutils.api.LifestealAPI;
-import dev.candycup.lifestealutils.features.ah.AhOverlaySearchInput;
 import dev.candycup.lifestealutils.features.ah.AhOverlaySearchState;
 import dev.candycup.lifestealutils.features.ah.AhSearchAutomation;
 import net.minecraft.client.Minecraft;
@@ -12,10 +11,11 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.Tooltip;
 //? if >1.21.8 {
-import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.input.KeyEvent;
 //?}
+import net.minecraft.client.gui.components.events.ContainerEventHandler;
+import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -47,7 +47,7 @@ import java.util.Map;
 import java.util.Set;
 
 @Mixin(AbstractContainerScreen.class)
-public abstract class AuctionContainerOverlayMixin<T extends AbstractContainerMenu> implements AhOverlaySearchState, AhOverlaySearchInput {
+public abstract class AuctionContainerOverlayMixin<T extends AbstractContainerMenu> implements AhOverlaySearchState {
    private static final Logger LOGGER = LoggerFactory.getLogger("lifestealutils/ah-overlay");
    private static final String AUCTION_ITEMS_TITLE = "Auction | Items";
    private static final String FILTER_TITLE = "Filter";
@@ -71,15 +71,10 @@ public abstract class AuctionContainerOverlayMixin<T extends AbstractContainerMe
    private static final int SECTION_GAP = 12;
    private static final int HEADER_HEIGHT = 20;
    private static final int SIDEBAR_STROKE_WIDTH = 4;
-   private static final int MAIN_STROKE_WIDTH = 7;
-
-   private static final int BACKGROUND_TOP = 0x0FFB4444;
-   private static final int BACKGROUND_BOTTOM = 0x73FB4444;
-   private static final int BACKGROUND_DARKEN_OVERLAY = 0x26000000;
 
    private static final int ACCENT_STROKE = 0xFFFF989A;
-   private static final int HEADER_GRADIENT_TOP = 0x4DFF989A;
-   private static final int HEADER_GRADIENT_BOTTOM = 0x29FF989A;
+   private static final int HEADER_GRADIENT_TOP = 0x99FF989A;
+   private static final int HEADER_GRADIENT_BOTTOM = 0x73FF989A;
 
    private static final int ENABLED_TEXT = 0xFFFF989A;
    private static final int ENABLED_BACKGROUND = 0x30873737;
@@ -87,7 +82,6 @@ public abstract class AuctionContainerOverlayMixin<T extends AbstractContainerMe
    private static final int DISABLED_BACKGROUND = 0x54000000;
 
    private static final int MAIN_BACKGROUND = 0x9A000000;
-   private static final int MAIN_STROKE = 0xFF975D5B;
    private static final int CARD_HEIGHT = 52;
    private static final int CARD_GAP = 8;
    private static final int CARD_ROW_SIDE_MARGIN = 10;
@@ -102,9 +96,7 @@ public abstract class AuctionContainerOverlayMixin<T extends AbstractContainerMe
    private static final int SCROLLBAR_WIDTH = 4;
    private static final int SCROLLBAR_MARGIN = 3;
    private static final int VIEWPORT_WALL_DEPTH = 4;
-   private static final int VIEWPORT_TOP_EDGE = 0x33FFFFFF;
    private static final int VIEWPORT_BOTTOM_EDGE = 0x33000000;
-   private static final int VIEWPORT_TOP_SHADOW = 0x22000000;
    private static final int VIEWPORT_BOTTOM_SHADOW = 0x30000000;
    private static final int SEARCH_BUTTON_WIDTH = 70;
    private static final int FILTER_HEADER_BUTTON_WIDTH = 56;
@@ -262,6 +254,11 @@ public abstract class AuctionContainerOverlayMixin<T extends AbstractContainerMe
    @Shadow
    protected abstract void renderTooltip(GuiGraphics guiGraphics, int i, int j);
 
+   @Unique
+   private void lifestealutils$setScreenFocused(GuiEventListener element) {
+      ((ContainerEventHandler) this).setFocused(element);
+   }
+
    @Inject(method = "render", at = @At("HEAD"), cancellable = true)
    private void lifestealutils$renderAuctionOverlay(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
       if (!LifestealAPI.isOnLifestealNetwork()) return;
@@ -308,9 +305,7 @@ public abstract class AuctionContainerOverlayMixin<T extends AbstractContainerMe
       lifestealutils$refreshSortState(mode);
       lifestealutils$refreshSearchState(mode);
       lifestealutils$refreshFilterState(mode);
-      lifestealutils$refreshSidebarActionState();
-      guiGraphics.fillGradient(0, 0, screenWidth, screenHeight, BACKGROUND_TOP, BACKGROUND_BOTTOM);
-      guiGraphics.fill(0, 0, screenWidth, screenHeight, BACKGROUND_DARKEN_OVERLAY);
+      ((ScreenAccessor) self).invokeRenderBlurredBackground(guiGraphics);
 
       lifestealutils$ensureFooterButtons(self);
       lifestealutils$ensureSearchControls(self);
@@ -355,18 +350,21 @@ public abstract class AuctionContainerOverlayMixin<T extends AbstractContainerMe
       }
 
       if (mode == MODE_ITEMS && this.lifestealutils$searchBox != null && this.lifestealutils$searchBox.isFocused()) {
-         if (Minecraft.getInstance().options.keyInventory.matches(keyEvent)) {
-            cir.setReturnValue(true);
-            return;
-         }
          if (keyEvent.key() == GLFW.GLFW_KEY_ENTER || keyEvent.key() == GLFW.GLFW_KEY_KP_ENTER) {
             cir.setReturnValue(lifestealutils$isSearchActiveInUi() ? lifestealutils$resetSearch() : lifestealutils$triggerSearch());
             return;
-          }
-          if (this.lifestealutils$searchBox.keyPressed(keyEvent)) {
+         }
+         if (keyEvent.isEscape()) {
+            lifestealutils$setScreenFocused(null);
             cir.setReturnValue(true);
             return;
-          }
+         }
+         // Consume all key events while the search box is focused — prevents every keybind
+         // (inventory close, hotbar selection, etc.) from firing. Characters reach the
+         // EditBox through Screen.charTyped → ContainerEventHandler naturally.
+         this.lifestealutils$searchBox.keyPressed(keyEvent);
+         cir.setReturnValue(true);
+         return;
       }
 
       int keyCode = keyEvent.key();
@@ -400,7 +398,7 @@ public abstract class AuctionContainerOverlayMixin<T extends AbstractContainerMe
       }
 
       if (this.lifestealutils$searchBox != null) {
-         this.lifestealutils$searchBox.setFocused(false);
+         lifestealutils$setScreenFocused(null);
       }
       if (mouseButtonEvent.button() != 0) {
          cir.setReturnValue(true);
@@ -429,7 +427,7 @@ public abstract class AuctionContainerOverlayMixin<T extends AbstractContainerMe
       if (!consumed) {
          consumed = lifestealutils$handleCardClick(metrics, mode, mouseButtonEvent.x(), mouseButtonEvent.y());
       }
-      cir.setReturnValue(consumed || true);
+      cir.setReturnValue(true);
    }
 
    @Inject(method = "mouseScrolled", at = @At("HEAD"), cancellable = true)
@@ -713,10 +711,10 @@ public abstract class AuctionContainerOverlayMixin<T extends AbstractContainerMe
             guiGraphics.fill(x, buttonY, x + SIDEBAR_STROKE_WIDTH, buttonY + HEADER_HEIGHT, ACCENT_STROKE);
          }
 
-          int textY = buttonY + (HEADER_HEIGHT - font.lineHeight) / 2;
-           Component prefixedLabel = Component.literal(SIDEBAR_OPTION_PREFIX + options.get(i));
-           guiGraphics.drawString(font, prefixedLabel, textStartX, textY, textColor);
-          buttonY += HEADER_HEIGHT;
+         int textY = buttonY + (HEADER_HEIGHT - font.lineHeight) / 2;
+         Component prefixedLabel = Component.literal(SIDEBAR_OPTION_PREFIX + options.get(i));
+         guiGraphics.drawString(font, prefixedLabel, textStartX, textY, textColor);
+         buttonY += HEADER_HEIGHT;
       }
 
       return buttonY;
@@ -825,7 +823,6 @@ public abstract class AuctionContainerOverlayMixin<T extends AbstractContainerMe
       int panelRight = mainX + mainWidth;
       int panelBottom = contentY + contentHeight;
       guiGraphics.fill(panelLeft, panelTop, panelRight, panelBottom, MAIN_BACKGROUND);
-      guiGraphics.fill(panelLeft, panelTop, panelLeft + MAIN_STROKE_WIDTH, panelBottom, MAIN_STROKE);
 
       int cardsLeft = panelLeft + INNER_PADDING;
       int cardsTop = panelTop + INNER_PADDING;
@@ -910,7 +907,7 @@ public abstract class AuctionContainerOverlayMixin<T extends AbstractContainerMe
             String timePrefix = "⌛ " + timeRemaining;
             int metaY = cardY + metaYInset;
             int timeTextX = textX;
-            if (meta.isBidAuction()) {
+            if (meta.bidAuction()) {
                String badgeLabel = "Bid";
                int badgeWidth = font.width(badgeLabel) + (BID_BADGE_HORIZONTAL_PADDING * 2);
                int badgeHeight = font.lineHeight + 2;
@@ -936,11 +933,8 @@ public abstract class AuctionContainerOverlayMixin<T extends AbstractContainerMe
          lifestealutils$popCardViewportClip(guiGraphics, clipApplied);
       }
 
-      guiGraphics.fill(cardLayout.viewportLeft(), cardLayout.viewportTop(), cardLayout.viewportRight(), cardLayout.viewportTop() + 1, VIEWPORT_TOP_EDGE);
       guiGraphics.fill(cardLayout.viewportLeft(), cardLayout.viewportBottom() - 1, cardLayout.viewportRight(), cardLayout.viewportBottom(), VIEWPORT_BOTTOM_EDGE);
-      int topShadowBottom = Math.min(cardLayout.viewportBottom(), cardLayout.viewportTop() + VIEWPORT_WALL_DEPTH);
       int bottomShadowTop = Math.max(cardLayout.viewportTop(), cardLayout.viewportBottom() - VIEWPORT_WALL_DEPTH);
-      guiGraphics.fill(cardLayout.viewportLeft(), cardLayout.viewportTop(), cardLayout.viewportRight(), topShadowBottom, VIEWPORT_TOP_SHADOW);
       guiGraphics.fill(cardLayout.viewportLeft(), bottomShadowTop, cardLayout.viewportRight(), cardLayout.viewportBottom(), VIEWPORT_BOTTOM_SHADOW);
 
       int maxScroll = Math.max(0, cardLayout.maxScroll());
@@ -1090,34 +1084,7 @@ public abstract class AuctionContainerOverlayMixin<T extends AbstractContainerMe
       return new AuctionMeta(safeSeller, safeTime, safePrice, bidAuction);
    }
 
-   private static final class AuctionMeta {
-      private final String seller;
-      private final String timeRemaining;
-      private final String price;
-      private final boolean bidAuction;
-
-      private AuctionMeta(String seller, String timeRemaining, String price, boolean bidAuction) {
-         this.seller = seller;
-         this.timeRemaining = timeRemaining;
-         this.price = price;
-         this.bidAuction = bidAuction;
-      }
-
-      private String seller() {
-         return this.seller;
-      }
-
-      private String timeRemaining() {
-         return this.timeRemaining;
-      }
-
-      private String price() {
-         return this.price;
-      }
-
-      private boolean isBidAuction() {
-         return this.bidAuction;
-      }
+   private record AuctionMeta(String seller, String timeRemaining, String price, boolean bidAuction) {
    }
 
    @Unique
@@ -1254,11 +1221,11 @@ public abstract class AuctionContainerOverlayMixin<T extends AbstractContainerMe
       }
 
       if (lifestealutils$isInside(mouseX, mouseY, this.lifestealutils$searchBox.getX(), this.lifestealutils$searchBox.getY(), this.lifestealutils$searchBox.getWidth(), this.lifestealutils$searchBox.getHeight())) {
-         this.lifestealutils$searchBox.setFocused(true);
+         lifestealutils$setScreenFocused(this.lifestealutils$searchBox);
          return true;
       }
 
-      this.lifestealutils$searchBox.setFocused(false);
+      lifestealutils$setScreenFocused(null);
       if (lifestealutils$isInside(mouseX, mouseY, this.lifestealutils$searchButton.getX(), this.lifestealutils$searchButton.getY(), this.lifestealutils$searchButton.getWidth(), this.lifestealutils$searchButton.getHeight())) {
          return lifestealutils$isSearchActiveInUi() ? lifestealutils$resetSearch() : lifestealutils$triggerSearch();
       }
@@ -1329,33 +1296,6 @@ public abstract class AuctionContainerOverlayMixin<T extends AbstractContainerMe
       this.lifestealutils$suppressNextSearchDialog = false;
       return value;
    }
-
-   //? if >1.21.8 {
-   @Unique
-   public boolean lifestealutils$handleOverlayCharTyped(CharacterEvent characterEvent) {
-      AbstractContainerScreen<?> self = (AbstractContainerScreen<?>) (Object) this;
-      if (lifestealutils$getWrappedMode(self) != MODE_ITEMS || this.lifestealutils$searchBox == null || !this.lifestealutils$searchBox.isFocused()) {
-         return false;
-      }
-      if (lifestealutils$isSearchActiveInUi()) {
-         return false;
-      }
-      boolean typed = this.lifestealutils$searchBox.charTyped(characterEvent);
-      return typed;
-   }
-   //?} else {
-   /*@Unique
-   public boolean lifestealutils$handleOverlayCharTyped(char chr, int modifiers) {
-      AbstractContainerScreen<?> self = (AbstractContainerScreen<?>) (Object) this;
-      if (lifestealutils$getWrappedMode(self) != MODE_ITEMS || this.lifestealutils$searchBox == null || !this.lifestealutils$searchBox.isFocused()) {
-         return false;
-      }
-      if (lifestealutils$isSearchActiveInUi()) {
-         return false;
-      }
-      return this.lifestealutils$searchBox.charTyped(chr, modifiers);
-   }
-   *///?}
 
    @Unique
    private boolean lifestealutils$handleCardClick(int[] metrics, int mode, double mouseX, double mouseY) {
@@ -1519,7 +1459,8 @@ public abstract class AuctionContainerOverlayMixin<T extends AbstractContainerMe
    }
 
    @Unique
-   private record CardViewportLayout(int viewportLeft, int viewportTop, int viewportRight, int viewportBottom, int maxScroll) {
+   private record CardViewportLayout(int viewportLeft, int viewportTop, int viewportRight, int viewportBottom,
+                                     int maxScroll) {
    }
 
    @Unique

@@ -18,7 +18,6 @@ import java.net.http.WebSocket;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Supplier;
 
 public final class GaiaApiClient {
    public static final String GAIA_ROOT = resolveApiRoot();
@@ -65,61 +64,58 @@ public final class GaiaApiClient {
    }
 
    public NetworkUtilsController.HttpResult getWithAuth(String path, Duration timeout, long rateLimitMs) {
-      return executeGaiaRequest("GET " + path, () -> {
-         String token = resolveCurrentToken();
-         if (token == null || token.isBlank()) {
-            return NetworkUtilsController.HttpResult.failure("auth token is null or blank");
-         }
-         return NetworkUtilsController.getWithAuth(toHttpUrl(path), token, timeout, rateLimitMs);
-      });
+      if (!Config.isGaiaAdvancedFeaturesEnabled()) {
+         return NetworkUtilsController.HttpResult.failure("Gaia is disabled");
+      }
+      String token = resolveCurrentToken();
+      if (token == null || token.isBlank()) {
+         return NetworkUtilsController.HttpResult.failure("auth token is null or blank");
+      }
+      return NetworkUtilsController.getWithAuth(toHttpUrl(path), token, timeout, rateLimitMs);
    }
 
    public NetworkUtilsController.HttpResult postJsonWithAuth(String path, String body, Duration timeout, long rateLimitMs) {
-      return executeGaiaRequest("POST " + path, () -> {
-         String token = resolveCurrentToken();
-         if (token == null || token.isBlank()) {
-            return NetworkUtilsController.HttpResult.failure("auth token is null or blank");
-         }
-         return NetworkUtilsController.postJsonWithAuth(toHttpUrl(path), body, token, timeout, rateLimitMs);
-      });
+      if (!Config.isGaiaAdvancedFeaturesEnabled()) {
+         return NetworkUtilsController.HttpResult.failure("Gaia is disabled");
+      }
+      String token = resolveCurrentToken();
+      if (token == null || token.isBlank()) {
+         return NetworkUtilsController.HttpResult.failure("auth token is null or blank");
+      }
+      return NetworkUtilsController.postJsonWithAuth(toHttpUrl(path), body, token, timeout, rateLimitMs);
    }
 
+   // No consent gate!! used for auth handshake, which is a prerequisite for consent being actionable.
    public NetworkUtilsController.HttpResult postJson(String path, String body, Duration timeout, long rateLimitMs) {
-      return executeGaiaRequest("POST " + path, () -> NetworkUtilsController.postJson(toHttpUrl(path), body, timeout, rateLimitMs));
+      return NetworkUtilsController.postJson(toHttpUrl(path), body, timeout, rateLimitMs);
    }
 
    public NetworkUtilsController.HttpResult putJsonWithAuth(String path, String body, Duration timeout, long rateLimitMs) {
-      return executeGaiaRequest("PUT " + path, () -> {
-         String token = resolveCurrentToken();
-         if (token == null || token.isBlank()) {
-            return NetworkUtilsController.HttpResult.failure("auth token is null or blank");
-         }
-         return NetworkUtilsController.putJsonWithAuth(toHttpUrl(path), body, token, timeout, rateLimitMs);
-      });
+      if (!Config.isGaiaAdvancedFeaturesEnabled()) {
+         return NetworkUtilsController.HttpResult.failure("Gaia is disabled");
+      }
+      String token = resolveCurrentToken();
+      if (token == null || token.isBlank()) {
+         return NetworkUtilsController.HttpResult.failure("auth token is null or blank");
+      }
+      return NetworkUtilsController.putJsonWithAuth(toHttpUrl(path), body, token, timeout, rateLimitMs);
    }
 
    public NetworkUtilsController.HttpResult deleteWithAuth(String path, Duration timeout, long rateLimitMs) {
-      return executeGaiaRequest("DELETE " + path, () -> {
-         String token = resolveCurrentToken();
-         if (token == null || token.isBlank()) {
-            return NetworkUtilsController.HttpResult.failure("auth token is null or blank");
-         }
-         return NetworkUtilsController.deleteWithAuth(toHttpUrl(path), token, timeout, rateLimitMs);
-      });
-   }
-
-   public CompletableFuture<WebSocket> connectGatewayWithToken(HttpClient httpClient, WebSocket.Listener listener, String token) {
-      return executeGaiaRequest("WS /v1/gateway/connect", () -> {
-         String wsUrl = toGatewayUrl("/v1/gateway/connect") + "?token=" + URLEncoder.encode(token, StandardCharsets.UTF_8);
-         return httpClient.newWebSocketBuilder().buildAsync(URI.create(wsUrl), listener);
-      });
-   }
-
-   public <T> T executeGaiaRequest(String requestName, Supplier<T> requestSupplier) {
       if (!Config.isGaiaAdvancedFeaturesEnabled()) {
-         throw new GaiaConsentRequiredException();
+         return NetworkUtilsController.HttpResult.failure("Gaia is disabled");
       }
-      return requestSupplier.get();
+      String token = resolveCurrentToken();
+      if (token == null || token.isBlank()) {
+         return NetworkUtilsController.HttpResult.failure("auth token is null or blank");
+      }
+      return NetworkUtilsController.deleteWithAuth(toHttpUrl(path), token, timeout, rateLimitMs);
+   }
+
+   // No consent gate ! caller (GaiaGatewayClient) is responsible for checking isEnabled().
+   public CompletableFuture<WebSocket> connectGatewayWithToken(HttpClient httpClient, WebSocket.Listener listener, String token) {
+      String wsUrl = toGatewayUrl("/v1/gateway/connect") + "?token=" + URLEncoder.encode(token, StandardCharsets.UTF_8);
+      return httpClient.newWebSocketBuilder().buildAsync(URI.create(wsUrl), listener);
    }
 
    private String resolveCurrentToken() {

@@ -42,6 +42,7 @@ public class GaiaGatewayClient {
    private GatewayConnectionState state = GatewayConnectionState.DISCONNECTED;
    private final HttpClient httpClient;
    private final ScheduledExecutorService scheduler;
+   private final GatewayMessageHandler messageHandler;
 
    private int currentBackoffSeconds = INITIAL_BACKOFF_SECONDS;
    private int ticksSinceLastPing = 0;
@@ -55,6 +56,7 @@ public class GaiaGatewayClient {
          thread.setDaemon(true);
          return thread;
       });
+      this.messageHandler = new GatewayMessageHandler(this);
 
       LifestealUtilsEvents.SERVER_CHANGE.register(event -> {
          if (!isEnabled()) {
@@ -88,6 +90,10 @@ public class GaiaGatewayClient {
     * initiates connection to the Gaia Gateway websocket.
     */
    private void connect() {
+      if (!isEnabled()) {
+         return;
+      }
+
       if (state == GatewayConnectionState.CONNECTED || state == GatewayConnectionState.CONNECTING) {
          LOGGER.debug("Already connected or connecting to gateway");
          return;
@@ -102,33 +108,34 @@ public class GaiaGatewayClient {
       currentUsername = minecraft.player.getName().getString();
       currentUuid = minecraft.player.getUUID().toString();
 
-      // retrieve auth token
-      String token = GaiaAuthTokenStore.readToken(currentUsername);
-      if (token == null || token.isEmpty()) {
-         LOGGER.warn("No Gaia auth token found, attempting to authenticate...");
-         authenticateAndConnect();
+      UUID playerId = minecraft.player.getUUID();
+
+      // validate cached token before use - avoids infinite reconnect loop with expired tokens
+      if (!GaiaAuthTokenStore.hasValidToken(currentUsername, playerId)) {
+         LOGGER.warn("No valid Gaia auth token, attempting to authenticate...");
+         authenticateAndConnect(currentUsername, playerId);
          return;
       }
 
+      String token = GaiaAuthTokenStore.readToken(currentUsername);
       connectWithToken(token);
    }
 
    /**
     * authenticates with Gaia and then connects to the gateway.
+    * username and uuid are captured before the async call to avoid a race where
+    * a subsequent connect() overwrites the instance fields before this completes.
     */
-   private void authenticateAndConnect() {
-      Minecraft minecraft = Minecraft.getInstance();
-      UUID playerId = minecraft.player.getUUID();
-
-      GaiaAuthClient.confirmHandshakeOnStartup(currentUsername, playerId)
+   private void authenticateAndConnect(String username, UUID playerId) {
+      GaiaAuthClient.confirmHandshakeOnStartup(username, playerId)
               .thenAccept(success -> {
                  if (success) {
                     LOGGER.info("Authentication successful, connecting to gateway");
-                    String token = GaiaAuthTokenStore.readToken(currentUsername);
+                    String token = GaiaAuthTokenStore.readToken(username);
                     if (token != null) {
                        connectWithToken(token);
                     } else {
-                       LOGGER.error("Authentication succeeded but token not found");
+                       LOGGER.error("Authentication succeeded but token not found for {}", username);
                     }
                  } else {
                     LOGGER.error("Failed to authenticate with Gaia, cannot connect to gateway");
@@ -245,6 +252,25 @@ public class GaiaGatewayClient {
    }
 
    /**
+    * disables the gateway, closing any active connection and cancelling pending reconnects.
+    * called when the user opts out of Gaia. Safe to call at any time.
+    */
+   public void disable() {
+      LOGGER.info("Gaia gateway disabled by user");
+      if (websocket != null) {
+         try {
+            websocket.sendClose(WebSocket.NORMAL_CLOSURE, "Gaia disabled by user");
+         } catch (Exception e) {
+            LOGGER.debug("Exception while closing websocket on disable", e);
+         }
+         websocket = null;
+      }
+      state = GatewayConnectionState.DISCONNECTED;
+      currentBackoffSeconds = INITIAL_BACKOFF_SECONDS;
+      ticksSinceLastPing = 0;
+   }
+
+   /**
     * sends a ping message to keep the connection alive.
     * called periodically from the client tick event.
     */
@@ -311,9 +337,7 @@ public class GaiaGatewayClient {
             messageBuffer.setLength(0);
 
             // process message on main thread to avoid threading issues with Minecraft
-            Minecraft.getInstance().execute(() -> {
-               GatewayMessageHandler.handleMessage(message);
-            });
+            Minecraft.getInstance().execute(() -> messageHandler.handleMessage(message));
          }
 
          webSocket.request(1);

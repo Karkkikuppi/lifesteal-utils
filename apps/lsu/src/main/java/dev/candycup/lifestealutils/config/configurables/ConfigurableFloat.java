@@ -22,4 +22,6 @@ public @interface ConfigurableFloat {
     * The maximum value accepted by the slider.
     */
    float max();
+
+   String icon() default "";
 }

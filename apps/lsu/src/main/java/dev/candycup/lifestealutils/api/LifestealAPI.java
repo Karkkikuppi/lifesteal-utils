@@ -4,6 +4,8 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.Map;
+
 public class LifestealAPI {
    /**
     * gets the name of the current shard/lobby the player is in.
@@ -110,5 +112,26 @@ public class LifestealAPI {
     */
    public static int getUserKillCount() {
       return SidebarInfoUtils.kills;
+   }
+
+   /**
+    * gets all stored prestige enhancements as a key-value map.
+    * keys are the perk names (e.g. "Experience Earned"), values are the current percentage values.
+    * populated when the player opens the Heart Prestige menu; persisted to disk between sessions.
+    *
+    * @return the prestige enhancements map, never null
+    */
+   public static Map<String, Float> getPrestigeEnhancements() {
+      return PersistentKnowledgeController.getPrestigeEnhancements();
+   }
+
+   /**
+    * gets the current value of a specific prestige enhancement by key.
+    *
+    * @param key the perk name, e.g. "Experience Earned" or "Potion Duration"
+    * @return the current percentage value, or 0.0 if not found
+    */
+   public static float getPrestigeEnhancement(String key) {
+      return PersistentKnowledgeController.getPrestigeEnhancement(key);
    }
 }

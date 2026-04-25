@@ -15,6 +15,7 @@ import java.util.regex.Matcher;
  */
 public class PrivateMessageFormatter {
    private static final Logger LOGGER = LoggerFactory.getLogger("lifestealutils/pm");
+
    public PrivateMessageFormatter() {
       LifestealUtilsEvents.CHAT_MESSAGE_RECEIVED.register(event -> {
          if (!isEnabled()) {

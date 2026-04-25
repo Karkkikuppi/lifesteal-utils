@@ -36,9 +36,6 @@ public class MessagingUtils {
    private static final Map<Component, net.kyori.adventure.text.Component> NATIVE_TO_ADVENTURE = Collections.synchronizedMap(new WeakHashMap<>());
    private static final Map<net.kyori.adventure.text.Component, String> ADVENTURE_TO_MINI = Collections.synchronizedMap(new WeakHashMap<>());
 
-   public record MiniMessagePreviewResult(Component component, boolean valid) {
-   }
-
    public static void showMessage(String message) {
       showMessage(Component.literal(message), 0xFFFFFF);
    }
@@ -78,14 +75,6 @@ public class MessagingUtils {
       Component parsed = AUDIENCES.asNative(MINI_MESSAGE.deserialize(miniMessage));
       MINI_TO_NATIVE_CACHE.put(miniMessage, parsed);
       return parsed;
-   }
-
-   public static MiniMessagePreviewResult previewMiniMessage(String miniMessage) {
-      try {
-         return new MiniMessagePreviewResult(miniMessage(miniMessage), true);
-      } catch (Exception ignored) {
-         return new MiniMessagePreviewResult(Component.literal(miniMessage), false);
-      }
    }
 
    public static Component miniMessage(net.kyori.adventure.text.Component component) {

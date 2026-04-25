@@ -189,11 +189,11 @@ public final class AllianceStorageService {
          record.data.color = parseLegacyColor(old.color);
 
          AllianceModels.AlliancePlayerList list = new AllianceModels.AlliancePlayerList();
-          list.id = AllianceIdGenerator.newListId();
-          list.name = "Members";
-          list.prefix = old.prefix == null ? "" : old.prefix;
-          list.prefixColor = parseLegacyColor(old.color);
-          list.nameColor = 0xFFFFFF;
+         list.id = AllianceIdGenerator.newListId();
+         list.name = "Members";
+         list.prefix = old.prefix == null ? "" : old.prefix;
+         list.prefixColor = parseLegacyColor(old.color);
+         list.nameColor = 0xFFFFFF;
 
          for (Config.LocalAllianceMemberConfigEntry oldMember : old.members) {
             AllianceModels.AllianceMember member = new AllianceModels.AllianceMember();

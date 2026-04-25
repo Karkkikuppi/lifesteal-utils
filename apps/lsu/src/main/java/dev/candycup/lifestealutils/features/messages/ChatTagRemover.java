@@ -17,6 +17,7 @@ import java.util.List;
  */
 public class ChatTagRemover {
    private static final Logger LOGGER = LoggerFactory.getLogger("lifestealutils/chattag");
+
    public ChatTagRemover() {
       LifestealUtilsEvents.CHAT_MESSAGE_RECEIVED.register(event -> {
          if (!isEnabled()) {

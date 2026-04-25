@@ -1,5 +1,6 @@
 package dev.candycup.lifestealutils.mixin;
 
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.narration.NarratableEntry;
@@ -18,4 +19,7 @@ public interface ScreenAccessor {
     */
    @Invoker("addRenderableWidget")
    <T extends GuiEventListener & Renderable & NarratableEntry> T invokeAddRenderableWidget(T widget);
+
+   @Invoker("renderBlurredBackground")
+   void invokeRenderBlurredBackground(GuiGraphics guiGraphics);
 }

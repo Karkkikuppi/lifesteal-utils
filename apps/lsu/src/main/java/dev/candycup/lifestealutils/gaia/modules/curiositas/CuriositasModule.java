@@ -38,7 +38,7 @@ public final class CuriositasModule {
          );
 
          if (!result.success()) {
-            LOGGER.debug("failed to fetch curiositas baltop snapshot: {}", result.error());
+            LOGGER.warn("failed to fetch curiositas baltop snapshot: {}", result.error());
             return null;
          }
 
@@ -62,7 +62,7 @@ public final class CuriositasModule {
 
          return new CuriositasBaltopSnapshotClient.SnapshotResponse(parsedRange, entries);
       } catch (Exception exception) {
-         LOGGER.debug("failed to parse curiositas snapshot response: {}", exception.getMessage());
+         LOGGER.warn("failed to parse curiositas snapshot response: {}", exception.getMessage());
          return null;
       }
    }

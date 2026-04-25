@@ -2,6 +2,7 @@ package dev.candycup.lifestealutils;
 
 import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.brigadier.arguments.StringArgumentType;
+import dev.candycup.lifestealutils.api.PersistentKnowledgeController;
 import dev.candycup.lifestealutils.api.observers.ScoreboardObserver;
 import dev.candycup.lifestealutils.api.observers.TablistObserver;
 import dev.candycup.lifestealutils.config.ConfigContainerRegistry;
@@ -22,10 +23,8 @@ import dev.candycup.lifestealutils.features.items.RareItemHighlight;
 import dev.candycup.lifestealutils.features.messages.ChatTagRemover;
 import dev.candycup.lifestealutils.features.messages.GhostedChatMessageFilter;
 import dev.candycup.lifestealutils.features.messages.PrivateMessageFormatter;
+import dev.candycup.lifestealutils.features.prestige.PrestigeMenuListener;
 import dev.candycup.lifestealutils.features.qol.AutoJoinLifesteal;
-import dev.candycup.lifestealutils.features.qol.PoiTrackingController;
-import dev.candycup.lifestealutils.features.qol.PoiDirectionalIndicator;
-import dev.candycup.lifestealutils.features.qol.PoiWaypointTracker;
 import dev.candycup.lifestealutils.features.titlescreen.CustomSplashes;
 import dev.candycup.lifestealutils.features.titlescreen.QuickJoinButton;
 import dev.candycup.lifestealutils.gaia.GaiaConsentController;
@@ -37,7 +36,6 @@ import dev.candycup.lifestealutils.hud.HudElementDefinition;
 import dev.candycup.lifestealutils.hud.HudElementManager;
 import dev.candycup.lifestealutils.features.combat.UnbrokenChainTracker;
 import dev.candycup.lifestealutils.features.timers.BasicTimerManager;
-import dev.candycup.lifestealutils.integrations.xaero.XaeroPoiWaypointIntegration;
 import dev.candycup.lifestealutils.interapi.MessagingUtils;
 import dev.candycup.lifestealutils.ui.HudElementEditor;
 import dev.candycup.lifestealutils.ui.RadarScreen;
@@ -78,12 +76,12 @@ public final class LifestealUtils implements ClientModInitializer {
       CONFIG_CATEGORY_WEIGHTS.put("alliances", 10);
       CONFIG_CATEGORY_WEIGHTS.put("customization", 20);
       CONFIG_CATEGORY_WEIGHTS.put("qol", 30);
+      CONFIG_CATEGORY_WEIGHTS.put("experiments", 40);
    }
 
    //? if >1.21.8
    private static KeyMapping.Category LIFESTEAL_UTIL_BINDS;
    private static KeyMapping openHudEditorKeyBinding;
-   private static KeyMapping addAllianceTargetKeyBinding;
    private static int pendingConfigOpenTicks = -1;
    private static int pendingGaiaConsentOpenTicks = -1;
    private static int pendingHudEditorOpenTicks = -1;
@@ -104,6 +102,7 @@ public final class LifestealUtils implements ClientModInitializer {
    private static AutoJoinLifesteal autoJoinLifesteal;
    private static GaiaConnectionToastListener gaiaConnectionToastListener;
    private static AllianceNameDecorator allianceNameDecorator;
+   private static PrestigeMenuListener prestigeMenuListener;
    @Getter
    private static GaiaGatewayClient gaiaGatewayClient;
 
@@ -113,6 +112,7 @@ public final class LifestealUtils implements ClientModInitializer {
       ConfigContainerRegistry.initializeGeneratedIndex();
       ConfigDescriptorRegistry.registerDefaultProviders();
       Config.load();
+      PersistentKnowledgeController.initialize();
       FeatureFlagController.assertNoIncompatibleModsDetected();
       GaiaConsentController.initialize();
       initializeGaiaIfAuthorized();
@@ -121,7 +121,6 @@ public final class LifestealUtils implements ClientModInitializer {
 
       registerListeners();
       registerFeatures();
-      registerIntegrations();
       registerHudElements();
       registerKeybinds();
       registerCommands();
@@ -189,19 +188,11 @@ public final class LifestealUtils implements ClientModInitializer {
       gaiaConnectionToastListener = new GaiaConnectionToastListener();
 
       allianceNameDecorator = new AllianceNameDecorator();
+
+      prestigeMenuListener = new PrestigeMenuListener();
    }
 
    public static void registerHudElements() {
-      // poi waypoint tracker
-      PoiWaypointTracker poiWaypointTracker = new PoiWaypointTracker();
-      HudElementManager.register(poiWaypointTracker.getHudDefinition());
-
-      // poi directional indicator (renders with the waypoint tracker)
-      PoiDirectionalIndicator poiDirectionalIndicator =
-              new PoiDirectionalIndicator(poiWaypointTracker);
-      HudDisplayLayer.setPoiDirectionalIndicator(poiDirectionalIndicator);
-      HudElementEditor.setPoiDirectionalIndicator(poiDirectionalIndicator);
-
       HudElementRegistry.attachElementAfter(
               VanillaHudElements.CHAT,
               HudDisplayLayer.LSU_HUD_LAYER_ID,
@@ -213,12 +204,6 @@ public final class LifestealUtils implements ClientModInitializer {
               HudElementEditor.EDITOR_LAYER_ID,
               HudElementEditor.editorLayer()
       );
-   }
-
-   public static void registerIntegrations() {
-      if (FabricLoader.getInstance().isModLoaded("xaerominimap")) {
-         new XaeroPoiWaypointIntegration();
-      }
    }
 
    public static void openAllianceMenu() {
@@ -273,6 +258,21 @@ public final class LifestealUtils implements ClientModInitializer {
                                  .executes(commandContext -> {
                                     String name = StringArgumentType.getString(commandContext, "name");
                                     return AllianceCommandController.createAlliance(name);
+                                 })))
+                 .then(ClientCommandManager.literal("subscribe")
+                         .then(ClientCommandManager.argument("id", StringArgumentType.greedyString())
+                                 .executes(commandContext -> {
+                                    String id = StringArgumentType.getString(commandContext, "id");
+                                    return AllianceCommandController.subscribeToAlliance(id);
+                                 })))
+                 .then(ClientCommandManager.literal("unsubscribe")
+                         .then(ClientCommandManager.argument("name_or_id", StringArgumentType.greedyString())
+                                 .suggests((context, builder) ->
+                                         AllianceCommandController.suggestSubscribedAllianceNames(builder.getRemainingLowerCase(), builder)
+                                 )
+                                 .executes(commandContext -> {
+                                    String nameOrId = StringArgumentType.getString(commandContext, "name_or_id");
+                                    return AllianceCommandController.unsubscribeFromAlliance(nameOrId);
                                  })));
 
          dispatcher.register(
@@ -317,17 +317,6 @@ public final class LifestealUtils implements ClientModInitializer {
                                     client.execute(() -> BaltopScrapeCoordinator.handleBaltopCommand(client));
                                     return 1;
                                  }))
-                         .then(ClientCommandManager.literal("track-poi")
-                                 .then(ClientCommandManager.argument("poi", StringArgumentType.greedyString())
-                                         .suggests((context, builder) -> {
-                                            return PoiTrackingController.suggestPois(builder.getRemainingLowerCase(), builder);
-                                         })
-                                         .executes(commandContext -> {
-                                            String poiArg = StringArgumentType.getString(commandContext, "poi").trim();
-                                            return PoiTrackingController.trackPoiArgument(poiArg);
-                                         })))
-                         .then(ClientCommandManager.literal("untrack-poi")
-                                 .executes(commandContext -> PoiTrackingController.untrackCurrentPoi()))
                          .then(ClientCommandManager.literal("utilities")
                                  .then(ClientCommandManager.literal("copy-client-info-to-clipboard")
                                          .executes(commandContext -> {
@@ -383,21 +372,10 @@ public final class LifestealUtils implements ClientModInitializer {
               GLFW.GLFW_KEY_H,
               LIFESTEAL_UTIL_BINDS
       ));
-      addAllianceTargetKeyBinding = KeyBindingHelper.registerKeyBinding(new KeyMapping(
-              "key.lifesteal-utils.add_alliance_target",
-              InputConstants.Type.KEYSYM,
-              GLFW.GLFW_KEY_K,
-              LIFESTEAL_UTIL_BINDS
-      ));
       //?} else {
       /*openHudEditorKeyBinding = KeyBindingHelper.registerKeyBinding(new KeyMapping(
               "key.lifesteal-utils.open_hud_editor",
               GLFW.GLFW_KEY_H,
-              "category.lifesteal-utils.lifesteal_utils"
-      ));
-      addAllianceTargetKeyBinding = KeyBindingHelper.registerKeyBinding(new KeyMapping(
-              "key.lifesteal-utils.add_alliance_target",
-              GLFW.GLFW_KEY_K,
               "category.lifesteal-utils.lifesteal_utils"
       ));
       *///?}
@@ -415,7 +393,7 @@ public final class LifestealUtils implements ClientModInitializer {
                  client,
                  pendingConfigOpenTicks,
                  false,
-                 () -> ConfigResolver.resolve().generateScreen(client.screen)
+                 () -> ConfigResolver.resolveScreen(client.screen)
          );
          pendingGaiaConsentOpenTicks = handleScheduledScreenOpen(
                  client,

@@ -43,11 +43,6 @@ repositories {
     }
 
     maven {
-        name = "Xaero's Maven"
-        url = URI.create("https://chocolateminecraft.com/maven")
-    }
-
-    maven {
         name = "UkuLib Maven"
         url = URI.create("https://maven.uku3lig.net/releases")
     }
@@ -66,7 +61,6 @@ dependencies {
 
     // mod dependencies / integrations
     modImplementation("net.uku3lig:ukulib:${property("deps.ukulib")}")
-    modImplementation("dev.isxander:yet-another-config-lib:${property("deps.yacl")}")
     modImplementation("net.kyori:adventure-platform-fabric:${property("deps.adventure")}")
     modImplementation("net.fabricmc.fabric-api:fabric-api:${property("deps.fabric_api")}")
 
@@ -74,11 +68,12 @@ dependencies {
     include("net.kyori:adventure-platform-fabric:${property("deps.adventure")}")
     compileOnly("org.projectlombok:lombok:1.18.42")
     annotationProcessor("org.projectlombok:lombok:1.18.42")
+    testImplementation("org.junit.jupiter:junit-jupiter:6.0.3")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher:6.0.3")
 
     // mod integrations
     modApi(fletchingTable.modrinth("modmenu", property("mod.mc_dep") as String, "fabric"))
     modApi(fletchingTable.modrinth("tiertagger", property("mod.mc_dep") as String, "fabric"))
-    modApi(fletchingTable.modrinth("xaeros-minimap", property("mod.mc_dep") as String, "fabric"))
 }
 
 loom {
@@ -123,7 +118,7 @@ tasks {
         outputs.file(outputFile)
 
         doLast {
-            val configurableRegex = Regex("@Configurable(Boolean|String|Minimessage|Float|Enum|List)\\b")
+            val configurableRegex = Regex("@Configurable(Boolean|String|Minimessage|Float|Enum|List|ToggleGroup)\\b")
             val packageRegex = Regex("(?m)^\\s*package\\s+([a-zA-Z0-9_.]+)\\s*;")
             val classRegex = Regex("\\b(public\\s+)?(final\\s+)?(abstract\\s+)?(class|enum|interface|record)\\s+([A-Za-z_][A-Za-z0-9_]*)")
             val discoveredClasses = linkedSetOf<String>()
@@ -173,6 +168,10 @@ tasks {
 
     named("sourcesJar") {
         dependsOn("generateConfigContainerIndex")
+    }
+
+    named<Test>("test") {
+        useJUnitPlatform()
     }
 
     processResources {

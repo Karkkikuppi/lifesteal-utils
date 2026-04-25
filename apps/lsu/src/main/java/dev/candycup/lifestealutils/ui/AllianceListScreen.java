@@ -1,9 +1,11 @@
 package dev.candycup.lifestealutils.ui;
 
+import dev.candycup.lifestealutils.Config;
 import dev.candycup.lifestealutils.features.alliances.AllianceModels;
 import dev.candycup.lifestealutils.features.alliances.AllianceService;
 import dev.candycup.lifestealutils.features.alliances.AllianceSyncManager;
 import dev.candycup.lifestealutils.gaia.GaiaApiClient;
+import dev.candycup.lifestealutils.gaia.GaiaConsentRequiredException;
 import dev.candycup.lifestealutils.gaia.modules.alliances.AlliancesModule;
 import dev.candycup.lifestealutils.interapi.MessagingUtils;
 import net.minecraft.client.Minecraft;
@@ -11,6 +13,9 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractSelectionList;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.Tooltip;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import net.minecraft.client.gui.components.ObjectSelectionList;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.components.tabs.GridLayoutTab;
@@ -31,6 +36,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 public class AllianceListScreen extends Screen {
+   private static final Logger LOGGER = LoggerFactory.getLogger("lifestealutils/alliance-list-screen");
    private static final Component TITLE = Component.translatable("lsu.alliances.list.title");
    private static final Component TAB_TITLE = Component.translatable("lsu.alliances.your_alliances");
    private static final int LIST_WIDTH = 320;
@@ -119,8 +125,14 @@ public class AllianceListScreen extends Screen {
 
    private void updateActionButtons() {
       if (subscribeButton != null && subscribeIdEdit != null) {
-         String value = subscribeIdEdit.getValue() == null ? "" : subscribeIdEdit.getValue().trim();
-         subscribeButton.active = !value.isBlank();
+         if (!Config.isGaiaAdvancedFeaturesEnabled()) {
+            subscribeButton.active = false;
+            subscribeButton.setTooltip(Tooltip.create(Component.translatable("lsu.alliances.list.subscribe_requires_gaia")));
+         } else {
+            String value = subscribeIdEdit.getValue() == null ? "" : subscribeIdEdit.getValue().trim();
+            subscribeButton.active = !value.isBlank();
+            subscribeButton.setTooltip(null);
+         }
       }
    }
 
@@ -129,7 +141,7 @@ public class AllianceListScreen extends Screen {
       this.minecraft.setScreen(new ChatScreen("/lsu alliances create ", false));
       //?} else {
       /*this.minecraft.setScreen(new ChatScreen("/lsu alliances create "));
-      *///?}
+       *///?}
    }
 
    private void subscribeById() {
@@ -144,7 +156,11 @@ public class AllianceListScreen extends Screen {
       AlliancesModule.SubscriptionResult subscriptionResult;
       try {
          subscriptionResult = GaiaApiClient.getInstance().alliances().subscribeWithDetails(id);
-      } catch (Exception ignored) {
+      } catch (GaiaConsentRequiredException ignored) {
+         MessagingUtils.showMiniMessage("<red>Gaia is disabled. Run /lsu consent-gaia to enable.</red>");
+         return;
+      } catch (Exception e) {
+         LOGGER.error("Failed to subscribe to alliance '{}'", id, e);
          MessagingUtils.showMiniMessage("<red>Failed to contact alliance service.</red>");
          return;
       }

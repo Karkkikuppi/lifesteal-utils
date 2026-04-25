@@ -9,6 +9,8 @@ import net.fabricmc.loader.api.FabricLoader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -22,6 +24,7 @@ public final class FeatureFlagController {
    private static final Logger LOGGER = LoggerFactory.getLogger("lifestealutils/feature-flags");
    private static final Gson GSON = new GsonBuilder().create();
    private static final String FEATURE_FLAG_URL = "https://karkkikuppi.github.io/lifesteal-utils/registry/remote.json";
+   private static final String REGISTRY_REMOTE_PATH = "registry/remote.json";
 
    private static FeatureFlagPayload payload = new FeatureFlagPayload();
    private static boolean loaded = false;
@@ -49,6 +52,13 @@ public final class FeatureFlagController {
    }
 
    private static String fetchFeatureFlagJson() {
+      if (FabricLoader.getInstance().isDevelopmentEnvironment()) {
+         String localPayload = readDevelopmentFeatureFlagJson();
+         if (localPayload != null) {
+            return localPayload;
+         }
+      }
+
       NetworkUtilsController.HttpResult result = NetworkUtilsController.get(FEATURE_FLAG_URL);
       if (result.success() && result.body() != null) {
          return result.body();
@@ -59,6 +69,47 @@ public final class FeatureFlagController {
          LOGGER.error("[lsu-flags] failed to fetch remote registry: {}", result.error());
       }
       return "{}";
+   }
+
+   private static String readDevelopmentFeatureFlagJson() {
+      List<Path> roots = List.of(
+              FabricLoader.getInstance().getGameDir(),
+              Path.of(System.getProperty("user.dir", "."))
+      );
+
+      for (Path root : roots) {
+         Path candidate = findRegistryPayload(root);
+         if (candidate == null) {
+            continue;
+         }
+
+         try {
+            LOGGER.info("[lsu-flags] development environment detected, loading flags from {}", candidate.toAbsolutePath().normalize());
+            return Files.readString(candidate);
+         } catch (Exception exception) {
+            LOGGER.warn("[lsu-flags] failed to read development flags from {}", candidate.toAbsolutePath().normalize(), exception);
+            return "{}";
+         }
+      }
+
+      LOGGER.warn("[lsu-flags] development environment detected, but '{}' could not be found from run directories", REGISTRY_REMOTE_PATH);
+      return "{}";
+   }
+
+   private static Path findRegistryPayload(Path start) {
+      if (start == null) {
+         return null;
+      }
+
+      Path current = start.toAbsolutePath().normalize();
+      while (current != null) {
+         Path candidate = current.resolve("registry").resolve("remote.json");
+         if (Files.isRegularFile(candidate)) {
+            return candidate;
+         }
+         current = current.getParent();
+      }
+      return null;
    }
 
    private static FeatureFlagPayload parsePayload(String json) {
@@ -75,9 +126,6 @@ public final class FeatureFlagController {
          }
          if (parsed.splashes == null) {
             parsed.splashes = Collections.emptyList();
-         }
-         if (parsed.pois == null) {
-            parsed.pois = Collections.emptyList();
          }
          if (parsed.configRules == null) {
             parsed.configRules = Collections.emptyList();
@@ -105,37 +153,6 @@ public final class FeatureFlagController {
 
    public static String getTrigger(String triggerKey) {
       return payload.triggers.get(triggerKey);
-   }
-
-   public static List<PoiDefinition> getPois() {
-      ensureLoaded();
-      List<PoiDefinition> list = new ArrayList<>();
-      for (FeatureFlagPoi p : payload.pois) {
-         if (p == null || p.id == null || p.name == null) continue;
-         boolean disabled = p.disabled != null && p.disabled;
-         if (disabled) {
-            continue;
-         }
-         double x = p.x != null ? p.x : 0.0;
-         double y = p.y != null ? p.y : 0.0;
-         double z = p.z != null ? p.z : 0.0;
-         list.add(new PoiDefinition(p.id, p.name, x, y, z, p.dimension, false));
-      }
-      return list;
-   }
-
-   public static List<PoiDefinition> getPoisIncludingDisabled() {
-      ensureLoaded();
-      List<PoiDefinition> list = new ArrayList<>();
-      for (FeatureFlagPoi p : payload.pois) {
-         if (p == null || p.id == null || p.name == null) continue;
-         boolean disabled = p.disabled != null && p.disabled;
-         double x = p.x != null ? p.x : 0.0;
-         double y = p.y != null ? p.y : 0.0;
-         double z = p.z != null ? p.z : 0.0;
-         list.add(new PoiDefinition(p.id, p.name, x, y, z, p.dimension, disabled));
-      }
-      return list;
    }
 
    public static List<String> getSplashes() {
@@ -216,7 +233,6 @@ public final class FeatureFlagController {
       List<FeatureFlagTimer> basicTimers = Collections.emptyList();
       Map<String, String> triggers = Collections.emptyMap();
       List<String> splashes = Collections.emptyList();
-      List<FeatureFlagPoi> pois = Collections.emptyList();
       @SerializedName("configRules")
       List<FeatureFlagConfigRule> configRules = Collections.emptyList();
       @SerializedName("incompatibilityFlags")
@@ -284,16 +300,6 @@ public final class FeatureFlagController {
          }
          return -1;
       }
-   }
-
-   private static final class FeatureFlagPoi {
-      String id;
-      String name;
-      Double x;
-      Double y;
-      Double z;
-      String dimension;
-      Boolean disabled;
    }
 
    public record RuntimeInfo(String modVersion, String gameVersion) {
@@ -423,7 +429,4 @@ public final class FeatureFlagController {
       }
    }
 
-   public record PoiDefinition(String id, String name, double x, double y, double z, String dimension,
-                               boolean disabled) {
-   }
 }

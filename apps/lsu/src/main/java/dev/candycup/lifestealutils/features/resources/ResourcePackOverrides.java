@@ -1,52 +1,57 @@
 package dev.candycup.lifestealutils.features.resources;
 
-import dev.candycup.lifestealutils.config.configurables.ConfigurableBoolean;
-import dev.isxander.yacl3.config.v2.api.SerialEntry;
-import lombok.Getter;
+import dev.candycup.configura.core.ToggleGroup;
+import dev.candycup.configura.serial.SerialEntry;
+import dev.candycup.lifestealutils.config.configurables.ConfigurableToggleGroup;
 
 public class ResourcePackOverrides {
-   @SerialEntry(comment = "Whether to remove server-provided emoji model/font mappings")
-   @ConfigurableBoolean(location = "customization.resourcepack.removeemojis")
-   @Getter
-   private static boolean removeEmojis = false;
+   @SerialEntry(comment = "Toggle overrides for server-provided resource pack features")
+   @ConfigurableToggleGroup(location = "customization.resourcepack.overrides", icon = "minecraft:lever")
+   private static ToggleGroup resourcePackToggles = ToggleGroup.builder()
+           .entry("enableEmojis", true, "minecraft:book")
+           .entry("enableShieldSkins", true, "minecraft:shield")
+           .entry("enableSwordSkins", true, "minecraft:diamond_sword")
+           .entry("enableAxeSkins", true, "minecraft:diamond_axe")
+           .entry("enablePickaxeSkins", true, "minecraft:diamond_pickaxe")
+           .entry("enableShovelSkins", true, "minecraft:diamond_shovel")
+           .entry("enableMaceSkins", true, "minecraft:mace")
+           .entry("enableBowSkins", true, "minecraft:bow")
+           .entry("enableCrossbowSkins", true, "minecraft:crossbow")
+           .build();
 
-   @SerialEntry(comment = "Whether to remove all server-provided shield item overrides")
-   @ConfigurableBoolean(location = "customization.resourcepack.removeallshieldoverrides")
-   @Getter
-   private static boolean removeAllShieldOverrides = false;
+   public static boolean isEnableEmojis() {
+      return resourcePackToggles.get("enableEmojis");
+   }
 
-   @SerialEntry(comment = "Whether to remove all server-provided sword item overrides")
-   @ConfigurableBoolean(location = "customization.resourcepack.removeswordskins")
-   @Getter
-   private static boolean removeSwordSkins = false;
+   public static boolean isEnableShieldSkins() {
+      return resourcePackToggles.get("enableShieldSkins");
+   }
 
-   @SerialEntry(comment = "Whether to remove all server-provided axe item overrides")
-   @ConfigurableBoolean(location = "customization.resourcepack.removeaxeskins")
-   @Getter
-   private static boolean removeAxeSkins = false;
+   public static boolean isEnableSwordSkins() {
+      return resourcePackToggles.get("enableSwordSkins");
+   }
 
-   @SerialEntry(comment = "Whether to remove all server-provided pickaxe item overrides")
-   @ConfigurableBoolean(location = "customization.resourcepack.removepickaxeskins")
-   @Getter
-   private static boolean removePickaxeSkins = false;
+   public static boolean isEnableAxeSkins() {
+      return resourcePackToggles.get("enableAxeSkins");
+   }
 
-   @SerialEntry(comment = "Whether to remove all server-provided shovel item overrides")
-   @ConfigurableBoolean(location = "customization.resourcepack.removeshovelskins")
-   @Getter
-   private static boolean removeShovelSkins = false;
+   public static boolean isEnablePickaxeSkins() {
+      return resourcePackToggles.get("enablePickaxeSkins");
+   }
 
-   @SerialEntry(comment = "Whether to remove all server-provided mace item overrides")
-   @ConfigurableBoolean(location = "customization.resourcepack.removemaceskins")
-   @Getter
-   private static boolean removeMaceSkins = false;
+   public static boolean isEnableShovelSkins() {
+      return resourcePackToggles.get("enableShovelSkins");
+   }
 
-   @SerialEntry(comment = "Whether to remove all server-provided bow item overrides")
-   @ConfigurableBoolean(location = "customization.resourcepack.removebowskins")
-   @Getter
-   private static boolean removeBowSkins = false;
+   public static boolean isEnableMaceSkins() {
+      return resourcePackToggles.get("enableMaceSkins");
+   }
 
-   @SerialEntry(comment = "Whether to remove all server-provided crossbow item overrides")
-   @ConfigurableBoolean(location = "customization.resourcepack.removecrossbowskins")
-   @Getter
-   private static boolean removeCrossbowSkins = false;
+   public static boolean isEnableBowSkins() {
+      return resourcePackToggles.get("enableBowSkins");
+   }
+
+   public static boolean isEnableCrossbowSkins() {
+      return resourcePackToggles.get("enableCrossbowSkins");
+   }
 }

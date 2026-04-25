@@ -12,4 +12,6 @@ public @interface ConfigurableList {
     * The full path to this entry, separated by dots. Goes in this order: category.group
     */
    String location();
+
+   String icon() default "";
 }

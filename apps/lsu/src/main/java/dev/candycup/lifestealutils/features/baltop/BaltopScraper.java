@@ -2,6 +2,7 @@ package dev.candycup.lifestealutils.features.baltop;
 
 import com.mojang.authlib.properties.PropertyMap;
 import dev.candycup.lifestealutils.ui.BaltopScreen;
+import lombok.Getter;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.component.DataComponents;
@@ -60,6 +61,7 @@ public class BaltopScraper {
    private final List<BaltopEntry> scrapedEntries = new ArrayList<>();
    private Consumer<String> errorCallback;
    private Screen screenToRestore;
+   @Getter
    private BaltopScreen activeScreen;
 
    /**
@@ -87,13 +89,6 @@ public class BaltopScraper {
 
    public boolean isLoading() {
       return isScraping();
-   }
-
-   /**
-    * Returns the active BaltopScreen being used during scraping.
-    */
-   public BaltopScreen getActiveScreen() {
-      return activeScreen;
    }
 
    /**

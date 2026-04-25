@@ -3,7 +3,6 @@ package dev.candycup.lifestealutils.gaia.gateway;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import dev.candycup.lifestealutils.features.alliances.AllianceSyncManager;
-import dev.candycup.lifestealutils.LifestealUtils;
 import dev.candycup.lifestealutils.event.LifestealUtilsEvents;
 import dev.candycup.lifestealutils.interapi.MessagingUtils;
 import net.minecraft.network.chat.Component;
@@ -16,30 +15,39 @@ import org.slf4j.LoggerFactory;
  */
 public class GatewayMessageHandler {
    private static final Logger LOGGER = LoggerFactory.getLogger(GatewayMessageHandler.class);
-   private static final String GATEWAY_COLOR = "#5DADE2"; // light blue/cyan color for gateway messages
+   private static final String GATEWAY_COLOR = "#5DADE2";
+
+   private final GaiaGatewayClient gatewayClient;
+
+   public GatewayMessageHandler(GaiaGatewayClient gatewayClient) {
+      this.gatewayClient = gatewayClient;
+   }
 
    /**
     * processes a text message received from the websocket.
     *
     * @param message the raw JSON message text
     */
-   public static void handleMessage(String message) {
+   public void handleMessage(String message) {
       try {
          JsonObject json = JsonParser.parseString(message).getAsJsonObject();
 
          if (!json.has("op")) {
-            LOGGER.warn("Received message without 'op' field: {}", message);
+            LOGGER.warn("Received gateway message without 'op' field: {}", message);
             return;
          }
 
          String op = json.get("op").getAsString();
 
          switch (op) {
-            case "ready" -> handleReady(json.getAsJsonObject("data"));
+            case "ready" ->
+                    handleReady(json.has("data") && json.get("data").isJsonObject() ? json.getAsJsonObject("data") : new JsonObject());
             case "event" -> handleEvent(json);
-            case "pong" -> handlePong(json.getAsJsonObject("data"));
-            case "error" -> handleError(json.getAsJsonObject("error"));
-            default -> LOGGER.warn("Unknown opcode received: {}", op);
+            case "pong" ->
+                    handlePong(json.has("data") && json.get("data").isJsonObject() ? json.getAsJsonObject("data") : new JsonObject());
+            case "error" ->
+                    handleError(json.has("error") && json.get("error").isJsonObject() ? json.getAsJsonObject("error") : new JsonObject());
+            default -> LOGGER.warn("Unknown gateway opcode received: {}", op);
          }
       } catch (Exception e) {
          LOGGER.error("Failed to parse gateway message: {}", message, e);
@@ -49,54 +57,55 @@ public class GatewayMessageHandler {
    /**
     * handles the 'ready' opcode - sent when websocket connection is established.
     */
-   private static void handleReady(JsonObject data) {
+   private void handleReady(JsonObject data) {
       LOGGER.info("Gateway ready: {}", data);
 
-      // notify the gateway client that we're fully connected
-      GaiaGatewayClient client = LifestealUtils.getGaiaGatewayClient();
-      if (client != null) {
-         client.onReady();
-      }
+      gatewayClient.onReady();
 
       AllianceSyncManager.syncSubscriptionsAsync();
 
-      if (data.has("user")) {
+      if (data.has("user") && data.get("user").isJsonObject()) {
          JsonObject user = data.getAsJsonObject("user");
-         String username = user.get("name").getAsString();
-
-         // show connection message
-         Component msg = Component.translatable("lsu.gaia.gateway.connected");
-         MessagingUtils.showMiniMessage(
-                 String.format("<color:%s><bold>[LSU]</bold> %s</color>",
-                         GATEWAY_COLOR,
-                         msg.getString())
-         );
+         if (user.has("name") && !user.get("name").isJsonNull()) {
+            Component msg = Component.translatable("lsu.gaia.gateway.connected");
+            MessagingUtils.showMiniMessage(
+                    String.format("<color:%s><bold>[LSU]</bold> %s</color>",
+                            GATEWAY_COLOR,
+                            msg.getString())
+            );
+         }
       }
    }
 
    /**
     * handles the 'event' opcode - real-time events from the gateway.
     */
-   private static void handleEvent(JsonObject json) {
+   private void handleEvent(JsonObject json) {
+      if (!json.has("type") || json.get("type").isJsonNull()) {
+         LOGGER.warn("Received gateway event without 'type' field: {}", json);
+         return;
+      }
       String type = json.get("type").getAsString();
-      JsonObject data = json.getAsJsonObject("data");
+      JsonObject data = json.has("data") && json.get("data").isJsonObject()
+              ? json.getAsJsonObject("data")
+              : new JsonObject();
 
       LOGGER.debug("Received gateway event: {} - {}", type, data);
 
-      // fire event for other systems to handle
       LifestealUtilsEvents.GATEWAY_MESSAGE.invoker().onGatewayMessage(new LifestealUtilsEvents.GatewayMessageEvent(type, data));
 
-      // display alliance events in chat
       displayAllianceEvent(type, data);
    }
 
    /**
     * displays alliance-related events as chat messages.
     */
-   private static void displayAllianceEvent(String type, JsonObject data) {
+   private void displayAllianceEvent(String type, JsonObject data) {
       try {
-         String allianceName = data.has("allianceName") ? data.get("allianceName").getAsString() : "Unknown";
-         String username = data.has("username") ? data.get("username").getAsString() : "Unknown";
+         String allianceName = data.has("allianceName") && !data.get("allianceName").isJsonNull()
+                 ? data.get("allianceName").getAsString() : "Unknown";
+         String username = data.has("username") && !data.get("username").isJsonNull()
+                 ? data.get("username").getAsString() : "Unknown";
 
          String messageKey = switch (type) {
             case "alliance.invite" -> "lsu.gaia.gateway.event.alliance.invite";
@@ -129,24 +138,21 @@ public class GatewayMessageHandler {
    /**
     * handles the 'pong' opcode - response to ping keep-alive.
     */
-   private static void handlePong(JsonObject data) {
+   private void handlePong(JsonObject data) {
       LOGGER.debug("Received pong from gateway: {}", data);
-      // pong received - connection is alive
    }
 
    /**
     * handles the 'error' opcode - error messages from the gateway.
     */
-   private static void handleError(JsonObject error) {
-      String code = error.has("code") ? error.get("code").getAsString() : "UNKNOWN";
-      String message = error.has("message") ? error.get("message").getAsString() : "Unknown error";
+   private void handleError(JsonObject error) {
+      String code = error.has("code") && !error.get("code").isJsonNull() ? error.get("code").getAsString() : "UNKNOWN";
+      String message = error.has("message") && !error.get("message").isJsonNull() ? error.get("message").getAsString() : "Unknown error";
 
       LOGGER.error("Gateway error: {} - {}", code, message);
 
-      // fire error event
       LifestealUtilsEvents.GATEWAY_ERROR.invoker().onGatewayError(new LifestealUtilsEvents.GatewayErrorEvent(code, message));
 
-      // show error message in chat
       Component msg = Component.translatable("lsu.gaia.gateway.error", message);
       MessagingUtils.showMiniMessage(
               String.format("<color:%s><bold>[LSU]</bold> <red>%s</red></color>",

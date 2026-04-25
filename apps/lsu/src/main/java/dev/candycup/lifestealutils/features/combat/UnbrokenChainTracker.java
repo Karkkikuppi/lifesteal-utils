@@ -11,6 +11,7 @@ import dev.candycup.lifestealutils.event.LifestealUtilsEvents.ServerChangeEvent;
 import dev.candycup.lifestealutils.hud.HudAnchor;
 import dev.candycup.lifestealutils.hud.HudElementDefinition;
 import dev.candycup.lifestealutils.hud.HudPosition;
+import dev.candycup.lifestealutils.ui.HudElementEditor;
 import lombok.Getter;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.protocol.game.ClientboundDamageEventPacket;
@@ -183,10 +184,14 @@ public final class UnbrokenChainTracker {
    }
 
    public int getBonusPercent() {
-      if (chainCount < BONUS_START_CHAIN) {
+      return getBonusPercentFor(chainCount);
+   }
+
+   private int getBonusPercentFor(int count) {
+      if (count < BONUS_START_CHAIN) {
          return 0;
       }
-      int bonusHits = chainCount - BONUS_START_OFFSET;
+      int bonusHits = count - BONUS_START_OFFSET;
       return Math.min(bonusHits * BONUS_PER_HIT, MAX_CHAIN * BONUS_PER_HIT);
    }
 
@@ -194,9 +199,13 @@ public final class UnbrokenChainTracker {
       int count = chainCount;
       int bonus = getBonusPercent();
 
-      // don't show if chain is 0
       if (count == 0) {
-         return "";
+         if (Minecraft.getInstance().screen instanceof HudElementEditor) {
+            count = 3;
+            bonus = getBonusPercentFor(count);
+         } else {
+            return "";
+         }
       }
 
       String format = Config.getChainCounterFormat();

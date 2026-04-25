@@ -7,7 +7,6 @@ import dev.candycup.lifestealutils.ui.framework.core.UiInputState;
 import dev.candycup.lifestealutils.ui.framework.core.UiLayoutContext;
 import dev.candycup.lifestealutils.ui.framework.core.UiSize;
 import dev.candycup.lifestealutils.ui.framework.screens.DrawableScreen;
-import dev.candycup.lifestealutils.features.qol.PoiDirectionalIndicator;
 import dev.candycup.lifestealutils.interapi.SoundUtils;
 import dev.candycup.lifestealutils.ui.util.UiInteractionUtils;
 import dev.candycup.lifestealutils.ui.util.UiRenderUtils;
@@ -42,21 +41,10 @@ public class HudElementEditor extends DrawableScreen {
    private static final int TITLE_SPACING = 2;
    private static final int BUTTON_ROW_SPACING = SNAP_BUTTON_SPACING + 2;
 
-   private static PoiDirectionalIndicator poiDirectionalIndicator;
-
    private final HudEditorState state = new HudEditorState();
 
    public HudElementEditor(Component component) {
       super(component);
-   }
-
-   /**
-    * sets the POI directional indicator for preview rendering in the editor.
-    *
-    * @param indicator the directional indicator to render
-    */
-   public static void setPoiDirectionalIndicator(PoiDirectionalIndicator indicator) {
-      poiDirectionalIndicator = indicator;
    }
 
    @Override
@@ -78,7 +66,6 @@ public class HudElementEditor extends DrawableScreen {
    protected Drawable buildUi() {
       HudEditorCanvas canvas = HudEditorCanvas.builder()
               .state(state)
-              .poiIndicator(poiDirectionalIndicator)
               .snapStepPixels(SNAP_STEP_PIXELS)
               .build();
 

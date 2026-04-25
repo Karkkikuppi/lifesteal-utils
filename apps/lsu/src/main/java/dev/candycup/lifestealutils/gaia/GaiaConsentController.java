@@ -1,6 +1,8 @@
 package dev.candycup.lifestealutils.gaia;
 
 import dev.candycup.lifestealutils.Config;
+import dev.candycup.lifestealutils.LifestealUtils;
+import dev.candycup.lifestealutils.gaia.gateway.GaiaGatewayClient;
 import dev.candycup.lifestealutils.interapi.NetworkUtilsController;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -68,11 +70,19 @@ public final class GaiaConsentController {
 
    /**
     * Records the user's consent decision and persists it.
+    * When disabling, immediately closes any active gateway connection.
     *
     * @param enabled whether advanced features are enabled
     */
    public static void recordConsentDecision(boolean enabled) {
       Config.setGaiaAdvancedFeaturesEnabled(enabled);
       Config.setGaiaConsentSeen(true);
+
+      if (!enabled) {
+         GaiaGatewayClient client = LifestealUtils.getGaiaGatewayClient();
+         if (client != null) {
+            client.disable();
+         }
+      }
    }
 }

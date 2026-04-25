@@ -10,103 +10,182 @@ import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.ItemStack;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 public final class LifestealUtilsEvents {
+   private static final Logger LOGGER = LoggerFactory.getLogger("lifestealutils/events");
+
    public static final Event<PacketEvent> PACKET_RECEIVED = EventFactory.createArrayBacked(PacketEvent.class, listeners -> (packet, callbackInfo) -> {
       for (PacketEvent listener : listeners) {
-         listener.onPacketReceived(packet, callbackInfo);
+         try {
+            listener.onPacketReceived(packet, callbackInfo);
+         } catch (Exception e) {
+            LOGGER.error("[lsu-events] PACKET_RECEIVED listener {} threw an exception", listener.getClass().getName(), e);
+         }
       }
    });
 
-   public static final Event<TitleScreenEvent> TITLE_SCREEN_INIT = EventFactory.createArrayBacked(TitleScreenEvent.class, listeners -> (titleScreen) -> {
+   public static final Event<TitleScreenEvent> TITLE_SCREEN_INIT = EventFactory.createArrayBacked(TitleScreenEvent.class, listeners -> titleScreen -> {
       for (TitleScreenEvent listener : listeners) {
-         listener.onTitleScreenInit(titleScreen);
+         try {
+            listener.onTitleScreenInit(titleScreen);
+         } catch (Exception e) {
+            LOGGER.error("[lsu-events] TITLE_SCREEN_INIT listener {} threw an exception", listener.getClass().getName(), e);
+         }
       }
    });
 
    public static final Event<ClientAttackEventListener> CLIENT_ATTACK = EventFactory.createArrayBacked(ClientAttackEventListener.class, listeners -> event -> {
       for (ClientAttackEventListener listener : listeners) {
-         listener.onClientAttack(event);
+         try {
+            listener.onClientAttack(event);
+         } catch (Exception e) {
+            LOGGER.error("[lsu-events] CLIENT_ATTACK listener {} threw an exception", listener.getClass().getName(), e);
+         }
       }
    });
 
    public static final Event<ChatMessageReceivedEventListener> CHAT_MESSAGE_RECEIVED = EventFactory.createArrayBacked(ChatMessageReceivedEventListener.class, listeners -> event -> {
       for (ChatMessageReceivedEventListener listener : listeners) {
-         listener.onChatMessageReceived(event);
+         try {
+            listener.onChatMessageReceived(event);
+         } catch (Exception e) {
+            LOGGER.error("[lsu-events] CHAT_MESSAGE_RECEIVED listener {} threw an exception", listener.getClass().getName(), e);
+         }
       }
    });
 
    public static final Event<ChatMessageSentEventListener> CHAT_MESSAGE_SENT = EventFactory.createArrayBacked(ChatMessageSentEventListener.class, listeners -> event -> {
       for (ChatMessageSentEventListener listener : listeners) {
-         listener.onChatMessageSent(event);
+         try {
+            listener.onChatMessageSent(event);
+         } catch (Exception e) {
+            LOGGER.error("[lsu-events] CHAT_MESSAGE_SENT listener {} threw an exception", listener.getClass().getName(), e);
+         }
       }
    });
 
    public static final Event<ClientTickEventListener> CLIENT_TICK = EventFactory.createArrayBacked(ClientTickEventListener.class, listeners -> event -> {
       for (ClientTickEventListener listener : listeners) {
-         listener.onClientTick(event);
+         try {
+            listener.onClientTick(event);
+         } catch (Exception e) {
+            LOGGER.error("[lsu-events] CLIENT_TICK listener {} threw an exception", listener.getClass().getName(), e);
+         }
       }
    });
 
    public static final Event<ServerChangeEventListener> SERVER_CHANGE = EventFactory.createArrayBacked(ServerChangeEventListener.class, listeners -> event -> {
       for (ServerChangeEventListener listener : listeners) {
-         listener.onServerChange(event);
+         try {
+            listener.onServerChange(event);
+         } catch (Exception e) {
+            LOGGER.error("[lsu-events] SERVER_CHANGE listener {} threw an exception", listener.getClass().getName(), e);
+         }
       }
    });
 
    public static final Event<ShardSwapEventListener> SHARD_SWAP = EventFactory.createArrayBacked(ShardSwapEventListener.class, listeners -> event -> {
       for (ShardSwapEventListener listener : listeners) {
-         listener.onShardSwap(event);
+         try {
+            listener.onShardSwap(event);
+         } catch (Exception e) {
+            LOGGER.error("[lsu-events] SHARD_SWAP listener {} threw an exception", listener.getClass().getName(), e);
+         }
       }
    });
 
    public static final Event<ItemRenderEventListener> ITEM_RENDER = EventFactory.createArrayBacked(ItemRenderEventListener.class, listeners -> event -> {
       for (ItemRenderEventListener listener : listeners) {
-         listener.onItemRender(event);
+         try {
+            listener.onItemRender(event);
+         } catch (Exception e) {
+            LOGGER.error("[lsu-events] ITEM_RENDER listener {} threw an exception", listener.getClass().getName(), e);
+         }
       }
    });
 
    public static final Event<PlayerNameRenderEventListener> PLAYER_NAME_RENDER = EventFactory.createArrayBacked(PlayerNameRenderEventListener.class, listeners -> event -> {
       for (PlayerNameRenderEventListener listener : listeners) {
-         listener.onPlayerNameRender(event);
+         try {
+            listener.onPlayerNameRender(event);
+         } catch (Exception e) {
+            LOGGER.error("[lsu-events] PLAYER_NAME_RENDER listener {} threw an exception", listener.getClass().getName(), e);
+         }
       }
    });
 
    public static final Event<SplashTextRequestEventListener> SPLASH_TEXT_REQUEST = EventFactory.createArrayBacked(SplashTextRequestEventListener.class, listeners -> event -> {
       for (SplashTextRequestEventListener listener : listeners) {
-         listener.onSplashTextRequest(event);
+         try {
+            listener.onSplashTextRequest(event);
+         } catch (Exception e) {
+            LOGGER.error("[lsu-events] SPLASH_TEXT_REQUEST listener {} threw an exception", listener.getClass().getName(), e);
+         }
       }
    });
 
    public static final Event<GatewayConnectedEventListener> GATEWAY_CONNECTED = EventFactory.createArrayBacked(GatewayConnectedEventListener.class, listeners -> event -> {
       for (GatewayConnectedEventListener listener : listeners) {
-         listener.onGatewayConnected(event);
+         try {
+            listener.onGatewayConnected(event);
+         } catch (Exception e) {
+            LOGGER.error("[lsu-events] GATEWAY_CONNECTED listener {} threw an exception", listener.getClass().getName(), e);
+         }
       }
    });
 
    public static final Event<GatewayDisconnectedEventListener> GATEWAY_DISCONNECTED = EventFactory.createArrayBacked(GatewayDisconnectedEventListener.class, listeners -> event -> {
       for (GatewayDisconnectedEventListener listener : listeners) {
-         listener.onGatewayDisconnected(event);
+         try {
+            listener.onGatewayDisconnected(event);
+         } catch (Exception e) {
+            LOGGER.error("[lsu-events] GATEWAY_DISCONNECTED listener {} threw an exception", listener.getClass().getName(), e);
+         }
       }
    });
 
    public static final Event<GatewayErrorEventListener> GATEWAY_ERROR = EventFactory.createArrayBacked(GatewayErrorEventListener.class, listeners -> event -> {
       for (GatewayErrorEventListener listener : listeners) {
-         listener.onGatewayError(event);
+         try {
+            listener.onGatewayError(event);
+         } catch (Exception e) {
+            LOGGER.error("[lsu-events] GATEWAY_ERROR listener {} threw an exception", listener.getClass().getName(), e);
+         }
       }
    });
 
    public static final Event<GatewayMessageEventListener> GATEWAY_MESSAGE = EventFactory.createArrayBacked(GatewayMessageEventListener.class, listeners -> event -> {
       for (GatewayMessageEventListener listener : listeners) {
-         listener.onGatewayMessage(event);
+         try {
+            listener.onGatewayMessage(event);
+         } catch (Exception e) {
+            LOGGER.error("[lsu-events] GATEWAY_MESSAGE listener {} threw an exception", listener.getClass().getName(), e);
+         }
       }
    });
 
    public static final Event<CommandEvent> COMMAND_SENT = EventFactory.createArrayBacked(CommandEvent.class, listeners -> command -> {
       for (CommandEvent listener : listeners) {
-         listener.onCommandSent(command);
+         try {
+            listener.onCommandSent(command);
+         } catch (Exception e) {
+            LOGGER.error("[lsu-events] COMMAND_SENT listener {} threw an exception", listener.getClass().getName(), e);
+         }
+      }
+   });
+
+   public static final Event<ContainerContentSetEventListener> CONTAINER_CONTENT_SET = EventFactory.createArrayBacked(ContainerContentSetEventListener.class, listeners -> event -> {
+      for (ContainerContentSetEventListener listener : listeners) {
+         try {
+            listener.onContainerContentSet(event);
+         } catch (Exception e) {
+            LOGGER.error("[lsu-events] CONTAINER_CONTENT_SET listener {} threw an exception", listener.getClass().getName(), e);
+         }
       }
    });
 
@@ -191,6 +270,37 @@ public final class LifestealUtilsEvents {
    @FunctionalInterface
    public interface GatewayMessageEventListener {
       void onGatewayMessage(GatewayMessageEvent event);
+   }
+
+   @FunctionalInterface
+   public interface ContainerContentSetEventListener {
+      void onContainerContentSet(ContainerContentSetEvent event);
+   }
+
+   public static class ContainerContentSetEvent extends LSUEvent {
+      private final AbstractContainerMenu menu;
+      private final String screenTitle;
+
+      public ContainerContentSetEvent(AbstractContainerMenu menu, String screenTitle) {
+         this.menu = menu;
+         this.screenTitle = screenTitle;
+      }
+
+      public AbstractContainerMenu getMenu() {
+         return menu;
+      }
+
+      /**
+       * plain-text title of the currently open screen, or empty string if none
+       */
+      public String getScreenTitle() {
+         return screenTitle;
+      }
+
+      @Override
+      public boolean isCancellable() {
+         return false;
+      }
    }
 
    public record GatewayConnectedEvent(String username, String uuid) {

@@ -3,25 +3,25 @@ package dev.candycup.lifestealutils.config;
 import dev.candycup.lifestealutils.Config;
 import dev.candycup.lifestealutils.FeatureFlagController;
 import dev.candycup.lifestealutils.LifestealUtils;
+import dev.candycup.configura.ui.ConfiguraConfigModel;
+import dev.candycup.configura.ui.ConfiguraConfigScreen;
+import dev.candycup.configura.core.ToggleGroup;
 import dev.candycup.lifestealutils.config.configurables.ConfigurableBoolean;
 import dev.candycup.lifestealutils.config.configurables.ConfigurableEnum;
 import dev.candycup.lifestealutils.config.configurables.ConfigurableFloat;
 import dev.candycup.lifestealutils.config.configurables.ConfigurableList;
 import dev.candycup.lifestealutils.config.configurables.ConfigurableMinimessage;
 import dev.candycup.lifestealutils.config.configurables.ConfigurableString;
-import dev.candycup.lifestealutils.config.controllers.MinimessageController;
+import dev.candycup.lifestealutils.config.configurables.ConfigurableToggleGroup;
+import dev.candycup.lifestealutils.config.configurables.IncludeInAccordion;
+import dev.candycup.lifestealutils.config.configurables.RequiresGaia;
 import dev.candycup.lifestealutils.interapi.MessagingUtils;
-import dev.isxander.yacl3.api.ConfigCategory;
-import dev.isxander.yacl3.api.ListOption;
-import dev.isxander.yacl3.api.Option;
-import dev.isxander.yacl3.api.OptionDescription;
-import dev.isxander.yacl3.api.OptionGroup;
-import dev.isxander.yacl3.api.YetAnotherConfigLib;
-import dev.isxander.yacl3.api.controller.EnumControllerBuilder;
-import dev.isxander.yacl3.api.controller.FloatSliderControllerBuilder;
-import dev.isxander.yacl3.api.controller.StringControllerBuilder;
-import dev.isxander.yacl3.api.controller.TickBoxControllerBuilder;
+import dev.candycup.lifestealutils.interapi.SoundUtils;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -35,22 +35,20 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 
-public class ConfigResolver {
+public final class ConfigResolver {
    private static final Logger LOGGER = LoggerFactory.getLogger("lifestealutils/config-resolver");
    private static volatile Map<String, RemoteOverrideDecision> remoteOverridesByKey = Collections.emptyMap();
 
-   public static YetAnotherConfigLib resolve() {
-      ConfigDescriptorRegistry.registerDefaultProviders();
-      return resolve(ConfigContainerRegistry.getRegisteredContainers());
+   private ConfigResolver() {
    }
 
-   public static YetAnotherConfigLib resolve(Class<?> configClass) {
-      return resolve(List.of(configClass));
+   public static Screen resolveScreen(Screen parent) {
+      ConfigDescriptorRegistry.registerDefaultProviders();
+      ConfiguraConfigModel.ResolvedConfig resolved = resolve(ConfigContainerRegistry.getRegisteredContainers());
+      return new ConfiguraConfigScreen(parent, resolved);
    }
 
    public static void applyRemoteOverridesAtLoad() {
@@ -59,19 +57,119 @@ public class ConfigResolver {
       resolveRemoteOverrides(optionsByKey, true);
    }
 
-   private static YetAnotherConfigLib resolve(List<Class<?>> configClasses) {
-      ConfigurationTree tree = new ConfigurationTree();
-      Map<String, ConfigurationCategory> categoriesByName = new LinkedHashMap<>();
+   private static ConfiguraConfigModel.ResolvedConfig resolve(List<Class<?>> configClasses) {
       Map<String, ConfigurationOption> optionsByKey = collectOptionsByKey(configClasses);
-
       resolveRemoteOverrides(optionsByKey, false);
 
+      Map<String, ConfiguraConfigModel.UiCategory> categoriesByName = new LinkedHashMap<>();
+      // Track feature builders keyed by "category.feature"
+      Map<String, FeatureBuilder> featureBuilders = new LinkedHashMap<>();
+
       for (ConfigurationOption option : optionsByKey.values()) {
-         addOption(categoriesByName, option);
+         categoriesByName.computeIfAbsent(option.category, key ->
+                 new ConfiguraConfigModel.UiCategory(
+                         key,
+                         Component.translatable("lsu.config.%s".formatted(key.toLowerCase(Locale.ROOT))),
+                         new ArrayList<>()
+                 ));
+
+         String featureKey = option.category + "." + option.group;
+         FeatureBuilder builder = featureBuilders.computeIfAbsent(featureKey, k -> new FeatureBuilder(option.category, option.group));
+         builder.add(option);
       }
 
-      tree.categories = sortedCategories(categoriesByName);
-      return tree.toYACL();
+      for (FeatureBuilder builder : featureBuilders.values()) {
+         ConfiguraConfigModel.UiCategory category = categoriesByName.get(builder.categoryId);
+         category.features().add(builder.build());
+      }
+
+      List<ConfiguraConfigModel.UiCategory> categories = new ArrayList<>(categoriesByName.values());
+      categories.sort(Comparator
+              .comparingInt((ConfiguraConfigModel.UiCategory category) -> LifestealUtils.getConfigCategoryWeight(category.id()))
+              .thenComparing(ConfiguraConfigModel.UiCategory::id));
+      categories.forEach(category -> category.features().sort(Comparator.comparing(ConfiguraConfigModel.UiFeature::id)));
+      return new ConfiguraConfigModel.ResolvedConfig(
+              Component.translatable("lsu.config.title"),
+              categories,
+              Config.HANDLER::save,
+              () -> MessagingUtils.showMiniMessage("<green>Saved Lifesteal Utils config.</green>"),
+              () -> {
+                 Config.resetAll();
+                 resolveRemoteOverrides(optionsByKey, true);
+              },
+              () -> {
+                 SoundUtils.playUiClick();
+                 MessagingUtils.showMiniMessage("<gold>Reset Lifesteal Utils config to defaults.</gold>");
+              }
+      );
+   }
+
+   private static final class FeatureBuilder {
+      final String categoryId;
+      final String featureId;
+      final List<ConfigurationOption> standalone = new ArrayList<>();
+      final Map<String, List<ConfigurationOption>> accordionGroups = new LinkedHashMap<>();
+      final Map<String, String> accordionHardNames = new LinkedHashMap<>();
+
+      FeatureBuilder(String categoryId, String featureId) {
+         this.categoryId = categoryId;
+         this.featureId = featureId;
+      }
+
+      void add(ConfigurationOption option) {
+         if (option.accordionId != null) {
+            accordionGroups.computeIfAbsent(option.accordionId, k -> new ArrayList<>()).add(option);
+            if (option.hardAccordionName != null) {
+               accordionHardNames.put(option.accordionId, option.hardAccordionName);
+            }
+         } else {
+            standalone.add(option);
+         }
+      }
+
+      ConfiguraConfigModel.UiFeature build() {
+         standalone.sort(Comparator.comparing(o -> o.name));
+
+         List<ConfiguraConfigModel.UiFeatureItem> items = new ArrayList<>();
+         for (ConfigurationOption opt : standalone) {
+            items.add(new ConfiguraConfigModel.UiFeatureConfigurable(opt.toUiConfigurable()));
+         }
+
+         List<String> sortedAccordionIds = new ArrayList<>(accordionGroups.keySet());
+         sortedAccordionIds.sort(Comparator.naturalOrder());
+
+         for (String accId : sortedAccordionIds) {
+            List<ConfigurationOption> accOptions = accordionGroups.get(accId);
+            accOptions.sort(Comparator.comparing(o -> o.name));
+
+            Component accName;
+            String hardName = accordionHardNames.get(accId);
+            if (hardName != null && !hardName.isBlank()) {
+               accName = Component.literal(hardName);
+            } else {
+               accName = Component.translatable("lsu.config.%s.%s.accordion.%s".formatted(
+                       categoryId.toLowerCase(Locale.ROOT),
+                       featureId.toLowerCase(Locale.ROOT),
+                       accId.toLowerCase(Locale.ROOT)
+               ));
+            }
+
+            List<ConfiguraConfigModel.UiConfigurable> accConfigurables = new ArrayList<>();
+            for (ConfigurationOption opt : accOptions) {
+               accConfigurables.add(opt.toUiConfigurable());
+            }
+
+            items.add(new ConfiguraConfigModel.UiFeatureAccordion(
+                    new ConfiguraConfigModel.UiAccordion(accId, accName, accConfigurables)
+            ));
+         }
+
+         Component displayName = Component.translatable("lsu.config.%s.%s".formatted(
+                 categoryId.toLowerCase(Locale.ROOT),
+                 featureId.toLowerCase(Locale.ROOT)
+         ));
+         return new ConfiguraConfigModel.UiFeature(featureId, displayName, items);
+      }
    }
 
    private static Map<String, ConfigurationOption> collectOptionsByKey(List<Class<?>> configClasses) {
@@ -119,10 +217,7 @@ public class ConfigResolver {
 
          Object coercedValue = option.coerceRemoteValue(rule.forceState());
          if (coercedValue == null) {
-            LOGGER.warn(
-                    "[lsu-config] remote rule rejected for key '{}' due to invalid forceState type/value",
-                    rule.applyForKey()
-            );
+            LOGGER.warn("[lsu-config] remote rule rejected for key '{}' due to invalid forceState type/value", rule.applyForKey());
             continue;
          }
 
@@ -142,9 +237,11 @@ public class ConfigResolver {
       }
 
       remoteOverridesByKey = Collections.unmodifiableMap(decisions);
-
       for (ConfigurationOption option : optionsByKey.values()) {
          option.remoteOverride = decisions.get(option.key);
+         if (option.remoteOverride == null) {
+            option.applyGaiaDeniedValue();
+         }
       }
 
       if (applyValues) {
@@ -170,32 +267,35 @@ public class ConfigResolver {
       ConfigurableFloat configurableFloat = field.getAnnotation(ConfigurableFloat.class);
       ConfigurableEnum configurableEnum = field.getAnnotation(ConfigurableEnum.class);
       ConfigurableList configurableList = field.getAnnotation(ConfigurableList.class);
+      ConfigurableToggleGroup configurableToggleGroup = field.getAnnotation(ConfigurableToggleGroup.class);
       if (configurableBoolean == null && configurableString == null && configurableMinimessage == null
-              && configurableFloat == null && configurableEnum == null && configurableList == null) {
+              && configurableFloat == null && configurableEnum == null && configurableList == null
+              && configurableToggleGroup == null) {
          return null;
       }
 
-      String location =
-              configurableBoolean != null ? configurableBoolean.location() :
-                      configurableString != null ? configurableString.location() :
-                              configurableMinimessage != null ? configurableMinimessage.location() :
-                                      configurableFloat != null ? configurableFloat.location() :
-                                              configurableEnum != null ? configurableEnum.location() :
-                                                      configurableList.location();
-      OptionType optionType =
-              configurableBoolean != null ? OptionType.BOOLEAN :
-                      configurableString != null ? OptionType.STRING :
-                              configurableMinimessage != null ? OptionType.MINIMESSAGE :
-                                      configurableFloat != null ? OptionType.FLOAT :
-                                              configurableEnum != null ? OptionType.ENUM :
-                                                      OptionType.LIST;
+      String location = configurableBoolean != null ? configurableBoolean.location()
+              : configurableString != null ? configurableString.location()
+              : configurableMinimessage != null ? configurableMinimessage.location()
+              : configurableFloat != null ? configurableFloat.location()
+              : configurableEnum != null ? configurableEnum.location()
+              : configurableList != null ? configurableList.location()
+              : configurableToggleGroup.location();
+
+      ConfiguraConfigModel.OptionType optionType = configurableBoolean != null ? ConfiguraConfigModel.OptionType.BOOLEAN
+              : configurableString != null ? ConfiguraConfigModel.OptionType.STRING
+              : configurableMinimessage != null ? ConfiguraConfigModel.OptionType.MINIMESSAGE
+              : configurableFloat != null ? ConfiguraConfigModel.OptionType.FLOAT
+              : configurableEnum != null ? ConfiguraConfigModel.OptionType.ENUM
+              : configurableList != null ? ConfiguraConfigModel.OptionType.LIST
+              : ConfiguraConfigModel.OptionType.TOGGLE_GROUP;
 
       String[] segments = location.split("\\.");
-      boolean isListType = optionType == OptionType.LIST;
-      if (isListType && segments.length != 2) {
-         throw new IllegalArgumentException("invalid list location '%s' on field '%s', expected category.group".formatted(location, field.getName()));
+      boolean listType = optionType == ConfiguraConfigModel.OptionType.LIST;
+      if (listType && segments.length != 2 && segments.length != 3) {
+         throw new IllegalArgumentException("invalid list location '%s' on field '%s', expected category.group or category.group.entry".formatted(location, field.getName()));
       }
-      if (!isListType && segments.length != 3) {
+      if (!listType && segments.length != 3) {
          throw new IllegalArgumentException("invalid configurable location '%s' on field '%s', expected category.group.entry".formatted(location, field.getName()));
       }
 
@@ -206,26 +306,56 @@ public class ConfigResolver {
          ConfigurationOption option = new ConfigurationOption();
          option.category = segments[0];
          option.group = segments[1];
-         option.name = isListType ? segments[1] : segments[2];
-         option.key = isListType
-                 ? canonicalKey(option.category, option.group, option.group)
-                 : canonicalKey(option.category, option.group, option.name);
-         option.listEntry = isListType;
-         option.defaultValue = optionType == OptionType.LIST
-                 ? new ArrayList<>((List<String>) defaultValue)
-                 : defaultValue;
+         option.name = listType && segments.length == 2 ? segments[1] : segments[2];
+         option.key = canonicalKey(option.category, option.group, option.name);
+         option.defaultValue = listType ? new ArrayList<>((List<String>) defaultValue) : defaultValue;
          option.type = optionType;
-         if (optionType == OptionType.FLOAT && configurableFloat != null) {
+         option.listEntry = listType && segments.length == 2;
+         option.enumClass = field.getType().isEnum() ? (Class<? extends Enum<?>>) field.getType() : null;
+         option.valueSupplier = () -> readStaticValue(field);
+         option.valueConsumer = value -> writeStaticValue(field, value);
+         if (option.type == ConfiguraConfigModel.OptionType.FLOAT && configurableFloat != null) {
             option.floatMin = configurableFloat.min();
             option.floatMax = configurableFloat.max();
             option.hasFloatBounds = true;
          }
-         option.enumClass = field.getType().isEnum() ? (Class<? extends Enum<?>>) field.getType() : null;
-         option.valueSupplier = () -> readStaticValue(field);
-         option.valueConsumer = value -> writeStaticValue(field, value);
+         if (option.type == ConfiguraConfigModel.OptionType.TOGGLE_GROUP && defaultValue instanceof ToggleGroup tg) {
+            option.toggleSchema = tg.schema();
+         }
+         String iconKey = configurableBoolean != null ? configurableBoolean.icon()
+                 : configurableString != null ? configurableString.icon()
+                 : configurableMinimessage != null ? configurableMinimessage.icon()
+                 : configurableFloat != null ? configurableFloat.icon()
+                 : configurableEnum != null ? configurableEnum.icon()
+                 : configurableList != null ? configurableList.icon()
+                 : configurableToggleGroup.icon();
+         option.iconSupplier = iconSupplierForOption(iconKey, option.type);
+
+         IncludeInAccordion accordionAnnotation = field.getAnnotation(IncludeInAccordion.class);
+         if (accordionAnnotation != null) {
+            option.accordionId = accordionAnnotation.value();
+         }
+
+         RequiresGaia requiresGaia = field.getAnnotation(RequiresGaia.class);
+         if (requiresGaia != null && !Config.isGaiaAdvancedFeaturesEnabled()) {
+            option.gaiaDenied = true;
+            Object forcedValue = null;
+            String forceStateRaw = requiresGaia.forceStateWhenDenied();
+            if (forceStateRaw != null && !forceStateRaw.isBlank()) {
+               forcedValue = option.coerceGaiaForcedValue(forceStateRaw);
+               if (forcedValue == null) {
+                  LOGGER.warn("[lsu-config] invalid @RequiresGaia(forceStateWhenDenied='{}') for key '{}', falling back to default value", forceStateRaw, option.key);
+               }
+            }
+            if (forcedValue == null) {
+               forcedValue = option.snapshotValue(option.defaultValue);
+            }
+            option.gaiaForcedValue = forcedValue;
+         }
+
          return option;
-      } catch (IllegalAccessException e) {
-         throw new IllegalStateException("failed to read configurable field '%s'".formatted(field.getName()), e);
+      } catch (IllegalAccessException exception) {
+         throw new IllegalStateException("failed to read configurable field '%s'".formatted(field.getName()), exception);
       }
    }
 
@@ -234,19 +364,17 @@ public class ConfigResolver {
       option.category = descriptor.category();
       option.group = descriptor.group();
       option.name = descriptor.name();
-      option.key = descriptor.kind() == ConfigOptionDescriptor.Kind.LIST
-              ? canonicalKey(option.category, option.group, option.group)
-              : canonicalKey(option.category, option.group, option.name);
+      option.key = canonicalKey(option.category, option.group, option.name);
       option.defaultValue = descriptor.kind() == ConfigOptionDescriptor.Kind.LIST
               ? new ArrayList<>((List<String>) descriptor.defaultSupplier().get())
               : descriptor.defaultSupplier().get();
       option.type = switch (descriptor.kind()) {
-         case BOOLEAN -> OptionType.BOOLEAN;
-         case STRING -> OptionType.STRING;
-         case MINIMESSAGE -> OptionType.MINIMESSAGE;
-         case FLOAT -> OptionType.FLOAT;
-         case ENUM -> OptionType.ENUM;
-         case LIST -> OptionType.LIST;
+         case BOOLEAN -> ConfiguraConfigModel.OptionType.BOOLEAN;
+         case STRING -> ConfiguraConfigModel.OptionType.STRING;
+         case MINIMESSAGE -> ConfiguraConfigModel.OptionType.MINIMESSAGE;
+         case FLOAT -> ConfiguraConfigModel.OptionType.FLOAT;
+         case ENUM -> ConfiguraConfigModel.OptionType.ENUM;
+         case LIST -> ConfiguraConfigModel.OptionType.LIST;
       };
       option.listEntry = descriptor.kind() == ConfigOptionDescriptor.Kind.LIST;
       option.enumClass = descriptor.kind() == ConfigOptionDescriptor.Kind.ENUM
@@ -256,149 +384,80 @@ public class ConfigResolver {
       option.valueConsumer = descriptor.valueConsumer();
       option.hardName = descriptor.hardName().orElse(null);
       option.hardDescription = descriptor.hardDescription().orElse(null);
+      option.iconSupplier = descriptor.iconSupplier().orElseGet(() -> defaultIconSupplier(option.type));
+      option.accordionId = descriptor.accordionId().orElse(null);
+      option.hardAccordionName = descriptor.hardAccordionName().orElse(null);
       return option;
    }
 
    private static String canonicalKey(String category, String group, String name) {
-      return "%s.%s.%s".formatted(category.toLowerCase(Locale.ROOT), group.toLowerCase(Locale.ROOT), name.toLowerCase(Locale.ROOT));
-   }
-
-   private static List<ConfigurationCategory> sortedCategories(Map<String, ConfigurationCategory> categoriesByName) {
-      List<ConfigurationCategory> categories = new ArrayList<>(categoriesByName.values());
-      categories.sort(Comparator
-              .comparingInt((ConfigurationCategory configurationCategory) -> LifestealUtils.getConfigCategoryWeight(configurationCategory.name))
-              .thenComparing(configurationCategory -> configurationCategory.name));
-      categories.forEach(category -> category.groups.sort(Comparator
-              .comparing((ConfigurationGroup configurationGroup) -> configurationGroup.name)
-              .thenComparing(configurationGroup -> configurationGroup.listGroup ? configurationGroup.listOption.name : "")));
-      return categories;
-   }
-
-   private static void addOption(Map<String, ConfigurationCategory> categoriesByName, ConfigurationOption option) {
-      ConfigurationCategory category = categoriesByName.computeIfAbsent(option.category, name -> {
-         ConfigurationCategory newCategory = new ConfigurationCategory();
-         newCategory.name = name;
-         newCategory.groups = new ArrayList<>();
-         return newCategory;
-      });
-
-      if (option.type == OptionType.LIST) {
-         ConfigurationGroup listGroup = category.groups.stream()
-                 .filter(existing -> existing.listGroup && Objects.equals(existing.name, option.group))
-                 .findFirst()
-                 .orElseGet(() -> {
-                    ConfigurationGroup newGroup = new ConfigurationGroup();
-                    newGroup.category = category.name;
-                    newGroup.name = option.group;
-                    newGroup.listGroup = true;
-                    category.groups.add(newGroup);
-                    return newGroup;
-                 });
-
-         listGroup.listOption = option;
-         return;
-      }
-
-      ConfigurationGroup group = category.groups.stream()
-              .filter(existing -> !existing.listGroup && Objects.equals(existing.name, option.group))
-              .findFirst()
-              .orElseGet(() -> {
-                 ConfigurationGroup newGroup = new ConfigurationGroup();
-                 newGroup.category = category.name;
-                 newGroup.name = option.group;
-                 newGroup.optionsByName = new LinkedHashMap<>();
-                 category.groups.add(newGroup);
-                 return newGroup;
-              });
-
-      group.optionsByName.put(option.name, option);
+      return "%s.%s.%s".formatted(
+              category.toLowerCase(Locale.ROOT),
+              group.toLowerCase(Locale.ROOT),
+              name.toLowerCase(Locale.ROOT)
+      );
    }
 
    private static Object readStaticValue(Field field) {
       try {
          return field.get(null);
-      } catch (IllegalAccessException e) {
-         throw new IllegalStateException("failed to read configurable field '%s'".formatted(field.getName()), e);
+      } catch (IllegalAccessException exception) {
+         throw new IllegalStateException("failed to read configurable field '%s'".formatted(field.getName()), exception);
       }
    }
 
    private static void writeStaticValue(Field field, Object value) {
       try {
          field.set(null, value);
-      } catch (IllegalAccessException e) {
-         throw new IllegalStateException("failed to write configurable field '%s'".formatted(field.getName()), e);
+      } catch (IllegalAccessException exception) {
+         throw new IllegalStateException("failed to write configurable field '%s'".formatted(field.getName()), exception);
       }
    }
 
-   enum OptionType {
-      BOOLEAN,
-      STRING,
-      MINIMESSAGE,
-      FLOAT,
-      ENUM,
-      LIST,
-   }
-
-   static class ConfigurationTree {
-      List<ConfigurationCategory> categories;
-
-      public YetAnotherConfigLib toYACL() {
-         List<ConfigCategory> yaclCategories = categories.stream()
-                 .map(ConfigurationCategory::toYACLCategory)
-                 .toList();
-
-         return YetAnotherConfigLib.createBuilder()
-                 .title(Component.translatable("lsu.config.title"))
-                 .categories(yaclCategories)
-                 .save(() -> Config.HANDLER.save())
-                 .build();
+   private static Supplier<ItemStack> iconSupplierForOption(String explicitIconKey, ConfiguraConfigModel.OptionType type) {
+      if (explicitIconKey == null || explicitIconKey.isBlank()) {
+         return defaultIconSupplier(type);
       }
-   }
-
-   static class ConfigurationCategory {
-      List<ConfigurationGroup> groups;
-      String name;
-
-      public ConfigCategory toYACLCategory() {
-         return ConfigCategory.createBuilder()
-                 .name(Component.translatable("lsu.config.%s".formatted(name.toLowerCase())))
-                 .groups(groups.stream().map(ConfigurationGroup::toYACLGroup).collect(Collectors.toCollection(
-                         ArrayList::new
-                 )))
-                 .build();
-      }
-   }
-
-   static class ConfigurationGroup {
-      Map<String, ConfigurationOption> optionsByName;
-      String category;
-      String name;
-      boolean listGroup;
-      ConfigurationOption listOption;
-
-      public OptionGroup toYACLGroup() {
-         if (listGroup) {
-            return listOption.toYACLListGroup();
+      try {
+         String path = explicitIconKey;
+         int colonIndex = path.indexOf(':');
+         if (colonIndex >= 0 && colonIndex + 1 < path.length()) {
+            path = path.substring(colonIndex + 1);
          }
-
-         return OptionGroup.createBuilder()
-                 .name(Component.translatable("lsu.config.%s.%s".formatted(category.toLowerCase(), name.toLowerCase())))
-                 .options(optionsByName.values().stream()
-                         .sorted(Comparator.comparing(configurationOption -> configurationOption.name))
-                         .map(ConfigurationOption::toYACLOption).collect(Collectors.toCollection(
-                                 ArrayList::new
-                         )))
-                 .build();
+         String fieldName = path.toUpperCase(Locale.ROOT).replace('-', '_').replace(' ', '_');
+         java.lang.reflect.Field itemsField = Items.class.getField(fieldName);
+         Object raw = itemsField.get(null);
+         if (raw instanceof Item item) {
+            ItemStack stack = new ItemStack(item);
+            if (!stack.isEmpty()) {
+               return () -> stack.copy();
+            }
+         }
+      } catch (Exception ignored) {
       }
+      return defaultIconSupplier(type);
    }
 
-   static class ConfigurationOption {
+   private static Supplier<ItemStack> defaultIconSupplier(ConfiguraConfigModel.OptionType type) {
+      ItemStack icon = switch (type) {
+         case BOOLEAN -> new ItemStack(Items.LEVER);
+         case STRING -> new ItemStack(Items.NAME_TAG);
+         case MINIMESSAGE -> new ItemStack(Items.WRITABLE_BOOK);
+         case FLOAT -> new ItemStack(Items.COMPASS);
+         case ENUM -> new ItemStack(Items.COMPARATOR);
+         case LIST -> new ItemStack(Items.BOOK);
+         case TOGGLE_GROUP -> new ItemStack(Items.LEVER);
+      };
+      return () -> icon.copy();
+   }
+
+   private static final class ConfigurationOption {
       String category;
       String group;
       String name;
       String key;
       Object defaultValue;
-      OptionType type;
+      ConfiguraConfigModel.OptionType type;
       Class<? extends Enum<?>> enumClass;
       boolean listEntry;
       String hardName;
@@ -406,209 +465,234 @@ public class ConfigResolver {
       float floatMin;
       float floatMax;
       boolean hasFloatBounds;
+      List<ToggleGroup.ToggleEntry> toggleSchema;
       Supplier<?> valueSupplier;
       Consumer<?> valueConsumer;
+      Supplier<ItemStack> iconSupplier;
       RemoteOverrideDecision remoteOverride;
+      String accordionId;
+      String hardAccordionName;
+      boolean gaiaDenied;
+      Object gaiaForcedValue;
 
-      private Component resolveName() {
+      ConfiguraConfigModel.UiConfigurable toUiConfigurable() {
+         boolean remotelyForced = remoteOverride != null || gaiaDenied;
+         Object forcedValue = remoteOverride != null ? remoteOverride.forcedValue : (gaiaDenied ? gaiaForcedValue : null);
+         Supplier<?> readSupplier = remotelyForced ? () -> forcedValue : valueSupplier;
+         Consumer<Object> rawValueConsumer = (Consumer<Object>) valueConsumer;
+         Consumer<Object> writeConsumer = remotelyForced
+                 ? ignored -> rawValueConsumer.accept(forcedValue)
+                 : rawValueConsumer;
+         return new ConfiguraConfigModel.UiConfigurable(
+                 key,
+                 name,
+                 type,
+                 floatMin,
+                 floatMax,
+                 hasFloatBounds,
+                 readSupplier,
+                 writeConsumer,
+                 () -> defaultValue,
+                 resolveDisplayName(),
+                 resolveDescription(),
+                 resolveDisabledMessage(),
+                 remotelyForced,
+                 resolveEnumValues(),
+                 this::resolveEnumLabel,
+                 iconSupplier == null ? () -> ItemStack.EMPTY : iconSupplier,
+                 resolveToggleEntries()
+         );
+      }
+
+      private Component resolveDisplayName() {
          if (hardName != null && !hardName.isBlank()) {
             return Component.literal(hardName);
          }
-         return Component.translatable("lsu.config.%s.%s.%s".formatted(category.toLowerCase(), group.toLowerCase(), name.toLowerCase()));
+         if (type == ConfiguraConfigModel.OptionType.LIST) {
+            if (!listEntry) {
+               return Component.translatable("lsu.config.%s.%s.%s".formatted(
+                       category.toLowerCase(Locale.ROOT),
+                       group.toLowerCase(Locale.ROOT),
+                       name.toLowerCase(Locale.ROOT)
+               ));
+            }
+            return Component.translatable("lsu.config.%s.%s".formatted(
+                    category.toLowerCase(Locale.ROOT),
+                    group.toLowerCase(Locale.ROOT)
+            ));
+         }
+         return Component.translatable("lsu.config.%s.%s.%s".formatted(
+                 category.toLowerCase(Locale.ROOT),
+                 group.toLowerCase(Locale.ROOT),
+                 name.toLowerCase(Locale.ROOT)
+         ));
       }
 
-      public Option<?> toYACLOption() {
-         return switch (type) {
-            case BOOLEAN -> Option.<Boolean>createBuilder()
-                    .name(resolveName())
-                    .description(resolveDescription())
-                    .available(!isRemotelyForced())
-                    .binding((Boolean) defaultValue, this::readBooleanValue, this::writeBooleanValue)
-                    .controller(TickBoxControllerBuilder::create)
-                    .build();
-            case STRING -> Option.<String>createBuilder()
-                    .name(resolveName())
-                    .description(resolveDescription())
-                    .available(!isRemotelyForced())
-                    .binding((String) defaultValue, this::readStringValue, this::writeStringValue)
-                    .controller(StringControllerBuilder::create)
-                    .build();
-            case MINIMESSAGE -> Option.<String>createBuilder()
-                    .name(resolveName())
-                    .description(resolveDescription())
-                    .available(!isRemotelyForced())
-                    .binding((String) defaultValue, this::readStringValue, this::writeStringValue)
-                    .customController(MinimessageController::new)
-                    .build();
-            case FLOAT -> Option.<Float>createBuilder()
-                    .name(resolveName())
-                    .description(resolveDescription())
-                    .available(!isRemotelyForced())
-                    .binding((Float) defaultValue, this::readFloatValue, this::writeFloatValue)
-                    .controller(option -> FloatSliderControllerBuilder.create(option)
-                            .range(floatMin, floatMax)
-                            .step(0.1f))
-                    .build();
-            case ENUM -> createEnumOption();
-            case LIST ->
-                    throw new IllegalStateException("list options are represented as groups and cannot be built as plain options");
-         };
-      }
-
-      private OptionDescription resolveDescription() {
-         OptionDescription.Builder builder = OptionDescription.createBuilder();
-
+      private Component resolveDescription() {
+         Component body;
          if (hardDescription != null && !hardDescription.isBlank()) {
-            builder.text(Component.literal(hardDescription));
-         } else if (listEntry) {
-            builder.text(Component.translatable("lsu.config.%s.%s.desc".formatted(category.toLowerCase(), group.toLowerCase())));
+            body = Component.literal(hardDescription);
+         } else if (type == ConfiguraConfigModel.OptionType.LIST) {
+            if (!listEntry) {
+               body = Component.translatable("lsu.config.%s.%s.%s.desc".formatted(
+                       category.toLowerCase(Locale.ROOT),
+                       group.toLowerCase(Locale.ROOT),
+                       name.toLowerCase(Locale.ROOT)
+               ));
+               return body;
+            }
+            body = Component.translatable("lsu.config.%s.%s.desc".formatted(
+                    category.toLowerCase(Locale.ROOT),
+                    group.toLowerCase(Locale.ROOT)
+            ));
          } else {
-            builder.text(Component.translatable("lsu.config.%s.%s.%s.desc".formatted(category.toLowerCase(), group.toLowerCase(), name.toLowerCase())));
+            body = Component.translatable("lsu.config.%s.%s.%s.desc".formatted(
+                    category.toLowerCase(Locale.ROOT),
+                    group.toLowerCase(Locale.ROOT),
+                    name.toLowerCase(Locale.ROOT)
+            ));
          }
 
-         if (isRemotelyForced()) {
-            builder.text(Component.literal(""));
+         return body;
+      }
+
+      private Component resolveDisabledMessage() {
+         if (remoteOverride != null) {
             String reason = remoteOverride.reason;
             if (reason == null || reason.isBlank()) {
                reason = "This option is controlled by the remote registry.";
             }
             try {
-               builder.text(MessagingUtils.miniMessage(reason));
+               return MessagingUtils.miniMessage(reason);
             } catch (Exception ignored) {
-               builder.text(Component.literal(reason));
+               return Component.literal(reason);
             }
          }
-
-         return builder.build();
-      }
-
-      private Option<?> createEnumOption() {
-         Class<?> enumClassRaw = enumClass;
-         if (enumClassRaw == null) {
-            throw new IllegalStateException("enum option '%s' is missing enum class information".formatted(name));
+         if (gaiaDenied) {
+            return Component.literal("Feature requires Gaia! /lsu consent-gaia");
          }
-         if (!enumClassRaw.isEnum()) {
-            throw new IllegalStateException("option '%s' is marked as enum configurable, but does not have an enum type".formatted(name));
+         return Component.empty();
+      }
+
+      private List<? extends Enum<?>> resolveEnumValues() {
+         if (enumClass == null) {
+            return List.of();
          }
-
-         return createEnumOptionTyped((Class<? extends Enum<?>>) enumClassRaw);
-      }
-
-      private <T extends Enum<T>> Option<?> createEnumOptionTyped(Class<? extends Enum<?>> enumClassRaw) {
-         Class<T> enumClassTyped = (Class<T>) enumClassRaw;
-         return Option.<T>createBuilder()
-                 .name(resolveName())
-                 .description(resolveDescription())
-                 .available(!isRemotelyForced())
-                 .binding((T) defaultValue, this::readEnumValue, this::writeEnumValue)
-                 .controller(option -> EnumControllerBuilder.create(option)
-                         .enumClass(enumClassTyped)
-                         .formatValue(enumValue -> resolveEnumLabel(enumValue, category, group, name)))
-                 .build();
-      }
-
-      private OptionGroup toYACLListGroup() {
-         return ListOption.<String>createBuilder()
-                 .name(Component.translatable("lsu.config.%s.%s".formatted(category.toLowerCase(), group.toLowerCase())))
-                 .description(resolveDescription())
-                 .available(!isRemotelyForced())
-                 .binding((List<String>) defaultValue, this::readListValue, this::writeListValue)
-                 .controller(StringControllerBuilder::create)
-                 .initial("")
-                 .build();
-      }
-
-      private boolean isRemotelyForced() {
-         return remoteOverride != null;
-      }
-
-      private boolean readBooleanValue() {
-         if (isRemotelyForced()) {
-            return (Boolean) remoteOverride.forcedValue;
+         Object[] constants = enumClass.getEnumConstants();
+         if (constants == null) {
+            return List.of();
          }
-         return ((Supplier<Boolean>) valueSupplier).get();
+         List<Enum<?>> values = new ArrayList<>();
+         for (Object constant : constants) {
+            values.add((Enum<?>) constant);
+         }
+         return values;
       }
 
-      private void writeBooleanValue(boolean value) {
-         if (isRemotelyForced()) {
-            ((Consumer<Boolean>) valueConsumer).accept((Boolean) remoteOverride.forcedValue);
-            return;
+      private Component resolveEnumLabel(Enum<?> enumValue) {
+         try {
+            Method getTranslationKey = enumValue.getClass().getMethod("getTranslationKey");
+            if (getTranslationKey.getReturnType() == String.class) {
+               String translationKey = (String) getTranslationKey.invoke(enumValue);
+               if (translationKey != null && !translationKey.isBlank()) {
+                  return Component.translatable(translationKey);
+               }
+            }
+         } catch (Exception ignored) {
          }
-         ((Consumer<Boolean>) valueConsumer).accept(value);
+         return Component.translatable("lsu.config.%s.%s.%s.%s".formatted(
+                 category.toLowerCase(Locale.ROOT),
+                 group.toLowerCase(Locale.ROOT),
+                 name.toLowerCase(Locale.ROOT),
+                 enumValue.name().toLowerCase(Locale.ROOT)
+         ));
       }
 
-      private String readStringValue() {
-         if (isRemotelyForced()) {
-            return (String) remoteOverride.forcedValue;
+      private List<ConfiguraConfigModel.UiToggleEntry> resolveToggleEntries() {
+         if (type != ConfiguraConfigModel.OptionType.TOGGLE_GROUP || toggleSchema == null) {
+            return List.of();
          }
-         return ((Supplier<String>) valueSupplier).get();
-      }
-
-      private void writeStringValue(String value) {
-         if (isRemotelyForced()) {
-            ((Consumer<String>) valueConsumer).accept((String) remoteOverride.forcedValue);
-            return;
+         List<ConfiguraConfigModel.UiToggleEntry> result = new ArrayList<>();
+         for (ToggleGroup.ToggleEntry entry : toggleSchema) {
+            Component displayName = Component.translatable("lsu.config.%s.%s.%s".formatted(
+                    category.toLowerCase(Locale.ROOT),
+                    group.toLowerCase(Locale.ROOT),
+                    entry.key().toLowerCase(Locale.ROOT)
+            ));
+            Supplier<ItemStack> icon = iconSupplierForOption(entry.icon(), ConfiguraConfigModel.OptionType.BOOLEAN);
+            result.add(new ConfiguraConfigModel.UiToggleEntry(entry.key(), displayName, icon));
          }
-         ((Consumer<String>) valueConsumer).accept(value);
-      }
-
-      private float readFloatValue() {
-         if (isRemotelyForced()) {
-            return (Float) remoteOverride.forcedValue;
-         }
-         return ((Supplier<Float>) valueSupplier).get();
-      }
-
-      private void writeFloatValue(float value) {
-         if (isRemotelyForced()) {
-            ((Consumer<Float>) valueConsumer).accept((Float) remoteOverride.forcedValue);
-            return;
-         }
-         ((Consumer<Float>) valueConsumer).accept(value);
-      }
-
-      private <T extends Enum<T>> T readEnumValue() {
-         if (isRemotelyForced()) {
-            return (T) remoteOverride.forcedValue;
-         }
-         return (T) valueSupplier.get();
-      }
-
-      private <T extends Enum<T>> void writeEnumValue(T value) {
-         if (isRemotelyForced()) {
-            ((Consumer<T>) valueConsumer).accept((T) remoteOverride.forcedValue);
-            return;
-         }
-         ((Consumer<T>) valueConsumer).accept(value);
-      }
-
-      private List<String> readListValue() {
-         if (isRemotelyForced()) {
-            return new ArrayList<>((List<String>) remoteOverride.forcedValue);
-         }
-         return new ArrayList<>((List<String>) valueSupplier.get());
-      }
-
-      private void writeListValue(List<String> value) {
-         if (isRemotelyForced()) {
-            ((Consumer<List<String>>) valueConsumer).accept(new ArrayList<>((List<String>) remoteOverride.forcedValue));
-            return;
-         }
-         ((Consumer<List<String>>) valueConsumer).accept(value);
+         return result;
       }
 
       private Object coerceRemoteValue(Object rawValue) {
          if (rawValue == null) {
             return null;
          }
-
          return switch (type) {
             case BOOLEAN -> rawValue instanceof Boolean b ? b : null;
             case STRING, MINIMESSAGE -> rawValue instanceof String s ? s : null;
             case FLOAT -> coerceFloat(rawValue);
             case ENUM -> coerceEnum(rawValue);
             case LIST -> coerceStringList(rawValue);
+            case TOGGLE_GROUP -> null;
          };
+      }
+
+      private Object coerceGaiaForcedValue(String rawValue) {
+         return switch (type) {
+            case BOOLEAN -> {
+               if ("true".equalsIgnoreCase(rawValue) || "false".equalsIgnoreCase(rawValue)) {
+                  yield Boolean.parseBoolean(rawValue);
+               }
+               yield null;
+            }
+            case STRING, MINIMESSAGE -> rawValue;
+            case FLOAT -> coerceFloat(rawValue);
+            case ENUM -> coerceEnum(rawValue);
+            case LIST -> coerceListFromString(rawValue);
+            case TOGGLE_GROUP -> null;
+         };
+      }
+
+      private List<String> coerceListFromString(String rawValue) {
+         if (rawValue == null || rawValue.isBlank()) {
+            return new ArrayList<>();
+         }
+         List<String> values = new ArrayList<>();
+         for (String line : rawValue.split("\\R")) {
+            String trimmed = line.trim();
+            if (!trimmed.isEmpty()) {
+               values.add(trimmed);
+            }
+         }
+         return values;
+      }
+
+      private Object snapshotValue(Object value) {
+         if (value instanceof List<?> list) {
+            return new ArrayList<>(list);
+         }
+         if (value instanceof ToggleGroup toggleGroup) {
+            return toggleGroup.copy();
+         }
+         return value;
+      }
+
+      private void applyGaiaDeniedValue() {
+         if (!gaiaDenied || gaiaForcedValue == null || valueConsumer == null) {
+            return;
+         }
+         switch (type) {
+            case BOOLEAN -> ((Consumer<Boolean>) valueConsumer).accept((Boolean) gaiaForcedValue);
+            case STRING, MINIMESSAGE -> ((Consumer<String>) valueConsumer).accept((String) gaiaForcedValue);
+            case FLOAT -> ((Consumer<Float>) valueConsumer).accept((Float) gaiaForcedValue);
+            case ENUM -> ((Consumer<Enum<?>>) valueConsumer).accept((Enum<?>) gaiaForcedValue);
+            case LIST ->
+                    ((Consumer<List<String>>) valueConsumer).accept(new ArrayList<>((List<String>) gaiaForcedValue));
+            case TOGGLE_GROUP -> {
+            }
+         }
       }
 
       private Float coerceFloat(Object rawValue) {
@@ -622,11 +706,9 @@ public class ConfigResolver {
                return null;
             }
          }
-
          if (value == null) {
             return null;
          }
-
          if (hasFloatBounds) {
             value = Math.max(floatMin, Math.min(floatMax, value));
          }
@@ -656,10 +738,10 @@ public class ConfigResolver {
          }
          List<String> values = new ArrayList<>();
          for (Object item : list) {
-            if (!(item instanceof String stringItem)) {
+            if (!(item instanceof String text)) {
                return null;
             }
-            values.add(stringItem);
+            values.add(text);
          }
          return values;
       }
@@ -671,28 +753,13 @@ public class ConfigResolver {
             case FLOAT -> ((Consumer<Float>) valueConsumer).accept((Float) coercedValue);
             case ENUM -> ((Consumer<Enum<?>>) valueConsumer).accept((Enum<?>) coercedValue);
             case LIST -> ((Consumer<List<String>>) valueConsumer).accept(new ArrayList<>((List<String>) coercedValue));
+            case TOGGLE_GROUP -> {
+            } // remote override not supported for toggle groups
          }
-      }
-
-      private Component resolveEnumLabel(Enum<?> enumValue, String category, String group, String name) {
-         try {
-            Method getTranslationKey = enumValue.getClass().getMethod("getTranslationKey");
-            if (getTranslationKey.getReturnType() == String.class) {
-               String translationKey = (String) getTranslationKey.invoke(enumValue);
-               if (translationKey != null && !translationKey.isBlank()) {
-                  return Component.translatable(translationKey);
-               }
-            }
-         } catch (Exception ignored) {
-         }
-
-         String valueKey = "lsu.config.%s.%s.%s.%s"
-                 .formatted(category.toLowerCase(), group.toLowerCase(), name.toLowerCase(), enumValue.name().toLowerCase());
-         return Component.translatable(valueKey);
       }
    }
 
-   private static final class RemoteOverrideDecision {
+   public static final class RemoteOverrideDecision {
       private final String key;
       private final Object forcedValue;
       private final String reason;

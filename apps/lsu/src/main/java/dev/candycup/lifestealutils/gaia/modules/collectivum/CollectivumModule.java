@@ -51,7 +51,7 @@ public final class CollectivumModule {
          );
 
          if (!result.success()) {
-            LOGGER.debug("failed to submit baltop entries: {}", result.error());
+            LOGGER.warn("failed to submit baltop entries: {}", result.error());
             return false;
          }
 
@@ -79,7 +79,7 @@ public final class CollectivumModule {
          }
          return root.get("success").getAsBoolean();
       } catch (Exception e) {
-         LOGGER.debug("failed to parse collectivum response: {}", e.getMessage());
+         LOGGER.warn("failed to parse collectivum response: {}", e.getMessage());
          return false;
       }
    }

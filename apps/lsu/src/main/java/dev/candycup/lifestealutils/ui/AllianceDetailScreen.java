@@ -1310,25 +1310,25 @@ public class AllianceDetailScreen extends Screen {
          if (alliance == null || alliance.data == null) {
             return;
          }
-          addEntry(new RowEntry(Component.translatable("lsu.alliances.detail.name"), Component.literal(alliance.data.name == null ? "" : alliance.data.name), true, "name", 64));
-          addEntry(new RowEntry(Component.translatable("lsu.alliances.detail.description"), Component.literal(alliance.data.description == null ? "" : alliance.data.description), true, "description", 1024));
-          addEntry(new RowEntry(Component.translatable("lsu.alliances.detail.color"), Component.literal(formatRgb(alliance.data.color)), true, "color", 32, visibleColorOrWhite(alliance.data.color)));
-          addEntry(new RowEntry(Component.translatable("lsu.alliances.detail.member_count"), Component.literal(String.valueOf(AllianceService.totalMembers(alliance))), false, "", 1));
+         addEntry(new RowEntry(Component.translatable("lsu.alliances.detail.name"), Component.literal(alliance.data.name == null ? "" : alliance.data.name), true, "name", 64));
+         addEntry(new RowEntry(Component.translatable("lsu.alliances.detail.description"), Component.literal(alliance.data.description == null ? "" : alliance.data.description), true, "description", 1024));
+         addEntry(new RowEntry(Component.translatable("lsu.alliances.detail.color"), Component.literal(formatRgb(alliance.data.color)), true, "color", 32, visibleColorOrWhite(alliance.data.color)));
+         addEntry(new RowEntry(Component.translatable("lsu.alliances.detail.member_count"), Component.literal(String.valueOf(AllianceService.totalMembers(alliance))), false, "", 1));
 
          if (alliance.data.lists != null) {
             for (AllianceModels.AlliancePlayerList list : alliance.data.lists) {
                String listName = list.name == null || list.name.isBlank() ? "Unnamed List" : list.name;
                String listId = list.id == null ? "" : list.id;
-                addEntry(new RowEntry(Component.literal("(" + listName + ") Prefix"), Component.literal(list.prefix == null ? "" : list.prefix), true, "prefix:" + listId, 256));
-                addEntry(new RowEntry(Component.literal("(" + listName + ") Prefix Color"), Component.literal(formatRgb(list.prefixColor)), true, "prefix_color:" + listId, 32, visibleColorOrWhite(list.prefixColor)));
-                addEntry(new RowEntry(Component.literal("(" + listName + ") Name Color"), Component.literal(formatRgb(list.nameColor)), true, "name_color:" + listId, 32, visibleColorOrWhite(list.nameColor)));
-             }
-          }
+               addEntry(new RowEntry(Component.literal("(" + listName + ") Prefix"), Component.literal(list.prefix == null ? "" : list.prefix), true, "prefix:" + listId, 256));
+               addEntry(new RowEntry(Component.literal("(" + listName + ") Prefix Color"), Component.literal(formatRgb(list.prefixColor)), true, "prefix_color:" + listId, 32, visibleColorOrWhite(list.prefixColor)));
+               addEntry(new RowEntry(Component.literal("(" + listName + ") Name Color"), Component.literal(formatRgb(list.nameColor)), true, "name_color:" + listId, 32, visibleColorOrWhite(list.nameColor)));
+            }
+         }
 
-          if (alliance.canEdit) {
-             addEntry(new RowEntry(Component.literal("Invite Code"), inviteCodeText(alliance), false, "", 1));
-             addEntry(new RowEntry(Component.literal("Permission"), permissionText(alliance.subscriptionPermission), true, "subscription_permission", 16));
-          }
+         if (alliance.canEdit) {
+            addEntry(new RowEntry(Component.literal("Invite Code"), inviteCodeText(alliance), false, "", 1));
+            addEntry(new RowEntry(Component.literal("Permission"), permissionText(alliance.subscriptionPermission), true, "subscription_permission", 16));
+         }
       }
 
       @Override
@@ -1352,18 +1352,18 @@ public class AllianceDetailScreen extends Screen {
          private final int maxLength;
          private final int rightColor;
 
-          RowEntry(Component left, Component right, boolean editable, String key, int maxLength) {
+         RowEntry(Component left, Component right, boolean editable, String key, int maxLength) {
             this(left, right, editable, key, maxLength, -1);
          }
 
          RowEntry(Component left, Component right, boolean editable, String key, int maxLength, int rightColor) {
-             this.left = left;
-             this.right = right;
-             this.editable = editable;
-             this.key = key == null ? "" : key;
-             this.maxLength = maxLength;
+            this.left = left;
+            this.right = right;
+            this.editable = editable;
+            this.key = key == null ? "" : key;
+            this.maxLength = maxLength;
             this.rightColor = rightColor;
-          }
+         }
 
          @Override
          public Component getNarration() {
@@ -1378,7 +1378,7 @@ public class AllianceDetailScreen extends Screen {
             int configuredRightColor = rightColor != -1 ? rightColor : (editable ? 0xFF88CCFF : 0xFFAAAAAA);
             guiGraphics.drawString(AllianceDetailScreen.this.font, left, x, y, 0xFFFFFFFF);
             guiGraphics.drawString(AllianceDetailScreen.this.font, right, x + 140, y, configuredRightColor);
-          }
+         }
          //?} else {
          /*@Override
          public void render(GuiGraphics guiGraphics, int index, int y, int x, int entryWidth, int entryHeight, int mouseX, int mouseY, boolean hovered, float tickDelta) {
@@ -1427,16 +1427,16 @@ public class AllianceDetailScreen extends Screen {
          if (alliance == null || alliance.data == null || alliance.data.lists == null) {
             return;
          }
-          for (AllianceModels.AlliancePlayerList list : alliance.data.lists) {
-             addEntry(new MemberEntry(list.id, null, Component.literal("[" + list.name + "]"), true, visibleColorOrWhite(list.prefixColor)));
-             if (list.members == null || list.members.isEmpty()) {
-                addEntry(new MemberEntry(list.id, null, Component.literal("<no players in list>").withStyle(style -> style.withItalic(true).withColor(0xAAAAAA)), false, 0xFFFFFF));
-             } else {
-                for (AllianceModels.AllianceMember member : list.members) {
+         for (AllianceModels.AlliancePlayerList list : alliance.data.lists) {
+            addEntry(new MemberEntry(list.id, null, Component.literal("[" + list.name + "]"), true, visibleColorOrWhite(list.prefixColor)));
+            if (list.members == null || list.members.isEmpty()) {
+               addEntry(new MemberEntry(list.id, null, Component.literal("<no players in list>").withStyle(style -> style.withItalic(true).withColor(0xAAAAAA)), false, 0xFFFFFF));
+            } else {
+               for (AllianceModels.AllianceMember member : list.members) {
                   addEntry(new MemberEntry(list.id, member.uuid, Component.literal(AllianceProfileCacheManager.displayNameForUuid(member.uuid)), false, 0xFFFFFF));
-                }
-             }
-          }
+               }
+            }
+         }
 
          ArrayList<String> allUuids = new ArrayList<>();
          for (AllianceModels.AlliancePlayerList list : alliance.data.lists) {
@@ -1489,7 +1489,7 @@ public class AllianceDetailScreen extends Screen {
                      return () -> AllianceDetailScreen.this.minecraft.playerSkinRenderCache().getOrDefault(profile).playerSkin();
                      //?} else {
                      /*return () -> DefaultPlayerSkin.get(UUID.fromString(key));
-                     *///?}
+                      *///?}
                   });
                } else {
                   this.skinSupplier = DefaultPlayerSkin::getDefaultSkin;

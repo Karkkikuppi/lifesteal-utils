@@ -52,9 +52,9 @@ public class ClientPacketListenerDialogSearchMixin {
          var action = dialog.yesButton().action().get();
          Optional<ClickEvent> click = action.createAction(java.util.Map.of("input", net.minecraft.server.dialog.action.Action.ValueGetter.of(query)));
          if (click.isPresent() && click.get() instanceof ClickEvent.Custom(
-                 Identifier id, Optional<Tag> payload
+                 net.minecraft.resources.Identifier id, Optional<net.minecraft.nbt.Tag> payload
          )) {
-            if (client.player != null) {
+            if (client.player != null && client.player.connection != null) {
                client.player.connection.send(new net.minecraft.network.protocol.common.ServerboundCustomClickActionPacket(id, payload));
             }
          }

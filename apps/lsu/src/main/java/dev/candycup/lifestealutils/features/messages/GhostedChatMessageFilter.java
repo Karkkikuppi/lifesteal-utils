@@ -41,7 +41,7 @@ public class GhostedChatMessageFilter {
    }
 
    public boolean isEnabled() {
-      return Config.isGhostedChatEnabled();
+      return Config.isDesloppifierEnabled();
    }
 
    public void onChatMessageReceived(ChatMessageReceivedEvent event) {
@@ -79,7 +79,7 @@ public class GhostedChatMessageFilter {
     * @return normalized patterns
     */
    private List<String> getNormalizedPatterns() {
-      List<String> patterns = Config.getGhostedChatPatterns();
+      List<String> patterns = Config.getDesloppifiedPatterns();
       List<String> safePatterns = patterns != null ? patterns : Collections.emptyList();
       if (safePatterns.equals(cachedPatterns)) {
          return normalizedPatterns;
