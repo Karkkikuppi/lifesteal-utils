@@ -43,16 +43,26 @@ public class MessagingUtils {
 
    public static void showMessage(Component message, int color) {
       try {
-         Minecraft.getInstance().gui.getChat().addMessage(
-                 message,
-                 new MessageSignature(new byte[256]),
-                 new GuiMessageTag(
-                         color,
-                         GuiMessageTag.Icon.CHAT_MODIFIED,
-                         Component.literal("Message modified by Lifesteal Utils"),
-                         "Lifesteal Utils"
-                 )
+         GuiMessageTag tag = new GuiMessageTag(
+                 color,
+                 GuiMessageTag.Icon.CHAT_MODIFIED,
+                 Component.literal("Message modified by Lifesteal Utils"),
+                 "Lifesteal Utils"
          );
+
+         //? if >1.21.11 {
+         /*Minecraft.getInstance().gui.getChat().addPlayerMessage(
+            message,
+            new MessageSignature(new byte[256]),
+            tag
+         );
+         *///?} else {
+         Minecraft.getInstance().gui.getChat().addMessage(
+            message,
+            new MessageSignature(new byte[256]),
+            tag
+         );
+         //?}
       } catch (Exception e) {
 
       }

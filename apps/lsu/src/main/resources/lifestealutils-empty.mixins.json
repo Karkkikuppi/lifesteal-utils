@@ -1,0 +1,10 @@
+{
+  "required": false,
+  "package": "dev.candycup.lifestealutils.mixin",
+  "compatibilityLevel": "${java}",
+  "mixins": [],
+  "client": [],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

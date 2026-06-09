@@ -7,7 +7,11 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.world.inventory.AbstractContainerMenu;
+//? if >=26.1 {
+/*import net.minecraft.world.inventory.ContainerInput;
+*///?} else {
 import net.minecraft.world.inventory.ClickType;
+//?}
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -311,11 +315,19 @@ public class BaltopScraper {
 
       LOGGER.info("Clicking slot {} (containerId={})", slotIndex, menu.containerId);
 
+      //? if >=26.1 {
+      /*client.gameMode.handleContainerInput(
+      *///?} else {
       client.gameMode.handleInventoryMouseClick(
+      //?}
               menu.containerId,
               slotIndex,
               0, // left click
+              //? if >=26.1 {
+              /*ContainerInput.PICKUP,
+              *///?} else {
               ClickType.PICKUP,
+              //?}
               client.player
       );
    }

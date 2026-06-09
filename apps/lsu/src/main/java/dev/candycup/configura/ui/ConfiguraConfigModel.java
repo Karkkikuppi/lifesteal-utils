@@ -60,12 +60,17 @@ public final class ConfiguraConfigModel {
    public record UiToggleEntry(
            String key,
            Component displayName,
+           String iconKey,
            Supplier<ItemStack> iconSupplier
    ) {
       public ItemStack icon() {
          if (iconSupplier == null) return ItemStack.EMPTY;
-         ItemStack stack = iconSupplier.get();
-         return stack == null ? ItemStack.EMPTY : stack;
+         try {
+            ItemStack stack = iconSupplier.get();
+            return stack == null ? ItemStack.EMPTY : stack;
+         } catch (RuntimeException exception) {
+            return ItemStack.EMPTY;
+         }
       }
    }
 
@@ -85,6 +90,7 @@ public final class ConfiguraConfigModel {
            boolean remotelyForced,
            List<? extends Enum<?>> enumValues,
            Function<Enum<?>, Component> enumLabeler,
+           String iconKey,
            Supplier<ItemStack> iconSupplier,
            List<UiToggleEntry> toggleEntries
    ) {
@@ -111,8 +117,12 @@ public final class ConfiguraConfigModel {
          if (iconSupplier == null) {
             return ItemStack.EMPTY;
          }
-         ItemStack stack = iconSupplier.get();
-         return stack == null ? ItemStack.EMPTY : stack;
+         try {
+            ItemStack stack = iconSupplier.get();
+            return stack == null ? ItemStack.EMPTY : stack;
+         } catch (RuntimeException exception) {
+            return ItemStack.EMPTY;
+         }
       }
    }
 }

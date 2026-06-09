@@ -20,6 +20,10 @@ public interface ScreenAccessor {
    @Invoker("addRenderableWidget")
    <T extends GuiEventListener & Renderable & NarratableEntry> T invokeAddRenderableWidget(T widget);
 
+   //? if >=26.1 {
+   /*@Invoker("extractBlurredBackground")
+   *///?} else {
    @Invoker("renderBlurredBackground")
+   //?}
    void invokeRenderBlurredBackground(GuiGraphics guiGraphics);
 }

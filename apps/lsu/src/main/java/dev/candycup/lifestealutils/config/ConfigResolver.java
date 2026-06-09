@@ -329,7 +329,9 @@ public final class ConfigResolver {
                  : configurableEnum != null ? configurableEnum.icon()
                  : configurableList != null ? configurableList.icon()
                  : configurableToggleGroup.icon();
-         option.iconSupplier = iconSupplierForOption(iconKey, option.type);
+         ResolvedIcon icon = iconForOption(iconKey, option.type);
+         option.iconKey = icon.key();
+         option.iconSupplier = icon.supplier();
 
          IncludeInAccordion accordionAnnotation = field.getAnnotation(IncludeInAccordion.class);
          if (accordionAnnotation != null) {
@@ -384,7 +386,13 @@ public final class ConfigResolver {
       option.valueConsumer = descriptor.valueConsumer();
       option.hardName = descriptor.hardName().orElse(null);
       option.hardDescription = descriptor.hardDescription().orElse(null);
-      option.iconSupplier = descriptor.iconSupplier().orElseGet(() -> defaultIconSupplier(option.type));
+      if (descriptor.iconSupplier().isPresent()) {
+         option.iconSupplier = descriptor.iconSupplier().get();
+      } else {
+         ResolvedIcon icon = defaultIcon(option.type);
+         option.iconKey = icon.key();
+         option.iconSupplier = icon.supplier();
+      }
       option.accordionId = descriptor.accordionId().orElse(null);
       option.hardAccordionName = descriptor.hardAccordionName().orElse(null);
       return option;
@@ -414,41 +422,80 @@ public final class ConfigResolver {
       }
    }
 
-   private static Supplier<ItemStack> iconSupplierForOption(String explicitIconKey, ConfiguraConfigModel.OptionType type) {
-      if (explicitIconKey == null || explicitIconKey.isBlank()) {
-         return defaultIconSupplier(type);
+   private record ResolvedIcon(String key, Supplier<ItemStack> supplier) {
+   }
+
+   private static ResolvedIcon iconForOption(String explicitIconKey, ConfiguraConfigModel.OptionType type) {
+      if (explicitIconKey != null && !explicitIconKey.isBlank()) {
+         String key = normalizeIconKey(explicitIconKey);
+         Item item = itemForIconKey(key);
+         if (item != null) {
+            return new ResolvedIcon(key, lazyItemStack(item));
+         }
       }
+      return defaultIcon(type);
+   }
+
+   private static ResolvedIcon defaultIcon(ConfiguraConfigModel.OptionType type) {
+      return switch (type) {
+         case BOOLEAN -> new ResolvedIcon("minecraft:lever", lazyItemStack(Items.LEVER));
+         case STRING -> new ResolvedIcon("minecraft:name_tag", lazyItemStack(Items.NAME_TAG));
+         case MINIMESSAGE -> new ResolvedIcon("minecraft:writable_book", lazyItemStack(Items.WRITABLE_BOOK));
+         case FLOAT -> new ResolvedIcon("minecraft:compass", lazyItemStack(Items.COMPASS));
+         case ENUM -> new ResolvedIcon("minecraft:comparator", lazyItemStack(Items.COMPARATOR));
+         case LIST -> new ResolvedIcon("minecraft:book", lazyItemStack(Items.BOOK));
+         case TOGGLE_GROUP -> new ResolvedIcon("minecraft:lever", lazyItemStack(Items.LEVER));
+      };
+   }
+
+   private static String normalizeIconKey(String rawIconKey) {
+      String normalized = rawIconKey.trim().toLowerCase(Locale.ROOT).replace(' ', '_');
+      int colonIndex = normalized.indexOf(':');
+      if (colonIndex < 0) {
+         return "minecraft:" + normalized;
+      }
+      if (colonIndex == 0 || colonIndex == normalized.length() - 1) {
+         return normalized;
+      }
+      return normalized;
+   }
+
+   private static Item itemForIconKey(String iconKey) {
       try {
-         String path = explicitIconKey;
+         String path = iconKey;
          int colonIndex = path.indexOf(':');
          if (colonIndex >= 0 && colonIndex + 1 < path.length()) {
             path = path.substring(colonIndex + 1);
          }
-         String fieldName = path.toUpperCase(Locale.ROOT).replace('-', '_').replace(' ', '_');
+         String fieldName = path.toUpperCase(Locale.ROOT).replace('-', '_');
          java.lang.reflect.Field itemsField = Items.class.getField(fieldName);
          Object raw = itemsField.get(null);
-         if (raw instanceof Item item) {
-            ItemStack stack = new ItemStack(item);
-            if (!stack.isEmpty()) {
-               return () -> stack.copy();
-            }
-         }
+         return raw instanceof Item item ? item : null;
       } catch (Exception ignored) {
+         return null;
       }
-      return defaultIconSupplier(type);
    }
 
-   private static Supplier<ItemStack> defaultIconSupplier(ConfiguraConfigModel.OptionType type) {
-      ItemStack icon = switch (type) {
-         case BOOLEAN -> new ItemStack(Items.LEVER);
-         case STRING -> new ItemStack(Items.NAME_TAG);
-         case MINIMESSAGE -> new ItemStack(Items.WRITABLE_BOOK);
-         case FLOAT -> new ItemStack(Items.COMPASS);
-         case ENUM -> new ItemStack(Items.COMPARATOR);
-         case LIST -> new ItemStack(Items.BOOK);
-         case TOGGLE_GROUP -> new ItemStack(Items.LEVER);
+   private static Supplier<ItemStack> lazyItemStack(Item item) {
+      return new Supplier<>() {
+         private ItemStack resolved = ItemStack.EMPTY;
+
+         @Override
+         public ItemStack get() {
+            if (!resolved.isEmpty()) {
+               return resolved.copy();
+            }
+            try {
+               ItemStack stack = new ItemStack(item);
+               if (!stack.isEmpty()) {
+                  resolved = stack.copy();
+               }
+               return stack;
+            } catch (RuntimeException exception) {
+               return ItemStack.EMPTY;
+            }
+         }
       };
-      return () -> icon.copy();
    }
 
    private static final class ConfigurationOption {
@@ -468,6 +515,7 @@ public final class ConfigResolver {
       List<ToggleGroup.ToggleEntry> toggleSchema;
       Supplier<?> valueSupplier;
       Consumer<?> valueConsumer;
+      String iconKey;
       Supplier<ItemStack> iconSupplier;
       RemoteOverrideDecision remoteOverride;
       String accordionId;
@@ -499,6 +547,7 @@ public final class ConfigResolver {
                  remotelyForced,
                  resolveEnumValues(),
                  this::resolveEnumLabel,
+                 iconKey,
                  iconSupplier == null ? () -> ItemStack.EMPTY : iconSupplier,
                  resolveToggleEntries()
          );
@@ -619,8 +668,8 @@ public final class ConfigResolver {
                     group.toLowerCase(Locale.ROOT),
                     entry.key().toLowerCase(Locale.ROOT)
             ));
-            Supplier<ItemStack> icon = iconSupplierForOption(entry.icon(), ConfiguraConfigModel.OptionType.BOOLEAN);
-            result.add(new ConfiguraConfigModel.UiToggleEntry(entry.key(), displayName, icon));
+            ResolvedIcon icon = iconForOption(entry.icon(), ConfiguraConfigModel.OptionType.BOOLEAN);
+            result.add(new ConfiguraConfigModel.UiToggleEntry(entry.key(), displayName, icon.key(), icon.supplier()));
          }
          return result;
       }

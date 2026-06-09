@@ -762,7 +762,7 @@ public final class ConfiguraConfigScreen extends Screen {
             }
          }
 
-         drawScaledItem(guiGraphics, configurable.icon(), row.iconX, iconY, row.iconRenderSize);
+         drawScaledItem(guiGraphics, configurable, row.iconX, iconY, row.iconRenderSize);
 
          if (row.previewHeight > 0) {
             int previewTop = row.previewY - contentScrollOffset;
@@ -1123,14 +1123,70 @@ public final class ConfiguraConfigScreen extends Screen {
               .orElse("unknown");
    }
 
-   private static void drawScaledItem(GuiGraphics guiGraphics, net.minecraft.world.item.ItemStack stack, int x, int y, int size) {
+   private static void drawScaledItem(GuiGraphics guiGraphics, ConfiguraConfigModel.UiConfigurable configurable, int x, int y, int size) {
+      if (configurable == null) {
+         return;
+      }
+      //? if >=26.1 {
+      /*net.minecraft.resources.Identifier texture = resolveConfigIconTexture(configurable.iconKey());
+      if (texture != null) {
+         guiGraphics.blit(
+                 net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED,
+                 texture,
+                 x,
+                 y,
+                 0.0F,
+                 0.0F,
+                 size,
+                 size,
+                 ENTRY_ICON_BASE_SIZE,
+                 ENTRY_ICON_BASE_SIZE,
+                 ENTRY_ICON_BASE_SIZE,
+                 ENTRY_ICON_BASE_SIZE
+         );
+         return;
+      }
+      *///? }
+      net.minecraft.world.item.ItemStack stack = configurable.icon();
+      if (stack == null || stack.isEmpty()) {
+         return;
+      }
+      //? if >=26.1 {
+      /*int itemX = x + Math.max(0, (size - ENTRY_ICON_BASE_SIZE) / 2);
+      int itemY = y + Math.max(0, (size - ENTRY_ICON_BASE_SIZE) / 2);
+      int seed = itemX + itemY * 31;
+      guiGraphics.item(stack, itemX, itemY, seed);
+      *///? } else {
       float scale = (float) size / ENTRY_ICON_BASE_SIZE;
       guiGraphics.pose().pushMatrix();
       guiGraphics.pose().translate(x, y);
       guiGraphics.pose().scale(scale, scale);
+      //? if >=26.1 {
+      /*guiGraphics.item(stack, 0, 0);
+      *///?} else {
       guiGraphics.renderItem(stack, 0, 0);
+      //?}
       guiGraphics.pose().popMatrix();
+      //? }
    }
+
+   //? if >=26.1 {
+   /*private static net.minecraft.resources.Identifier resolveConfigIconTexture(String iconKey) {
+      if (iconKey == null || iconKey.isBlank()) {
+         return null;
+      }
+      return switch (iconKey) {
+         case "minecraft:lever" -> net.minecraft.resources.Identifier.fromNamespaceAndPath("minecraft", "textures/block/lever.png");
+         case "minecraft:compass" -> net.minecraft.resources.Identifier.fromNamespaceAndPath("minecraft", "textures/item/compass_16.png");
+         case "minecraft:gold_ingot" -> net.minecraft.resources.Identifier.fromNamespaceAndPath("minecraft", "textures/item/gold_ingot.png");
+         case "minecraft:name_tag" -> net.minecraft.resources.Identifier.fromNamespaceAndPath("minecraft", "textures/item/name_tag.png");
+         case "minecraft:writable_book" -> net.minecraft.resources.Identifier.fromNamespaceAndPath("minecraft", "textures/item/writable_book.png");
+         case "minecraft:book" -> net.minecraft.resources.Identifier.fromNamespaceAndPath("minecraft", "textures/item/book.png");
+         case "minecraft:comparator" -> net.minecraft.resources.Identifier.fromNamespaceAndPath("minecraft", "textures/item/comparator.png");
+         default -> null;
+      };
+   }
+   *///? }
 
    //? if >1.21.8 {
    @Override

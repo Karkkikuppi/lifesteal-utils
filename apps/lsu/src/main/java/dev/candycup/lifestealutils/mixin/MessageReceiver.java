@@ -27,7 +27,13 @@ public class MessageReceiver {
    private static final ThreadLocal<Boolean> lifestealutils$reentrant =
            ThreadLocal.withInitial(() -> false);
 
-   @Inject(at = @At("HEAD"), method = "addMessage(Lnet/minecraft/network/chat/Component;)V", cancellable = true)
+   @Inject(at = @At("HEAD"),
+           //? if >1.21.11 {
+           /*method = "addClientSystemMessage(Lnet/minecraft/network/chat/Component;)V",
+           *///?} else {
+           method = "addMessage(Lnet/minecraft/network/chat/Component;)V",
+           //?}
+           cancellable = true)
    private void addMessage(Component component, CallbackInfo ci) {
       if (!LifestealAPI.isOnLifestealNetwork()) return;
 
@@ -41,7 +47,11 @@ public class MessageReceiver {
          ci.cancel();
          lifestealutils$reentrant.set(true);
          try {
+            //? if >1.21.11 {
+            /*((ChatComponent) (Object) this).addClientSystemMessage(modified);
+            *///?} else {
             ((ChatComponent) (Object) this).addMessage(modified);
+            //?}
          } finally {
             lifestealutils$reentrant.set(false);
          }
@@ -50,7 +60,13 @@ public class MessageReceiver {
 
    @Inject(
            at = @At("HEAD"),
+           //? if >=26.1 {
+           /*method = "addPlayerMessage(Lnet/minecraft/network/chat/Component;Lnet/minecraft/network/chat/MessageSignature;Lnet/minecraft/client/multiplayer/chat/GuiMessageTag;)V",
+           *///?} else if >1.21.11 {
+           /*method = "addPlayerMessage(Lnet/minecraft/network/chat/Component;Lnet/minecraft/network/chat/MessageSignature;Lnet/minecraft/client/multiplayer/chat/GuiMessageTag;)V",
+           *///?} else {
            method = "addMessage(Lnet/minecraft/network/chat/Component;Lnet/minecraft/network/chat/MessageSignature;Lnet/minecraft/client/GuiMessageTag;)V",
+           //?}
            cancellable = true
    )
    private void addMessage(Component component, MessageSignature messageSignature, GuiMessageTag guiMessageTag, CallbackInfo ci) {
@@ -66,7 +82,11 @@ public class MessageReceiver {
          ci.cancel();
          lifestealutils$reentrant.set(true);
          try {
+            //? if >1.21.11 {
+            /*((ChatComponent) (Object) this).addPlayerMessage(modified, messageSignature, guiMessageTag);
+            *///?} else {
             ((ChatComponent) (Object) this).addMessage(modified, messageSignature, guiMessageTag);
+            //?}
          } finally {
             lifestealutils$reentrant.set(false);
          }

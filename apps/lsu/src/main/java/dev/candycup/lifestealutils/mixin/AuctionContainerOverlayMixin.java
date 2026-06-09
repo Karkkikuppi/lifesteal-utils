@@ -319,6 +319,7 @@ public abstract class AuctionContainerOverlayMixin<T extends AbstractContainerMe
       this.renderTooltip(guiGraphics, mouseX, mouseY);
    }
 
+   //? if <26.1 {
    @Inject(method = "renderBackground", at = @At("HEAD"), cancellable = true)
    private void lifestealutils$cancelVanillaBackground(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
       if (!LifestealAPI.isOnLifestealNetwork()) return;
@@ -328,6 +329,7 @@ public abstract class AuctionContainerOverlayMixin<T extends AbstractContainerMe
          ci.cancel();
       }
    }
+   //?}
 
    //? if >1.21.8 {
    @Inject(method = "keyPressed", at = @At("HEAD"), cancellable = true)
