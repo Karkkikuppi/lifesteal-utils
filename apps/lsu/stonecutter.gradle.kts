@@ -59,6 +59,7 @@ stonecutter parameters {
             replace("tabNavigationBar.setWidth", "tabNavigationBar.updateWidth")
             replace("net.minecraft.client.GuiMessageTag", "net.minecraft.client.multiplayer.chat.GuiMessageTag")
             replace("net.minecraft.world.inventory.ClickType", "net.minecraft.world.inventory.ContainerInput")
+            replace("ClickType.", "ContainerInput.")
             replace("guiGraphics.renderItem", "guiGraphics.item")
             replace("gameMode.handleInventoryMouseClick", "gameMode.handleContainerInput")
         }
