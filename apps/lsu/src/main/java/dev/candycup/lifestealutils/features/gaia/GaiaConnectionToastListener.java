@@ -7,6 +7,7 @@ import dev.candycup.lifestealutils.event.LifestealUtilsEvents.GatewayDisconnecte
 import dev.candycup.lifestealutils.event.LifestealUtilsEvents.LifestealShardSwapEvent;
 import dev.candycup.lifestealutils.event.LifestealUtilsEvents.ServerChangeEvent;
 import dev.candycup.lifestealutils.gaia.gateway.GaiaGatewayClient;
+import dev.candycup.lifestealutils.interapi.MessagingUtils;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.toasts.SystemToast;
@@ -132,9 +133,9 @@ public final class GaiaConnectionToastListener {
          return;
       }
 
-      Component title = Component.translatable(titleKey)
+       Component title = MessagingUtils.translated(titleKey).copy()
               .withStyle(titleColor);
-      Component body = Component.translatable(bodyKey)
+       Component body = MessagingUtils.translated(bodyKey).copy()
               .withStyle(ChatFormatting.GRAY);
 
       minecraft.execute(() ->

@@ -10,7 +10,6 @@ import dev.candycup.lifestealutils.gaia.GaiaAuthClient;
 import dev.candycup.lifestealutils.gaia.GaiaAuthTokenStore;
 import dev.candycup.lifestealutils.interapi.MessagingUtils;
 import net.minecraft.client.Minecraft;
-import net.minecraft.network.chat.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,7 +30,6 @@ import java.util.concurrent.TimeUnit;
  */
 public class GaiaGatewayClient {
    private static final Logger LOGGER = LoggerFactory.getLogger(GaiaGatewayClient.class);
-   private static final String GATEWAY_COLOR = "#5DADE2";
 
    // reconnection backoff settings
    private static final int INITIAL_BACKOFF_SECONDS = 5;
@@ -250,12 +248,7 @@ public class GaiaGatewayClient {
          );
 
          // show disconnection message
-         Component msg = Component.translatable("lsu.gaia.gateway.disconnected");
-         MessagingUtils.showMiniMessage(
-                 String.format("<color:%s><bold>[LSU]</bold> %s</color>",
-                         GATEWAY_COLOR,
-                         msg.getString())
-         );
+          MessagingUtils.showTranslated("lsu.gaia.gateway.disconnected");
       }
 
       if (reconnect) {

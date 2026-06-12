@@ -5,16 +5,20 @@ import net.kyori.adventure.platform.modcommon.MinecraftClientAudiences;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.minecraft.client.GuiMessageTag;
 import net.minecraft.client.Minecraft;
+import net.minecraft.locale.Language;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MessageSignature;
 
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
+import java.util.IllegalFormatException;
 import java.util.WeakHashMap;
 
 public class MessagingUtils {
    private static final int MINI_CACHE_SIZE = 512;
+   private static final String CHAT_PREFIX = "<red><bold>LSU</bold></red> <gray>|</gray> <white>";
    private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
    private static final MinecraftClientAudiences AUDIENCES = MinecraftClientAudiences.of();
 
@@ -37,16 +41,12 @@ public class MessagingUtils {
    private static final Map<Component, net.kyori.adventure.text.Component> NATIVE_TO_ADVENTURE = Collections.synchronizedMap(new WeakHashMap<>());
    private static final Map<net.kyori.adventure.text.Component, String> ADVENTURE_TO_MINI = Collections.synchronizedMap(new WeakHashMap<>());
 
-   public static void showMessage(String message) {
-      showMessage(Component.literal(message), 0xFFFFFF);
-   }
-
    public static void showMessage(Component message, int color) {
       try {
          GuiMessageTag tag = new GuiMessageTag(
                  color,
                  GuiMessageTag.Icon.CHAT_MODIFIED,
-                 Component.literal("Message modified by Lifesteal Utils"),
+                 translated("lsu.chat.modified_tag"),
                  "Lifesteal Utils"
          );
 
@@ -79,6 +79,50 @@ public class MessagingUtils {
       );
    }
 
+   public static void showTranslated(String translationKey, MessageArgument... arguments) {
+      showTranslated(translationKey, 0xe4625c, arguments);
+   }
+
+   public static void showTranslated(String translationKey, int color, MessageArgument... arguments) {
+      showMiniMessage(CHAT_PREFIX + translatedMiniMessage(translationKey, arguments), color);
+   }
+
+   public static Component translated(String translationKey, MessageArgument... arguments) {
+      return miniMessage(translatedMiniMessage(translationKey, arguments));
+   }
+
+   public static MessageArgument arg(Object value) {
+      return arg(value, false);
+   }
+
+   public static MessageArgument arg(Object value, boolean sanitize) {
+      return new MessageArgument(value == null ? "" : String.valueOf(value), sanitize);
+   }
+
+   private static String translatedMiniMessage(String translationKey, MessageArgument... arguments) {
+      String template = Language.getInstance().getOrDefault(translationKey);
+      if (template == null || template.equals(translationKey)) {
+         template = translationKey;
+      }
+      if (arguments == null || arguments.length == 0) {
+         return template;
+      }
+      Object[] values = new Object[arguments.length];
+      for (int i = 0; i < arguments.length; i++) {
+         MessageArgument argument = arguments[i];
+         if (argument == null) {
+            values[i] = "";
+            continue;
+         }
+         values[i] = argument.sanitize() ? escapeMiniMessageTags(argument.value()) : argument.value();
+      }
+      try {
+         return String.format(Locale.ROOT, template, values);
+      } catch (IllegalFormatException ignored) {
+         return template;
+      }
+   }
+
    public static Component miniMessage(String miniMessage) {
       if (miniMessage == null) {
          return Component.empty();
@@ -107,10 +151,6 @@ public class MessagingUtils {
       net.kyori.adventure.text.Component converted = AUDIENCES.asAdventure(component);
       NATIVE_TO_ADVENTURE.put(component, converted);
       return converted;
-   }
-
-   public static net.kyori.adventure.text.Component asMiniMessage(String string) {
-      return AUDIENCES.asAdventure(Component.literal(string));
    }
 
    public static String serializeMiniMessage(Component component) {
@@ -150,6 +190,9 @@ public class MessagingUtils {
       //? } else {
       /*return miniMessage(miniMessage).getString();
        *///? }
+   }
+
+   public record MessageArgument(String value, boolean sanitize) {
    }
 }
 

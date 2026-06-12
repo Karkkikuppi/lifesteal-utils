@@ -1,6 +1,7 @@
 package dev.candycup.lifestealutils;
 
 import com.mojang.blaze3d.platform.InputConstants;
+import com.mojang.brigadier.arguments.DoubleArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import dev.candycup.lifestealutils.api.PersistentKnowledgeController;
 import dev.candycup.lifestealutils.api.observers.ScoreboardObserver;
@@ -24,6 +25,7 @@ import dev.candycup.lifestealutils.features.messages.ChatTagRemover;
 import dev.candycup.lifestealutils.features.messages.GhostedChatMessageFilter;
 import dev.candycup.lifestealutils.features.messages.PrivateMessageFormatter;
 import dev.candycup.lifestealutils.features.prestige.PrestigeMenuListener;
+import dev.candycup.lifestealutils.features.qol.Autoclicker;
 import dev.candycup.lifestealutils.features.qol.AutoJoinLifesteal;
 import dev.candycup.lifestealutils.features.titlescreen.CustomSplashes;
 import dev.candycup.lifestealutils.features.titlescreen.QuickJoinButton;
@@ -42,7 +44,6 @@ import dev.candycup.lifestealutils.ui.RadarScreen;
 import dev.candycup.lifestealutils.ui.AllianceListScreen;
 import lombok.Getter;
 import net.fabricmc.loader.api.FabricLoader;
-import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
@@ -82,6 +83,7 @@ public final class LifestealUtils implements ClientModInitializer {
    //? if >1.21.8
    private static KeyMapping.Category LIFESTEAL_UTIL_BINDS;
    private static KeyMapping openHudEditorKeyBinding;
+   private static KeyMapping toggleAutoclickerKeyBinding;
    private static int pendingConfigOpenTicks = -1;
    private static int pendingGaiaConsentOpenTicks = -1;
    private static int pendingHudEditorOpenTicks = -1;
@@ -100,6 +102,7 @@ public final class LifestealUtils implements ClientModInitializer {
    private static QuickJoinButton quickJoinButton;
    private static CustomSplashes customSplashes;
    private static AutoJoinLifesteal autoJoinLifesteal;
+   private static Autoclicker autoclicker;
    private static GaiaConnectionToastListener gaiaConnectionToastListener;
    private static AllianceNameDecorator allianceNameDecorator;
    private static PrestigeMenuListener prestigeMenuListener;
@@ -172,6 +175,8 @@ public final class LifestealUtils implements ClientModInitializer {
       customSplashes = new CustomSplashes();
 
       autoJoinLifesteal = new AutoJoinLifesteal();
+
+      autoclicker = new Autoclicker();
    }
 
    /**
@@ -309,10 +314,34 @@ public final class LifestealUtils implements ClientModInitializer {
                                     client.execute(() -> {
                                        boolean enabled = AfkMode.toggle();
                                        String translationKey = enabled ? "lsu.command.toggle_afk.enabled" : "lsu.command.toggle_afk.disabled";
-                                       MessagingUtils.showMessage(Component.translatable(translationKey), DEFAULT_MESSAGE_COLOR);
+                                       MessagingUtils.showTranslated(translationKey, DEFAULT_MESSAGE_COLOR);
                                     });
                                     return 1;
                                  }))
+                         .then(ClientCommandManager.literal("ac")
+                                 .then(ClientCommandManager.literal("toggle")
+                                         .executes(commandContext -> {
+                                            Minecraft.getInstance().execute(() -> autoclicker.toggle());
+                                            return 1;
+                                         }))
+                                 .then(ClientCommandManager.literal("on")
+                                         .executes(commandContext -> {
+                                            Minecraft.getInstance().execute(() -> autoclicker.setEnabled(true));
+                                            return 1;
+                                         }))
+                                 .then(ClientCommandManager.literal("off")
+                                         .executes(commandContext -> {
+                                            Minecraft.getInstance().execute(() -> autoclicker.setEnabled(false));
+                                            return 1;
+                                         }))
+                                 .then(ClientCommandManager.literal("set-cps")
+                                         .then(ClientCommandManager.argument("cps", DoubleArgumentType.doubleArg(Autoclicker.MIN_CPS, Autoclicker.MAX_CPS))
+                                                 .executes(commandContext -> {
+                                                    float cps = (float) DoubleArgumentType.getDouble(commandContext, "cps");
+                                                    Minecraft.getInstance().execute(() -> autoclicker.setCps(cps));
+                                                    return 1;
+                                                 })))
+                         )
                          .then(ClientCommandManager.literal("baltop")
                                  .executes(commandContext -> {
                                     Minecraft client = Minecraft.getInstance();
@@ -325,10 +354,10 @@ public final class LifestealUtils implements ClientModInitializer {
                                             Minecraft client = Minecraft.getInstance();
                                             boolean copied = DebugInformationController.copyBasicInfoToClipboard(client);
                                             if (copied) {
-                                               MessagingUtils.showMiniMessage("<green>Copied basic info to clipboard.</green>");
+                                               MessagingUtils.showTranslated("lsu.command.copy_client_info.success");
                                                return 1;
                                             }
-                                            MessagingUtils.showMiniMessage("<red>Player not available.</red>");
+                                            MessagingUtils.showTranslated("lsu.command.copy_client_info.player_unavailable");
                                             return 0;
                                          }))
                                  .then(ClientCommandManager.literal("take-panorama-screenshot")
@@ -343,11 +372,7 @@ public final class LifestealUtils implements ClientModInitializer {
                                                );
 
                                                if (client.player != null) {
-                                                  client.player.sendMessage(
-                                                          MiniMessage.miniMessage().deserialize(
-                                                                  "<gray><italic>[Lifesteal Utils] snip snap! panorama taken! open your screenshots folder to see it!"
-                                                          )
-                                                  );
+                                                  MessagingUtils.showTranslated("lsu.command.panorama_screenshot.success");
                                                }
                                             });
                                             return 1;
@@ -374,10 +399,21 @@ public final class LifestealUtils implements ClientModInitializer {
               GLFW.GLFW_KEY_H,
               LIFESTEAL_UTIL_BINDS
       ));
+      toggleAutoclickerKeyBinding = KeyBindingHelper.registerKeyBinding(new KeyMapping(
+              "key.lifesteal-utils.toggle_autoclicker",
+              InputConstants.Type.KEYSYM,
+              GLFW.GLFW_KEY_UNKNOWN,
+              LIFESTEAL_UTIL_BINDS
+      ));
       //?} else {
       /*openHudEditorKeyBinding = KeyBindingHelper.registerKeyBinding(new KeyMapping(
               "key.lifesteal-utils.open_hud_editor",
               GLFW.GLFW_KEY_H,
+              "category.lifesteal-utils.lifesteal_utils"
+      ));
+      toggleAutoclickerKeyBinding = KeyBindingHelper.registerKeyBinding(new KeyMapping(
+              "key.lifesteal-utils.toggle_autoclicker",
+              GLFW.GLFW_KEY_UNKNOWN,
               "category.lifesteal-utils.lifesteal_utils"
       ));
       *///?}
@@ -429,6 +465,9 @@ public final class LifestealUtils implements ClientModInitializer {
          if (openHudEditorKeyBinding.consumeClick()) {
             if (client.screen != null) return;
             pendingHudEditorOpenTicks = 1;
+         }
+         if (toggleAutoclickerKeyBinding.consumeClick()) {
+            autoclicker.toggle();
          }
       });
    }

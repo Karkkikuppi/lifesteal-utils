@@ -222,7 +222,7 @@ public class AutoJoinLifesteal {
       Minecraft client = Minecraft.getInstance();
       if (client.player != null) {
          client.player.connection.sendCommand("joinlifesteal");
-         MessagingUtils.showMiniMessage("<gray><italic>[Lifesteal Utils Join Macro] Forwarding you to the lifesteal gamemode... this can be disabled in /lsu config!</italic></gray>");
+          MessagingUtils.showTranslated("lsu.autojoin.forwarding");
          LOGGER.info("[lsu-autojoin] executed /joinlifesteal command");
          joinCooldownTicks = JOIN_COOLDOWN;
       }

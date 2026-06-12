@@ -18,6 +18,7 @@
     "ItemRendererMixin",
     "JoinMultiplayerScreenMixin",
     "MessageReceiver",
+    "MouseHandlerInvoker",
     "ItemStackTooltipContextMixin",
     "PanoramaRendererMixin",
     "PotionTooltipMixin",

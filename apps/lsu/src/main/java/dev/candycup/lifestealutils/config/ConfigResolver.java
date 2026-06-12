@@ -92,14 +92,14 @@ public final class ConfigResolver {
               Component.translatable("lsu.config.title"),
               categories,
               Config.HANDLER::save,
-              () -> MessagingUtils.showMiniMessage("<green>Saved Lifesteal Utils config.</green>"),
+              () -> MessagingUtils.showTranslated("lsu.config.message.save_success"),
               () -> {
                  Config.resetAll();
                  resolveRemoteOverrides(optionsByKey, true);
               },
               () -> {
                  SoundUtils.playUiClick();
-                 MessagingUtils.showMiniMessage("<gold>Reset Lifesteal Utils config to defaults.</gold>");
+                  MessagingUtils.showTranslated("lsu.config.message.reset_success");
               }
       );
    }

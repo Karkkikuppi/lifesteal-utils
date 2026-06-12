@@ -106,33 +106,33 @@ public final class AllianceCommandController {
 
    public static int createAlliance(String name) {
       if (name == null || name.isBlank()) {
-         MessagingUtils.showMiniMessage("<red>Alliance name cannot be empty.</red>");
+          MessagingUtils.showTranslated("lsu.alliances.command.create.empty");
          return 0;
       }
       String trimmed = name.trim();
       if (trimmed.length() > 32) {
-         MessagingUtils.showMiniMessage("<red>Alliance name must be 32 characters or fewer.</red>");
+          MessagingUtils.showTranslated("lsu.alliances.command.create.too_long");
          return 0;
       }
       AllianceModels.AllianceRecord existing = AllianceService.findByName(trimmed);
       if (existing != null) {
-         MessagingUtils.showMiniMessage("<red>An alliance named <white>" + escape(trimmed) + "</white> already exists.</red>");
+          MessagingUtils.showTranslated("lsu.alliances.command.create.exists", MessagingUtils.arg(trimmed, true));
          return 0;
       }
       AllianceModels.AllianceRecord record = AllianceService.createLocal(trimmed);
       AllianceSyncManager.publishOrUpdateAsync(record);
-      MessagingUtils.showMiniMessage("<green>Created alliance <white>" + escape(record.data.name) + "</white>.</green>");
+       MessagingUtils.showTranslated("lsu.alliances.command.create.success", MessagingUtils.arg(record.data.name, true));
       return 1;
    }
 
    public static int addMemberToAlliance(String usernameOrUuid, String allianceName, String listNameOrNull) {
       AllianceModels.AllianceRecord alliance = AllianceService.findByName(allianceName);
       if (alliance == null) {
-         MessagingUtils.showMiniMessage("<red>No alliance matches <white>" + escape(allianceName) + "</white>.</red>");
+          MessagingUtils.showTranslated("lsu.alliances.select.not_found", MessagingUtils.arg(allianceName, true));
          return 0;
       }
       if (!alliance.canEdit) {
-         MessagingUtils.showMiniMessage("<red>You cannot add users to alliances you don't control! Create your own alliance if you wish to execute this command.</red>");
+          MessagingUtils.showTranslated("lsu.alliances.command.control_required_add");
          return 0;
       }
 
@@ -145,32 +145,32 @@ public final class AllianceCommandController {
 
       AllianceModels.AlliancePlayerList list = AllianceService.resolveList(alliance, listToUse);
       if (list == null) {
-         MessagingUtils.showMiniMessage("<red>No previous list selected this session and no list provided.</red>");
+          MessagingUtils.showTranslated("lsu.alliances.command.list_required");
          return 0;
       }
 
       String uuid = AllianceProfileCacheManager.resolveUuidFromInput(usernameOrUuid);
       if (uuid == null) {
-         MessagingUtils.showMiniMessage("<red>Unable to resolve player <white>" + escape(usernameOrUuid) + "</white>.</red>");
+          MessagingUtils.showTranslated("lsu.alliances.command.player_unresolved", MessagingUtils.arg(usernameOrUuid, true));
          return 0;
       }
 
       boolean added = AllianceService.addMember(alliance, list.id, uuid);
       if (!added) {
-         MessagingUtils.showMiniMessage("<yellow><white>" + escape(usernameOrUuid) + "</white> is already in <white>" + escape(alliance.data.name) + "</white>.</yellow>");
+          MessagingUtils.showTranslated("lsu.alliances.select.already_member", MessagingUtils.arg(usernameOrUuid, true), MessagingUtils.arg(alliance.data.name, true));
          return 0;
       }
 
       AllianceProfileCacheManager.cache(usernameOrUuid, uuid);
       AllianceSyncManager.publishOrUpdateAsync(alliance);
-      MessagingUtils.showMiniMessage("<green>Added <white>" + escape(usernameOrUuid) + "</white> to <white>" + escape(alliance.data.name) + "</white>.</green>");
+       MessagingUtils.showTranslated("lsu.alliances.select.add_success", MessagingUtils.arg(usernameOrUuid, true), MessagingUtils.arg(alliance.data.name, true));
       return 1;
    }
 
    public static int addMemberToAllianceParsed(String usernameOrUuid, String allianceAndMaybeList) {
       ParsedAddTarget parsed = parseAddTarget(allianceAndMaybeList);
       if (parsed == null) {
-         MessagingUtils.showMiniMessage("<red>Could not resolve alliance. Use <white>/lsu alliances list</white> and try again.</red>");
+          MessagingUtils.showTranslated("lsu.alliances.command.resolve_failed");
          return 0;
       }
       return addMemberToAlliance(usernameOrUuid, parsed.allianceName(), parsed.listName());
@@ -179,35 +179,35 @@ public final class AllianceCommandController {
    public static int removeMemberFromAlliance(String usernameOrUuid, String allianceName) {
       AllianceModels.AllianceRecord alliance = AllianceService.findByName(allianceName);
       if (alliance == null) {
-         MessagingUtils.showMiniMessage("<red>No alliance matches <white>" + escape(allianceName) + "</white>.</red>");
+          MessagingUtils.showTranslated("lsu.alliances.select.not_found", MessagingUtils.arg(allianceName, true));
          return 0;
       }
       if (!alliance.canEdit) {
-         MessagingUtils.showMiniMessage("<red>You cannot remove users from alliances you don't control!</red>");
+          MessagingUtils.showTranslated("lsu.alliances.command.control_required_remove");
          return 0;
       }
 
       String uuid = AllianceProfileCacheManager.resolveUuidFromInput(usernameOrUuid);
       if (uuid == null) {
-         MessagingUtils.showMiniMessage("<red>Unable to resolve player <white>" + escape(usernameOrUuid) + "</white>.</red>");
+          MessagingUtils.showTranslated("lsu.alliances.command.player_unresolved", MessagingUtils.arg(usernameOrUuid, true));
          return 0;
       }
 
       boolean removed = AllianceService.removeMember(alliance, uuid);
       if (!removed) {
-         MessagingUtils.showMiniMessage("<red>Couldn't remove <white>" + escape(usernameOrUuid) + "</white> from <white>" + escape(alliance.data.name) + "</white>.</red>");
+          MessagingUtils.showTranslated("lsu.alliances.select.remove_failed", MessagingUtils.arg(usernameOrUuid, true), MessagingUtils.arg(alliance.data.name, true));
          return 0;
       }
 
       AllianceSyncManager.publishOrUpdateAsync(alliance);
-      MessagingUtils.showMiniMessage("<green>Removed <white>" + escape(usernameOrUuid) + "</white> from <white>" + escape(alliance.data.name) + "</white>.</green>");
+       MessagingUtils.showTranslated("lsu.alliances.select.remove_success", MessagingUtils.arg(usernameOrUuid, true), MessagingUtils.arg(alliance.data.name, true));
       return 1;
    }
 
    public static int removeMemberFromAllianceParsed(String usernameOrUuid, String allianceAndMaybeList) {
       ParsedAddTarget parsed = parseAddTarget(allianceAndMaybeList);
       if (parsed == null) {
-         MessagingUtils.showMiniMessage("<red>Could not resolve alliance. Use <white>/lsu alliances list</white> and try again.</red>");
+          MessagingUtils.showTranslated("lsu.alliances.command.resolve_failed");
          return 0;
       }
       return removeMemberFromAlliance(usernameOrUuid, parsed.allianceName());
@@ -232,11 +232,11 @@ public final class AllianceCommandController {
 
    public static int subscribeToAlliance(String id) {
       if (id == null || id.isBlank()) {
-         MessagingUtils.showMiniMessage("<red>Enter an invite code first.</red>");
+          MessagingUtils.showTranslated("lsu.alliances.command.invite_code_required");
          return 0;
       }
       if (!Config.isGaiaAdvancedFeaturesEnabled()) {
-         MessagingUtils.showMiniMessage("<red>Gaia is disabled. Run /lsu consent-gaia to enable.</red>");
+          MessagingUtils.showTranslated("lsu.alliances.command.gaia_disabled");
          return 0;
       }
       AlliancesModule.SubscriptionResult result;
@@ -244,34 +244,34 @@ public final class AllianceCommandController {
          result = GaiaApiClient.getInstance().alliances().subscribeWithDetails(id.trim());
       } catch (Exception e) {
          LOGGER.error("Failed to subscribe to alliance '{}'", id, e);
-         MessagingUtils.showMiniMessage("<red>Failed to contact alliance service.</red>");
+          MessagingUtils.showTranslated("lsu.alliances.command.service_contact_failed");
          return 0;
       }
       if (!result.success()) {
-         String msg = result.errorMessage() != null ? escape(result.errorMessage()) : "Subscribe failed. Please try again.";
-         MessagingUtils.showMiniMessage("<red>" + msg + "</red>");
+          String msg = result.errorMessage() != null ? result.errorMessage() : "Subscribe failed. Please try again.";
+          MessagingUtils.showTranslated("lsu.alliances.command.service_error", MessagingUtils.arg(msg, true));
          return 0;
       }
       AllianceSyncManager.syncSubscriptionsNow();
       AllianceService.reloadFromDisk();
-      MessagingUtils.showMiniMessage("<green>Subscribed to alliance.</green>");
+       MessagingUtils.showTranslated("lsu.alliances.command.subscribe.success");
       return 1;
    }
 
    public static int unsubscribeFromAlliance(String nameOrId) {
       if (nameOrId == null || nameOrId.isBlank()) {
-         MessagingUtils.showMiniMessage("<red>Provide an alliance name or ID.</red>");
+          MessagingUtils.showTranslated("lsu.alliances.command.unsubscribe.target_required");
          return 0;
       }
       if (!Config.isGaiaAdvancedFeaturesEnabled()) {
-         MessagingUtils.showMiniMessage("<red>Gaia is disabled. Run /lsu consent-gaia to enable.</red>");
+          MessagingUtils.showTranslated("lsu.alliances.command.gaia_disabled");
          return 0;
       }
       String trimmed = nameOrId.trim();
       AllianceModels.AllianceRecord alliance = AllianceService.findByName(trimmed);
       String serverId = alliance != null ? alliance.serverId : trimmed;
       if (serverId == null || serverId.isBlank()) {
-         MessagingUtils.showMiniMessage("<red>Could not resolve server ID for <white>" + escape(trimmed) + "</white>.</red>");
+          MessagingUtils.showTranslated("lsu.alliances.command.server_id_unresolved", MessagingUtils.arg(trimmed, true));
          return 0;
       }
       boolean success;
@@ -279,24 +279,17 @@ public final class AllianceCommandController {
          success = GaiaApiClient.getInstance().alliances().unsubscribe(serverId);
       } catch (Exception e) {
          LOGGER.error("Failed to unsubscribe from alliance '{}'", nameOrId, e);
-         MessagingUtils.showMiniMessage("<red>Failed to contact alliance service.</red>");
+          MessagingUtils.showTranslated("lsu.alliances.command.service_contact_failed");
          return 0;
       }
       if (!success) {
-         MessagingUtils.showMiniMessage("<red>Unsubscribe failed. Please try again.</red>");
+          MessagingUtils.showTranslated("lsu.alliances.command.unsubscribe.failed");
          return 0;
       }
       AllianceSyncManager.syncSubscriptionsNow();
       AllianceService.reloadFromDisk();
-      MessagingUtils.showMiniMessage("<green>Unsubscribed from alliance.</green>");
+       MessagingUtils.showTranslated("lsu.alliances.command.unsubscribe.success");
       return 1;
-   }
-
-   private static String escape(String input) {
-      if (input == null) {
-         return "";
-      }
-      return input.replace("<", "").replace(">", "");
    }
 
    private static ParsedAddTarget parseAddTarget(String raw) {

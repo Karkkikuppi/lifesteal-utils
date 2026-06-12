@@ -150,18 +150,18 @@ public class AllianceListScreen extends Screen {
       }
       String id = subscribeIdEdit.getValue() == null ? "" : subscribeIdEdit.getValue().trim();
       if (id.isBlank()) {
-         MessagingUtils.showMiniMessage("<red>Enter an invite code first.</red>");
+          MessagingUtils.showTranslated("lsu.alliances.command.invite_code_required");
          return;
       }
       AlliancesModule.SubscriptionResult subscriptionResult;
       try {
          subscriptionResult = GaiaApiClient.getInstance().alliances().subscribeWithDetails(id);
       } catch (GaiaConsentRequiredException ignored) {
-         MessagingUtils.showMiniMessage("<red>Gaia is disabled. Run /lsu consent-gaia to enable.</red>");
+          MessagingUtils.showTranslated("lsu.alliances.command.gaia_disabled");
          return;
       } catch (Exception e) {
          LOGGER.error("Failed to subscribe to alliance '{}'", id, e);
-         MessagingUtils.showMiniMessage("<red>Failed to contact alliance service.</red>");
+          MessagingUtils.showTranslated("lsu.alliances.command.service_contact_failed");
          return;
       }
       if (!subscriptionResult.success()) {
@@ -169,7 +169,7 @@ public class AllianceListScreen extends Screen {
          if (message == null || message.isBlank()) {
             message = "Subscribe failed. Please try again.";
          }
-         MessagingUtils.showMiniMessage("<red>" + message + "</red>");
+          MessagingUtils.showTranslated("lsu.alliances.command.service_error", MessagingUtils.arg(message, true));
          return;
       }
       AllianceSyncManager.syncSubscriptionsNow();
@@ -177,7 +177,7 @@ public class AllianceListScreen extends Screen {
       listWidget.refreshEntries();
       subscribeIdEdit.setValue("");
       updateActionButtons();
-      MessagingUtils.showMiniMessage("<green>Subscribed to alliance.</green>");
+       MessagingUtils.showTranslated("lsu.alliances.command.subscribe.success");
    }
 
    private void moveAlliance(String clientId, int direction) {

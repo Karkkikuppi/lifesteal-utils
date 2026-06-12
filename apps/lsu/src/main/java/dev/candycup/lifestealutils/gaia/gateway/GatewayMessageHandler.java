@@ -5,7 +5,6 @@ import com.google.gson.JsonParser;
 import dev.candycup.lifestealutils.features.alliances.AllianceSyncManager;
 import dev.candycup.lifestealutils.event.LifestealUtilsEvents;
 import dev.candycup.lifestealutils.interapi.MessagingUtils;
-import net.minecraft.network.chat.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -15,7 +14,6 @@ import org.slf4j.LoggerFactory;
  */
 public class GatewayMessageHandler {
    private static final Logger LOGGER = LoggerFactory.getLogger(GatewayMessageHandler.class);
-   private static final String GATEWAY_COLOR = "#5DADE2";
 
    private final GaiaGatewayClient gatewayClient;
 
@@ -67,12 +65,7 @@ public class GatewayMessageHandler {
       if (data.has("user") && data.get("user").isJsonObject()) {
          JsonObject user = data.getAsJsonObject("user");
          if (user.has("name") && !user.get("name").isJsonNull()) {
-            Component msg = Component.translatable("lsu.gaia.gateway.connected");
-            MessagingUtils.showMiniMessage(
-                    String.format("<color:%s><bold>[LSU]</bold> %s</color>",
-                            GATEWAY_COLOR,
-                            msg.getString())
-            );
+             MessagingUtils.showTranslated("lsu.gaia.gateway.connected");
          }
       }
    }
@@ -116,12 +109,7 @@ public class GatewayMessageHandler {
          };
 
          if (messageKey != null) {
-            Component msg = Component.translatable(messageKey, allianceName, username);
-            MessagingUtils.showMiniMessage(
-                    String.format("<color:%s><bold>[LSU]</bold> %s</color>",
-                            GATEWAY_COLOR,
-                            msg.getString())
-            );
+             MessagingUtils.showTranslated(messageKey, MessagingUtils.arg(allianceName, true), MessagingUtils.arg(username, true));
          }
 
          if (type.equals("alliance.updated")
@@ -153,11 +141,6 @@ public class GatewayMessageHandler {
 
       LifestealUtilsEvents.GATEWAY_ERROR.invoker().onGatewayError(new LifestealUtilsEvents.GatewayErrorEvent(code, message));
 
-      Component msg = Component.translatable("lsu.gaia.gateway.error", message);
-      MessagingUtils.showMiniMessage(
-              String.format("<color:%s><bold>[LSU]</bold> <red>%s</red></color>",
-                      GATEWAY_COLOR,
-                      msg.getString())
-      );
+       MessagingUtils.showTranslated("lsu.gaia.gateway.error", MessagingUtils.arg(message, true));
    }
 }

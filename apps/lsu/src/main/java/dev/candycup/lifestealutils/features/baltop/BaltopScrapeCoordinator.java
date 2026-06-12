@@ -59,7 +59,7 @@ public final class BaltopScrapeCoordinator {
               null,
               error -> {
                  LOGGER.warn("Baltop scraping failed: {}", error);
-                 MessagingUtils.showMiniMessage("<red>Failed to load baltop: " + error + "</red>");
+                  MessagingUtils.showTranslated("lsu.baltop.load_failed", MessagingUtils.arg(error, true));
               }
       );
    }
