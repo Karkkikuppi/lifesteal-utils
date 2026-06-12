@@ -45,6 +45,7 @@ public final class ConfiguraConfigScreen extends Screen {
    private static final int ENTRY_ICON_SLOT_WIDTH = 32;
    private static final int ENTRY_ICON_TEXT_GAP = 4;
    private static final int ENTRY_TITLE_DESC_GAP = 5;
+   private static final int DESCRIPTION_LINE_SPACING = 2;
    private static final int ENTRY_CONTROL_GAP = 8;
    private static final int ENTRY_BOTTOM_GAP = 14;
    private static final int CONTENT_WIDTH_SCALE_NUMERATOR = 2;
@@ -246,22 +247,23 @@ public final class ConfiguraConfigScreen extends Screen {
 
       List<FormattedCharSequence> descLines = this.font.split(configurable.description(), descriptionWidth);
       int descLineCount = Math.max(1, descLines.size());
+      int descBlockHeight = textBlockHeight(descLineCount);
       List<FormattedCharSequence> disabledMessageLines = List.of();
       int disabledMessageY = -1;
       if (configurable.remotelyForced() && configurable.disabledMessage() != null && !configurable.disabledMessage().getString().isBlank()) {
          Component disabledLine = Component.literal("⚠ ").append(configurable.disabledMessage().copy().withStyle(ChatFormatting.BOLD));
          disabledMessageLines = this.font.split(disabledLine, descriptionWidth);
          if (!disabledMessageLines.isEmpty()) {
-            disabledMessageY = y + this.font.lineHeight + ENTRY_TITLE_DESC_GAP + descLineCount * this.font.lineHeight + ENTRY_TITLE_DESC_GAP;
+            disabledMessageY = y + this.font.lineHeight + ENTRY_TITLE_DESC_GAP + descBlockHeight + ENTRY_TITLE_DESC_GAP;
          }
       }
       int titleY = y;
       int descY = titleY + this.font.lineHeight + ENTRY_TITLE_DESC_GAP;
-      int messageBlockHeight = disabledMessageLines.isEmpty() ? 0 : ENTRY_TITLE_DESC_GAP + disabledMessageLines.size() * this.font.lineHeight;
-      int contentHeight = this.font.lineHeight + ENTRY_TITLE_DESC_GAP + descLineCount * this.font.lineHeight + messageBlockHeight;
+      int messageBlockHeight = disabledMessageLines.isEmpty() ? 0 : ENTRY_TITLE_DESC_GAP + textBlockHeight(disabledMessageLines.size());
+      int contentHeight = this.font.lineHeight + ENTRY_TITLE_DESC_GAP + descBlockHeight + messageBlockHeight;
       int iconRenderSize = ENTRY_ICON_RENDER_SIZE;
       int iconY = titleY + Math.max(0, (contentHeight - iconRenderSize) / 2);
-      int detailsBottom = descY + descLineCount * this.font.lineHeight + messageBlockHeight;
+      int detailsBottom = descY + descBlockHeight + messageBlockHeight;
       boolean inlineOpen = isInlineEditorOpen(configurable);
       Object previewValue = configurable.readValue();
       int previewY = -1;
@@ -744,22 +746,14 @@ public final class ConfiguraConfigScreen extends Screen {
          int iconY = row.iconY - contentScrollOffset;
          guiGraphics.drawString(this.font, title, row.textX, titleY, titleColor, false);
 
-         int lineY = descriptionY;
          if (row.descriptionLines.isEmpty()) {
-            guiGraphics.drawString(this.font, configurable.description(), row.textX, lineY, 0xFF999999, false);
+            guiGraphics.drawString(this.font, configurable.description(), row.textX, descriptionY, 0xFF999999, false);
          } else {
-            for (FormattedCharSequence line : row.descriptionLines) {
-               guiGraphics.drawString(this.font, line, row.textX, lineY, 0xFF999999, false);
-               lineY += this.font.lineHeight;
-            }
+            drawSpacedLines(guiGraphics, row.descriptionLines, row.textX, descriptionY, 0xFF999999);
          }
 
          if (!row.disabledMessageLines.isEmpty()) {
-            int disabledY = row.disabledMessageY - contentScrollOffset;
-            for (FormattedCharSequence line : row.disabledMessageLines) {
-               guiGraphics.drawString(this.font, line, row.textX, disabledY, titleColor, false);
-               disabledY += this.font.lineHeight;
-            }
+            drawSpacedLines(guiGraphics, row.disabledMessageLines, row.textX, row.disabledMessageY - contentScrollOffset, titleColor);
          }
 
          drawScaledItem(guiGraphics, configurable, row.iconX, iconY, row.iconRenderSize);
@@ -1083,11 +1077,7 @@ public final class ConfiguraConfigScreen extends Screen {
          return;
       }
 
-      int lineY = titleY + this.font.lineHeight + CONTENT_FEATURE_TITLE_DESC_GAP;
-      for (FormattedCharSequence line : lines) {
-         guiGraphics.drawString(this.font, line, titleX, lineY, 0xFF999999, false);
-         lineY += this.font.lineHeight;
-      }
+      drawSpacedLines(guiGraphics, lines, titleX, titleY + this.font.lineHeight + CONTENT_FEATURE_TITLE_DESC_GAP, 0xFF999999);
    }
 
    private int getFeatureHeaderHeight(int contentWidth) {
@@ -1095,7 +1085,7 @@ public final class ConfiguraConfigScreen extends Screen {
          return 0;
       }
       List<FormattedCharSequence> lines = getFeatureDescriptionLines(contentWidth);
-      int descriptionHeight = lines.size() * this.font.lineHeight;
+      int descriptionHeight = textBlockHeight(lines.size());
       int extraGap = lines.isEmpty() ? 0 : CONTENT_FEATURE_TITLE_DESC_GAP;
       return this.font.lineHeight + extraGap + descriptionHeight + CONTENT_FEATURE_HEADER_BOTTOM_GAP;
    }
@@ -1121,6 +1111,21 @@ public final class ConfiguraConfigScreen extends Screen {
               .getModContainer("lifestealutils")
               .map(mod -> mod.getMetadata().getVersion().getFriendlyString())
               .orElse("unknown");
+   }
+
+   private int textBlockHeight(int lineCount) {
+      if (lineCount <= 0) {
+         return 0;
+      }
+      return lineCount * this.font.lineHeight + Math.max(0, lineCount - 1) * DESCRIPTION_LINE_SPACING;
+   }
+
+   private void drawSpacedLines(GuiGraphics guiGraphics, List<FormattedCharSequence> lines, int x, int y, int color) {
+      int lineY = y;
+      for (FormattedCharSequence line : lines) {
+         guiGraphics.drawString(this.font, line, x, lineY, color, false);
+         lineY += this.font.lineHeight + DESCRIPTION_LINE_SPACING;
+      }
    }
 
    private static void drawScaledItem(GuiGraphics guiGraphics, ConfiguraConfigModel.UiConfigurable configurable, int x, int y, int size) {
