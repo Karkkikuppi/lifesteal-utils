@@ -5,12 +5,7 @@ import com.google.gson.GsonBuilder;
 import dev.candycup.lifestealutils.interapi.NetworkUtilsController;
 import dev.candycup.lifestealutils.mixin.ClientHandshakePacketListenerImplAuthInvoker;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.multiplayer.ClientHandshakePacketListenerImpl;
-//? if >1.21.8
-import net.minecraft.client.multiplayer.LevelLoadTracker;
-import net.minecraft.client.multiplayer.ServerData;
-import net.minecraft.client.multiplayer.TransferState;
 import net.minecraft.network.Connection;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.PacketFlow;
@@ -18,10 +13,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.security.SecureRandom;
-import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
 import java.util.UUID;
-import java.util.function.Consumer;
 
 /**
  * Handles Gaia authentication using a simplified flow.
@@ -176,27 +169,16 @@ public final class GaiaAuthClient {
          Minecraft minecraft = Minecraft.getInstance();
          Connection connection = new Connection(PacketFlow.CLIENTBOUND);
 
-         // This is ugly code, but reflection usually is.
-         // We're basically just trying to create a new instance of a client
-         // handshake listener so we can use another invoker mixin to call the
-         // private authenticateServer method. We do this instead of re-implementing
-         // the private method ourselves to avoid using access token getters.
-
          //? if >1.21.8 {
-         return ClientHandshakePacketListenerImpl.class
-                 .getConstructor(Connection.class, Minecraft.class, ServerData.class, Screen.class, boolean.class,
-                         Duration.class, Consumer.class, LevelLoadTracker.class, TransferState.class)
-                 .newInstance(connection, minecraft, null, null, false, null,
-                         (Consumer<Component>) component -> {
-                         }, null, null);
+         return ClientHandshakePacketListenerImplAuthInvoker.lifestealutils$create(
+                 connection, minecraft, null, null, false, null, component -> {
+                 }, null, null);
          //?} else {
-         /*return ClientHandshakePacketListenerImpl.class
-            .getConstructor(Connection.class, Minecraft.class, ServerData.class, Screen.class, boolean.class,
-               Duration.class, Consumer.class, TransferState.class)
-            .newInstance(connection, minecraft, null, null, false, null,
-               (Consumer<Component>) component -> { }, null);
+         /*return ClientHandshakePacketListenerImplAuthInvoker.lifestealutils$create(
+                 connection, minecraft, null, null, false, null, component -> {
+                 }, null);
          *///?}
-      } catch (ReflectiveOperationException exception) {
+      } catch (RuntimeException exception) {
          LOGGER.warn("gaia auth failed to build handshake listener: {} - {}", exception.getClass().getSimpleName(), exception.getMessage());
          return null;
       }
