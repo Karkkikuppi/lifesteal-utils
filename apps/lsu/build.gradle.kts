@@ -149,16 +149,16 @@ tasks {
         outputs.file(outputFile)
 
         doLast {
-            val configurableRegex = Regex("@Configurable(Boolean|String|Minimessage|Float|Enum|List|ToggleGroup)\\b")
+            val configContainerRegex = Regex("@(?:SerialEntry|Configurable(?:Boolean|String|Minimessage|Float|Enum|List|ToggleGroup))\\b")
             val packageRegex = Regex("(?m)^\\s*package\\s+([a-zA-Z0-9_.]+)\\s*;")
-            val classRegex = Regex("\\b(public\\s+)?(final\\s+)?(abstract\\s+)?(class|enum|interface|record)\\s+([A-Za-z_][A-Za-z0-9_]*)")
+            val classRegex = Regex("(?m)^\\s*(public\\s+)?(final\\s+)?(abstract\\s+)?(class|enum|interface|record)\\s+([A-Za-z_][A-Za-z0-9_]*)")
             val discoveredClasses = linkedSetOf<String>()
 
             sourceRoot.walkTopDown()
                 .filter { it.isFile && it.extension == "java" }
                 .forEach { javaFile ->
                     val source = javaFile.readText()
-                    if (!configurableRegex.containsMatchIn(source)) {
+                    if (!configContainerRegex.containsMatchIn(source)) {
                         return@forEach
                     }
 

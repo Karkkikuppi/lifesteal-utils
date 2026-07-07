@@ -1,9 +1,12 @@
 package dev.candycup.lifestealutils.features.messages;
 
-import dev.candycup.lifestealutils.Config;
+import dev.candycup.configura.serial.SerialEntry;
+import dev.candycup.lifestealutils.config.configurables.ConfigurableBoolean;
 import dev.candycup.lifestealutils.event.LifestealUtilsEvents;
 import dev.candycup.lifestealutils.event.LifestealUtilsEvents.ChatMessageReceivedEvent;
 import dev.candycup.lifestealutils.interapi.MessagingUtils;
+import lombok.Getter;
+import lombok.Setter;
 import net.minecraft.network.chat.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,6 +21,12 @@ import java.util.List;
 public class ChatTagRemover {
    private static final Logger LOGGER = LoggerFactory.getLogger("lifestealutils/chattag");
 
+   @Getter
+   @Setter
+   @SerialEntry(comment = "Disables chat tags, such as [No-Life] from appearing in messages for visual simplicity.")
+   @ConfigurableBoolean(location = "customization.messages.disablechattags")
+   private static boolean disableChatTags = false;
+
    public ChatTagRemover() {
       LifestealUtilsEvents.CHAT_MESSAGE_RECEIVED.register(event -> {
          if (!isEnabled()) {
@@ -28,7 +37,7 @@ public class ChatTagRemover {
    }
 
    public boolean isEnabled() {
-      return Config.isDisableChatTags();
+      return disableChatTags;
    }
 
    public void onChatMessageReceived(ChatMessageReceivedEvent event) {

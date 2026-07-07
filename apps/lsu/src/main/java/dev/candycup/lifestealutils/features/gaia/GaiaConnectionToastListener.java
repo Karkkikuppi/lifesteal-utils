@@ -1,6 +1,7 @@
 package dev.candycup.lifestealutils.features.gaia;
 
-import dev.candycup.lifestealutils.Config;
+
+import dev.candycup.lifestealutils.gaia.GaiaConsentController;
 import dev.candycup.lifestealutils.LifestealUtils;
 import dev.candycup.lifestealutils.event.LifestealUtilsEvents;
 import dev.candycup.lifestealutils.event.LifestealUtilsEvents.GatewayDisconnectedEvent;
@@ -51,7 +52,7 @@ public final class GaiaConnectionToastListener {
    }
 
    private boolean isEnabled() {
-      return Config.isGaiaAdvancedFeaturesEnabled();
+      return GaiaConsentController.isGaiaAdvancedFeaturesEnabled();
    }
 
    private void onServerChange(ServerChangeEvent event) {
@@ -157,3 +158,5 @@ public final class GaiaConnectionToastListener {
       shouldShowRestoreToast = false;
    }
 }
+
+

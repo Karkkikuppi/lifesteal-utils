@@ -1,6 +1,6 @@
 package dev.candycup.lifestealutils.config;
 
-import dev.candycup.lifestealutils.Config;
+import dev.candycup.lifestealutils.ConfigUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,12 +30,12 @@ public final class ConfigContainerRegistry {
          Method registerAll = generatedClass.getMethod("registerAll");
          registerAll.invoke(null);
       } catch (Exception exception) {
-         LOGGER.warn("failed to load generated config container index, falling back to Config.class", exception);
-         registerContainer(Config.class);
+         LOGGER.warn("failed to load generated config container index, falling back to ConfigUtils.class", exception);
+         registerContainer(ConfigUtils.class);
       }
 
       if (REGISTERED_CONTAINERS.isEmpty()) {
-         registerContainer(Config.class);
+         registerContainer(ConfigUtils.class);
       }
 
       initialized = true;

@@ -1,6 +1,7 @@
 package dev.candycup.lifestealutils.ui;
 
-import dev.candycup.lifestealutils.Config;
+
+import dev.candycup.lifestealutils.gaia.GaiaConsentController;
 import dev.candycup.lifestealutils.features.alliances.AllianceModels;
 import dev.candycup.lifestealutils.features.alliances.AllianceService;
 import dev.candycup.lifestealutils.features.alliances.AllianceSyncManager;
@@ -125,7 +126,7 @@ public class AllianceListScreen extends Screen {
 
    private void updateActionButtons() {
       if (subscribeButton != null && subscribeIdEdit != null) {
-         if (!Config.isGaiaAdvancedFeaturesEnabled()) {
+         if (!GaiaConsentController.isGaiaAdvancedFeaturesEnabled()) {
             subscribeButton.active = false;
             subscribeButton.setTooltip(Tooltip.create(Component.translatable("lsu.alliances.list.subscribe_requires_gaia")));
          } else {
@@ -361,3 +362,5 @@ public class AllianceListScreen extends Screen {
       }
    }
 }
+
+

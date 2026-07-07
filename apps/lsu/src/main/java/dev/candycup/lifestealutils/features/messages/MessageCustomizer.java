@@ -1,6 +1,5 @@
 package dev.candycup.lifestealutils.features.messages;
 
-import dev.candycup.lifestealutils.Config;
 import dev.candycup.lifestealutils.interapi.MessagingUtils;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 
@@ -37,9 +36,10 @@ public final class MessageCustomizer {
 
    private static String getFormat() {
       try {
-         return Config.getPmFormat();
+         String format = PrivateMessageFormatter.getPmFormat();
+         return format == null || format.isBlank() ? PrivateMessageFormatter.DEFAULT_FORMAT : format;
       } catch (Exception e) {
-         return "<light_purple><bold>{{direction}}</bold> {{sender}}</light_purple> <white>➡ {{message}}</white>";
+         return PrivateMessageFormatter.DEFAULT_FORMAT;
       }
    }
 

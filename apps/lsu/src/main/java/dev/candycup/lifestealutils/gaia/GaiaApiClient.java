@@ -1,6 +1,7 @@
 package dev.candycup.lifestealutils.gaia;
 
-import dev.candycup.lifestealutils.Config;
+
+import dev.candycup.lifestealutils.gaia.GaiaConsentController;
 import dev.candycup.lifestealutils.gaia.modules.collectivum.CollectivumModule;
 import dev.candycup.lifestealutils.gaia.modules.curiositas.CuriositasModule;
 import dev.candycup.lifestealutils.gaia.modules.gateway.GatewayModule;
@@ -64,7 +65,7 @@ public final class GaiaApiClient {
    }
 
    public NetworkUtilsController.HttpResult getWithAuth(String path, Duration timeout, long rateLimitMs) {
-      if (!Config.isGaiaAdvancedFeaturesEnabled()) {
+      if (!GaiaConsentController.isGaiaAdvancedFeaturesEnabled()) {
          return NetworkUtilsController.HttpResult.failure("Gaia is disabled");
       }
       String token = resolveCurrentToken();
@@ -75,7 +76,7 @@ public final class GaiaApiClient {
    }
 
    public NetworkUtilsController.HttpResult postJsonWithAuth(String path, String body, Duration timeout, long rateLimitMs) {
-      if (!Config.isGaiaAdvancedFeaturesEnabled()) {
+      if (!GaiaConsentController.isGaiaAdvancedFeaturesEnabled()) {
          return NetworkUtilsController.HttpResult.failure("Gaia is disabled");
       }
       String token = resolveCurrentToken();
@@ -91,7 +92,7 @@ public final class GaiaApiClient {
    }
 
    public NetworkUtilsController.HttpResult putJsonWithAuth(String path, String body, Duration timeout, long rateLimitMs) {
-      if (!Config.isGaiaAdvancedFeaturesEnabled()) {
+      if (!GaiaConsentController.isGaiaAdvancedFeaturesEnabled()) {
          return NetworkUtilsController.HttpResult.failure("Gaia is disabled");
       }
       String token = resolveCurrentToken();
@@ -102,7 +103,7 @@ public final class GaiaApiClient {
    }
 
    public NetworkUtilsController.HttpResult deleteWithAuth(String path, Duration timeout, long rateLimitMs) {
-      if (!Config.isGaiaAdvancedFeaturesEnabled()) {
+      if (!GaiaConsentController.isGaiaAdvancedFeaturesEnabled()) {
          return NetworkUtilsController.HttpResult.failure("Gaia is disabled");
       }
       String token = resolveCurrentToken();
@@ -153,3 +154,5 @@ public final class GaiaApiClient {
               : "wss://gaia.candycup.dev";
    }
 }
+
+

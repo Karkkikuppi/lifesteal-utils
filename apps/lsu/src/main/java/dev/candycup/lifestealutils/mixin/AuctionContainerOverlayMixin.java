@@ -1,6 +1,5 @@
 package dev.candycup.lifestealutils.mixin;
 
-import dev.candycup.lifestealutils.Config;
 import dev.candycup.lifestealutils.api.LifestealAPI;
 import dev.candycup.lifestealutils.features.ah.AhOverlaySearchState;
 import dev.candycup.lifestealutils.features.ah.AhSearchAutomation;
@@ -486,7 +485,7 @@ public abstract class AuctionContainerOverlayMixin<T extends AbstractContainerMe
 
    @Unique
    private int lifestealutils$getWrappedMode(AbstractContainerScreen<?> self) {
-      if (!Config.isCustomAhInterfaceEnabled() || !LifestealAPI.isOnLifestealNetwork()) {
+      if (!AhSearchAutomation.isCustomAhInterfaceEnabled() || !LifestealAPI.isOnLifestealNetwork()) {
          lifestealutils$allowFilterOverlayFromAuctionItems = false;
          return MODE_NONE;
       }

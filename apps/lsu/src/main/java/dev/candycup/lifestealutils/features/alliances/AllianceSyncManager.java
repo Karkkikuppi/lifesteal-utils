@@ -1,7 +1,8 @@
 package dev.candycup.lifestealutils.features.alliances;
 
+
+import dev.candycup.lifestealutils.gaia.GaiaConsentController;
 import com.google.gson.JsonObject;
-import dev.candycup.lifestealutils.Config;
 import dev.candycup.lifestealutils.api.LifestealAPI;
 import dev.candycup.lifestealutils.gaia.GaiaApiClient;
 import net.minecraft.client.Minecraft;
@@ -20,7 +21,7 @@ public final class AllianceSyncManager {
    }
 
    public static void syncSubscriptionsAsync() {
-      if (!Config.isGaiaAdvancedFeaturesEnabled()) {
+      if (!GaiaConsentController.isGaiaAdvancedFeaturesEnabled()) {
          return;
       }
       CompletableFuture.runAsync(AllianceSyncManager::syncSubscriptionsNow);
@@ -32,7 +33,7 @@ public final class AllianceSyncManager {
     * 2) refresh remote subscriptions into client state
     */
    public static void syncAllOnGatewayConnectedAsync() {
-      if (!Config.isGaiaAdvancedFeaturesEnabled()) {
+      if (!GaiaConsentController.isGaiaAdvancedFeaturesEnabled()) {
          return;
       }
       CompletableFuture.runAsync(() -> {
@@ -42,7 +43,7 @@ public final class AllianceSyncManager {
    }
 
    public static void syncSubscriptionsNow() {
-      if (!Config.isGaiaAdvancedFeaturesEnabled() || !LifestealAPI.isOnLifestealNetwork()) {
+      if (!GaiaConsentController.isGaiaAdvancedFeaturesEnabled() || !LifestealAPI.isOnLifestealNetwork()) {
          return;
       }
 
@@ -78,7 +79,7 @@ public final class AllianceSyncManager {
    }
 
    public static void backupLocalAlliancesNow() {
-      if (!Config.isGaiaAdvancedFeaturesEnabled() || !LifestealAPI.isOnLifestealNetwork()) {
+      if (!GaiaConsentController.isGaiaAdvancedFeaturesEnabled() || !LifestealAPI.isOnLifestealNetwork()) {
          return;
       }
 
@@ -106,14 +107,14 @@ public final class AllianceSyncManager {
    }
 
    public static void publishOrUpdateAsync(AllianceModels.AllianceRecord alliance) {
-      if (alliance == null || !alliance.canEdit || !Config.isGaiaAdvancedFeaturesEnabled()) {
+      if (alliance == null || !alliance.canEdit || !GaiaConsentController.isGaiaAdvancedFeaturesEnabled()) {
          return;
       }
       CompletableFuture.runAsync(() -> publishOrUpdateNow(alliance));
    }
 
    public static boolean publishOrUpdateNow(AllianceModels.AllianceRecord alliance) {
-      if (alliance == null || !alliance.canEdit || !Config.isGaiaAdvancedFeaturesEnabled()) {
+      if (alliance == null || !alliance.canEdit || !GaiaConsentController.isGaiaAdvancedFeaturesEnabled()) {
          return false;
       }
 
@@ -211,3 +212,5 @@ public final class AllianceSyncManager {
       return ownerUuid.replace("-", "").equalsIgnoreCase(minecraft.player.getUUID().toString().replace("-", ""));
    }
 }
+
+

@@ -39,7 +39,7 @@ public final class LsuStartupController {
       // and stored prefs are available everywhere downstream.
       ConfigContainerRegistry.initializeGeneratedIndex();
       ConfigDescriptorRegistry.registerDefaultProviders();
-      Config.load();
+      ConfigUtils.load();
 
       // Sanity-check incompatible mods.
       FeatureFlagController.assertNoIncompatibleModsDetected();

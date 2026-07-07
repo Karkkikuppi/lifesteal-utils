@@ -1,7 +1,8 @@
 package dev.candycup.lifestealutils.gaia.gateway;
 
+
+import dev.candycup.lifestealutils.gaia.GaiaConsentController;
 import com.google.gson.JsonObject;
-import dev.candycup.lifestealutils.Config;
 import dev.candycup.lifestealutils.api.LifestealAPI;
 import dev.candycup.lifestealutils.event.LifestealUtilsEvents;
 import dev.candycup.lifestealutils.event.LifestealUtilsEvents.ServerChangeEvent;
@@ -65,14 +66,14 @@ public class GaiaGatewayClient {
    }
 
    public boolean isEnabled() {
-      return Config.isGaiaAdvancedFeaturesEnabled();
+      return GaiaConsentController.isGaiaAdvancedFeaturesEnabled();
    }
 
    public void onServerChange(ServerChangeEvent event) {
       LOGGER.info("ServerChangeEvent received: type={}, server={}, enabled={}, isLifesteal={}",
               event.getType(),
               event.getServerAddress(),
-              Config.isGaiaAdvancedFeaturesEnabled(),
+              GaiaConsentController.isGaiaAdvancedFeaturesEnabled(),
               LifestealAPI.isOnLifestealNetwork());
 
       if (event.isConnected() && LifestealAPI.isOnLifestealNetwork()) {
@@ -401,3 +402,5 @@ public class GaiaGatewayClient {
       }
    }
 }
+
+

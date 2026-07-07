@@ -1,6 +1,5 @@
 package dev.candycup.lifestealutils.mixin;
 
-import dev.candycup.lifestealutils.Config;
 import dev.candycup.lifestealutils.LifestealUtils;
 import dev.candycup.lifestealutils.api.LifestealAPI;
 import dev.candycup.lifestealutils.event.LifestealUtilsEvents;
@@ -8,6 +7,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import dev.candycup.lifestealutils.event.LifestealUtilsEvents.ContainerContentSetEvent;
 import dev.candycup.lifestealutils.event.LifestealUtilsEvents.ServerChangeEvent;
+import dev.candycup.lifestealutils.features.baltop.BaltopScrapeCoordinator;
 import dev.candycup.lifestealutils.features.baltop.BaltopScraper;
 import dev.candycup.lifestealutils.ui.BaltopScreen;
 import net.minecraft.client.Minecraft;
@@ -146,7 +146,7 @@ public class ClientPacketListenerMixin {
          return;
       }
 
-      if (!Config.isCustomBaltopInterfaceEnabled()) {
+      if (!BaltopScrapeCoordinator.isCustomBaltopInterfaceEnabled()) {
          return;
       }
 

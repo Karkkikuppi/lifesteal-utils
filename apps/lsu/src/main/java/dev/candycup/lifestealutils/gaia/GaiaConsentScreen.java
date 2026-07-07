@@ -1,6 +1,7 @@
 package dev.candycup.lifestealutils.gaia;
 
-import dev.candycup.lifestealutils.Config;
+
+import dev.candycup.lifestealutils.gaia.GaiaConsentController;
 import dev.candycup.lifestealutils.interapi.MessagingUtils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -79,7 +80,7 @@ public class GaiaConsentScreen extends Screen {
 
    @Override
    protected void init() {
-      Config.setGaiaConsentSeen(true);
+      GaiaConsentController.setGaiaConsentSeen(true);
 
       consentList = new ConsentTextList(this.minecraft, this.font);
       this.tabNavigationBar = TabNavigationBar.builder(this.tabManager, this.width)
@@ -299,3 +300,5 @@ public class GaiaConsentScreen extends Screen {
       }
    }
 }
+
+

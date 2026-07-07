@@ -1,9 +1,11 @@
 package dev.candycup.lifestealutils.features.combat;
 
-import dev.candycup.lifestealutils.Config;
+import dev.candycup.configura.serial.SerialEntry;
 import dev.candycup.lifestealutils.api.CustomEnchantParsingUtilities;
 import dev.candycup.lifestealutils.api.LifestealAPI;
 import dev.candycup.lifestealutils.api.LifestealServerDetector;
+import dev.candycup.lifestealutils.config.configurables.ConfigurableBoolean;
+import dev.candycup.lifestealutils.config.configurables.ConfigurableMinimessage;
 import dev.candycup.lifestealutils.event.LifestealUtilsEvents;
 import dev.candycup.lifestealutils.event.LifestealUtilsEvents.ClientAttackEvent;
 import dev.candycup.lifestealutils.event.LifestealUtilsEvents.ClientTickEvent;
@@ -13,6 +15,7 @@ import dev.candycup.lifestealutils.hud.HudElementDefinition;
 import dev.candycup.lifestealutils.hud.HudPosition;
 import dev.candycup.lifestealutils.ui.HudElementEditor;
 import lombok.Getter;
+import lombok.Setter;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.protocol.game.ClientboundDamageEventPacket;
 import net.minecraft.resources.Identifier;
@@ -47,6 +50,18 @@ public final class UnbrokenChainTracker {
    private static final int BONUS_START_OFFSET = 2;
    private static final int BONUS_PER_HIT = 5;
    private static final long INACTIVE_RESET_MS = 5_000;
+
+   @Getter
+   @Setter
+   @SerialEntry(comment = "Whether to enable the unbroken chain counter HUD element")
+   @ConfigurableBoolean(location = "timers.chaincounter.enabled")
+   private static boolean chainCounterEnabled = false;
+
+   @Getter
+   @Setter
+   @SerialEntry(comment = "Custom format for the unbroken chain counter display")
+   @ConfigurableMinimessage(location = "timers.chaincounter.format")
+   private static String chainCounterFormat = DEFAULT_FORMAT;
 
    // pending hits awaiting server confirmation: entity id -> timestamp
    private final Map<Integer, Long> pendingHits = new ConcurrentHashMap<>();
@@ -99,7 +114,7 @@ public final class UnbrokenChainTracker {
    }
 
    public boolean isEnabled() {
-      return Config.isChainCounterEnabled();
+      return chainCounterEnabled;
    }
 
    public void onClientAttack(ClientAttackEvent event) {
@@ -208,7 +223,7 @@ public final class UnbrokenChainTracker {
          }
       }
 
-      String format = Config.getChainCounterFormat();
+      String format = chainCounterFormat;
       if (format == null || format.isBlank()) {
          format = DEFAULT_FORMAT;
       }

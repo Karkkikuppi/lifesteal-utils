@@ -2,7 +2,9 @@ package dev.candycup.lifestealutils.features.timers;
 
 import com.mojang.serialization.DataResult;
 import com.mojang.serialization.DynamicOps;
-import dev.candycup.lifestealutils.Config;
+import dev.candycup.configura.serial.SerialEntry;
+import dev.candycup.lifestealutils.ConfigUtils;
+import dev.candycup.lifestealutils.config.configurables.ConfigurableBoolean;
 import dev.candycup.lifestealutils.event.LifestealUtilsEvents;
 import dev.candycup.lifestealutils.event.LifestealUtilsEvents.ChatMessageReceivedEvent;
 import dev.candycup.lifestealutils.event.LifestealUtilsEvents.ClientTickEvent;
@@ -23,6 +25,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -34,6 +37,16 @@ import java.util.stream.Collectors;
 public final class BasicTimerManager {
    private static final Logger LOGGER = LoggerFactory.getLogger("lifestealutils/timers");
    private static final int AUTO_HIDE_SCAN_INTERVAL_TICKS = 5;
+
+    @SerialEntry(comment = "Automatically hide custom timers if you don't have the custom in your inventory")
+    @ConfigurableBoolean(location = "timers.customenchanttimers.autohide")
+    private static boolean timerAutoHide = false;
+
+    @SerialEntry(comment = "Per-timer enabled state keyed by timer id")
+    private static Map<String, Boolean> basicTimerEnabled = new HashMap<>();
+
+    @SerialEntry(comment = "Per-timer format overrides keyed by timer id")
+    private static Map<String, String> basicTimerFormatOverrides = new HashMap<>();
 
    private final Map<String, BasicTimerDefinition> definitions = new LinkedHashMap<>();
    private final Map<String, TimerState> states = new LinkedHashMap<>();
@@ -80,7 +93,7 @@ public final class BasicTimerManager {
          String id = ensureUniqueId(slug);
          this.definitions.put(id, definition);
          this.states.put(id, new TimerState(0));
-         Config.ensureBasicTimerKnown(id);
+          ensureBasicTimerKnown(id);
 
          HudElementDefinition hudDefinition = new HudElementDefinition(
                  Identifier.fromNamespaceAndPath("lifestealutils", id + "_timer"),
@@ -114,7 +127,7 @@ public final class BasicTimerManager {
    public boolean isEnabled() {
       // enabled if any timer is enabled
       return definitions.keySet().stream()
-              .anyMatch(Config::isBasicTimerEnabled);
+              .anyMatch(BasicTimerManager::isBasicTimerEnabled);
    }
 
    public void onChatMessageReceived(ChatMessageReceivedEvent event) {
@@ -126,7 +139,7 @@ public final class BasicTimerManager {
       for (Map.Entry<String, BasicTimerDefinition> entry : definitions.entrySet()) {
          BasicTimerDefinition definition = entry.getValue();
          if (definition.chatTrigger() != null && message.contains(definition.chatTrigger())) {
-            if (!Config.isBasicTimerEnabled(entry.getKey())) {
+             if (!isBasicTimerEnabled(entry.getKey())) {
                continue;
             }
             start(entry.getKey(), definition.durationSeconds());
@@ -154,11 +167,11 @@ public final class BasicTimerManager {
    }
 
    private String textFor(String id, BasicTimerDefinition definition) {
-      if (!Config.isBasicTimerEnabled(id)) return "";
+       if (!isBasicTimerEnabled(id)) return "";
 
       Minecraft minecraft = Minecraft.getInstance();
       boolean inEditor = minecraft.screen instanceof HudElementEditor;
-      if (Config.isTimerAutoHide() && !inEditor) {
+       if (isTimerAutoHide() && !inEditor) {
          String nbtId = definition.nbtId();
          if (nbtId != null && !nbtId.isBlank()) {
             if (!autoHideCacheValid) {
@@ -181,7 +194,7 @@ public final class BasicTimerManager {
          value = definition.passiveState();
       }
 
-      String format = Config.getBasicTimerFormat(id, definition.defaultFormat());
+       String format = getBasicTimerFormat(id, definition.defaultFormat());
       if (format == null || format.isBlank()) {
          format = "{{timer}}";
       }
@@ -194,7 +207,7 @@ public final class BasicTimerManager {
    }
 
    private void refreshAutoHideCache(Minecraft minecraft) {
-      if (!Config.isTimerAutoHide()) {
+       if (!isTimerAutoHide()) {
          presentNbtIds.clear();
          autoHideCacheValid = false;
          ticksUntilNextAutoHideScan = 0;
@@ -257,6 +270,49 @@ public final class BasicTimerManager {
 
    public record TimerEntry(String id, BasicTimerDefinition definition) {
    }
+
+    public static boolean isTimerAutoHide() {
+        return timerAutoHide;
+    }
+
+    public static void setTimerAutoHide(boolean value) {
+        timerAutoHide = value;
+        ConfigUtils.HANDLER.save();
+    }
+
+    public static boolean isBasicTimerEnabled(String id) {
+        return basicTimerEnabled.getOrDefault(id, false);
+    }
+
+    public static void setBasicTimerEnabled(String id, boolean enabled) {
+        basicTimerEnabled.put(id, enabled);
+        if (!ConfigUtils.isApplyingRemoteOverrides()) {
+            ConfigUtils.HANDLER.save();
+        }
+    }
+
+    public static void ensureBasicTimerKnown(String id) {
+        basicTimerEnabled.putIfAbsent(id, false);
+    }
+
+    public static String getBasicTimerFormat(String id, String fallback) {
+        String value = basicTimerFormatOverrides.get(id);
+        if (value == null || value.isBlank()) {
+            return fallback;
+        }
+        return value;
+    }
+
+    public static void setBasicTimerFormat(String id, String format) {
+        basicTimerFormatOverrides.put(id, format);
+        if (!ConfigUtils.isApplyingRemoteOverrides()) {
+            ConfigUtils.HANDLER.save();
+        }
+    }
+
+    public static void ensureBasicTimerFormat(String id, String fallback) {
+        basicTimerFormatOverrides.putIfAbsent(id, fallback);
+    }
 
    private static String formatDuration(int seconds) {
       int remaining = Math.max(seconds, 0);

@@ -1,6 +1,6 @@
 package dev.candycup.lifestealutils.mixin;
 
-import dev.candycup.lifestealutils.Config;
+import dev.candycup.lifestealutils.features.titlescreen.CustomPanorama;
 import net.minecraft.client.renderer.CubeMap;
 //? if >=26.1 {
 /*import net.minecraft.client.gui.render.GuiRenderer;
@@ -40,7 +40,7 @@ public class PanoramaRendererMixin {
    *///?} else {
    private void replaceCubeMap(CubeMap original, CallbackInfo ci) {
    //?}
-      if (Config.isCustomPanoramaEnabled()) {
+       if (CustomPanorama.isCustomPanoramaEnabled()) {
          this.cubeMap = new CubeMap(Identifier.fromNamespaceAndPath("lifestealutils", "textures/gui/title/background/panorama"));
       }
    }

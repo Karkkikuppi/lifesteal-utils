@@ -1,12 +1,17 @@
 package dev.candycup.lifestealutils.features.messages;
 
-import dev.candycup.lifestealutils.Config;
+import dev.candycup.configura.serial.SerialEntry;
+import dev.candycup.lifestealutils.config.configurables.ConfigurableBoolean;
+import dev.candycup.lifestealutils.config.configurables.ConfigurableList;
 import dev.candycup.lifestealutils.event.LifestealUtilsEvents;
 import dev.candycup.lifestealutils.event.LifestealUtilsEvents.ChatMessageReceivedEvent;
 import dev.candycup.lifestealutils.features.alliances.AllianceModels;
+import dev.candycup.lifestealutils.features.alliances.AllianceNameDecorator;
 import dev.candycup.lifestealutils.features.alliances.AllianceProfileCacheManager;
 import dev.candycup.lifestealutils.features.alliances.AllianceService;
 import dev.candycup.lifestealutils.interapi.MessagingUtils;
+import lombok.Getter;
+import lombok.Setter;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.Style;
 import net.kyori.adventure.text.format.TextColor;
@@ -31,6 +36,18 @@ public class GhostedChatMessageFilter {
    private List<String> cachedPatterns = Collections.emptyList();
    private List<String> normalizedPatterns = Collections.emptyList();
 
+   @Getter
+   @Setter
+   @SerialEntry(comment = "Allows you to add custom words & phrases that you can 'ghost' in chat (making the messages appear in a boring gray!)")
+   @ConfigurableBoolean(location = "qol.desloppifychat.enabled")
+   private static boolean desloppifierEnabled = false;
+
+   @Getter
+   @Setter
+   @SerialEntry(comment = "List of words and catch phrases for the desloppifier. If they appear in a message in chat, the message will be shown in gray.")
+   @ConfigurableList(location = "qol.desloppifychat.catchwords")
+   private static List<String> desloppifiedPatterns = new ArrayList<>();
+
    public GhostedChatMessageFilter() {
       LifestealUtilsEvents.CHAT_MESSAGE_RECEIVED.register(event -> {
          if (!isEnabled()) {
@@ -41,7 +58,7 @@ public class GhostedChatMessageFilter {
    }
 
    public boolean isEnabled() {
-      return Config.isDesloppifierEnabled();
+      return desloppifierEnabled;
    }
 
    public void onChatMessageReceived(ChatMessageReceivedEvent event) {
@@ -79,7 +96,7 @@ public class GhostedChatMessageFilter {
     * @return normalized patterns
     */
    private List<String> getNormalizedPatterns() {
-      List<String> patterns = Config.getDesloppifiedPatterns();
+      List<String> patterns = getDesloppifiedPatterns();
       List<String> safePatterns = patterns != null ? patterns : Collections.emptyList();
       if (safePatterns.equals(cachedPatterns)) {
          return normalizedPatterns;
@@ -113,7 +130,7 @@ public class GhostedChatMessageFilter {
    }
 
    private boolean shouldBypassAllianceMember(String rawMessage) {
-      if (!Config.isAllowAllianceBypassGhostedChat()) {
+      if (!AllianceNameDecorator.isAllowAllianceBypassGhostedChat()) {
          return false;
       }
 

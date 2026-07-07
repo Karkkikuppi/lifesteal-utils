@@ -1,8 +1,9 @@
 package dev.candycup.lifestealutils.features.alliances;
 
+
+import dev.candycup.lifestealutils.gaia.GaiaConsentController;
 import com.mojang.brigadier.suggestion.Suggestions;
 import com.mojang.brigadier.suggestion.SuggestionsBuilder;
-import dev.candycup.lifestealutils.Config;
 import dev.candycup.lifestealutils.gaia.GaiaApiClient;
 import dev.candycup.lifestealutils.gaia.modules.alliances.AlliancesModule;
 import dev.candycup.lifestealutils.interapi.MessagingUtils;
@@ -235,7 +236,7 @@ public final class AllianceCommandController {
           MessagingUtils.showTranslated("lsu.alliances.command.invite_code_required");
          return 0;
       }
-      if (!Config.isGaiaAdvancedFeaturesEnabled()) {
+      if (!GaiaConsentController.isGaiaAdvancedFeaturesEnabled()) {
           MessagingUtils.showTranslated("lsu.alliances.command.gaia_disabled");
          return 0;
       }
@@ -263,7 +264,7 @@ public final class AllianceCommandController {
           MessagingUtils.showTranslated("lsu.alliances.command.unsubscribe.target_required");
          return 0;
       }
-      if (!Config.isGaiaAdvancedFeaturesEnabled()) {
+      if (!GaiaConsentController.isGaiaAdvancedFeaturesEnabled()) {
           MessagingUtils.showTranslated("lsu.alliances.command.gaia_disabled");
          return 0;
       }
@@ -346,3 +347,5 @@ public final class AllianceCommandController {
    private record ParsedAddTarget(String allianceName, String listName) {
    }
 }
+
+

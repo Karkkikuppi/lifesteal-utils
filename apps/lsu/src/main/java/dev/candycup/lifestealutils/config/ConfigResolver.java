@@ -1,6 +1,8 @@
 package dev.candycup.lifestealutils.config;
 
-import dev.candycup.lifestealutils.Config;
+
+import dev.candycup.lifestealutils.gaia.GaiaConsentController;
+import dev.candycup.lifestealutils.ConfigUtils;
 import dev.candycup.lifestealutils.FeatureFlagController;
 import dev.candycup.lifestealutils.LifestealUtils;
 import dev.candycup.configura.ui.ConfiguraConfigModel;
@@ -91,10 +93,10 @@ public final class ConfigResolver {
       return new ConfiguraConfigModel.ResolvedConfig(
               Component.translatable("lsu.config.title"),
               categories,
-              Config.HANDLER::save,
+              ConfigUtils.HANDLER::save,
               () -> MessagingUtils.showTranslated("lsu.config.message.save_success"),
               () -> {
-                 Config.resetAll();
+                 ConfigUtils.resetAll();
                  resolveRemoteOverrides(optionsByKey, true);
               },
               () -> {
@@ -245,7 +247,7 @@ public final class ConfigResolver {
       }
 
       if (applyValues) {
-         Config.runWithRemoteOverrideApplication(() -> {
+         ConfigUtils.runWithRemoteOverrideApplication(() -> {
             for (RemoteOverrideDecision decision : decisions.values()) {
                ConfigurationOption option = optionsByKey.get(decision.key);
                if (option != null) {
@@ -339,7 +341,7 @@ public final class ConfigResolver {
          }
 
          RequiresGaia requiresGaia = field.getAnnotation(RequiresGaia.class);
-         if (requiresGaia != null && !Config.isGaiaAdvancedFeaturesEnabled()) {
+         if (requiresGaia != null && !GaiaConsentController.isGaiaAdvancedFeaturesEnabled()) {
             option.gaiaDenied = true;
             Object forcedValue = null;
             String forceStateRaw = requiresGaia.forceStateWhenDenied();
@@ -824,3 +826,4 @@ public final class ConfigResolver {
       }
    }
 }
+

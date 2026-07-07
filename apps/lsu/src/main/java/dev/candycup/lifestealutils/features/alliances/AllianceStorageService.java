@@ -2,8 +2,9 @@ package dev.candycup.lifestealutils.features.alliances;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import dev.candycup.lifestealutils.Config;
+import dev.candycup.configura.serial.SerialEntry;
 import dev.candycup.lifestealutils.persistence.PersistentDiskManager;
+import lombok.Setter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -27,8 +28,34 @@ public final class AllianceStorageService {
    private static final String ALLIANCES_DIR = "alliances";
    private static final String JSON_SUFFIX = ".json";
 
+    @Setter
+    @SerialEntry(comment = "Locally stored alliances")
+    private static List<LocalAllianceConfigEntry> localAlliances = new ArrayList<>();
+
    private AllianceStorageService() {
    }
+
+    public static List<LocalAllianceConfigEntry> getLocalAlliances() {
+        return localAlliances == null ? new ArrayList<>() : new ArrayList<>(localAlliances);
+    }
+
+    public static class LocalAllianceConfigEntry {
+        public String id = "";
+        public String name = "";
+        public String prefix = "";
+        public String color = "";
+        public long createdAt = 0L;
+        public long updatedAt = 0L;
+        public List<LocalAllianceMemberConfigEntry> members = new ArrayList<>();
+    }
+
+    public static class LocalAllianceMemberConfigEntry {
+        public String id = "";
+        public String uuid = "";
+        public String cachedName = "";
+        public long addedAt = 0L;
+        public String addedBy = "";
+    }
 
    public static void ensureInitialized() {
       migrateLegacyConfigEntriesIfNeeded();
@@ -178,13 +205,13 @@ public final class AllianceStorageService {
          return;
       }
 
-      List<Config.LocalAllianceConfigEntry> oldEntries = Config.getLocalAlliances();
+       List<LocalAllianceConfigEntry> oldEntries = getLocalAlliances();
       if (oldEntries.isEmpty()) {
          return;
       }
 
       int order = 0;
-      for (Config.LocalAllianceConfigEntry old : oldEntries) {
+       for (LocalAllianceConfigEntry old : oldEntries) {
          AllianceModels.AllianceRecord record = new AllianceModels.AllianceRecord();
          record.clientId = (old.id == null || old.id.isBlank()) ? AllianceIdGenerator.newClientId() : old.id;
          record.canEdit = true;
@@ -205,7 +232,7 @@ public final class AllianceStorageService {
          list.prefixColor = parseLegacyColor(old.color);
          list.nameColor = 0xFFFFFF;
 
-         for (Config.LocalAllianceMemberConfigEntry oldMember : old.members) {
+           for (LocalAllianceMemberConfigEntry oldMember : old.members) {
             AllianceModels.AllianceMember member = new AllianceModels.AllianceMember();
             member.uuid = oldMember.uuid == null ? "" : oldMember.uuid;
             member.addedAt = oldMember.addedAt;

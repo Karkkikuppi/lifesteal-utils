@@ -1,6 +1,8 @@
 package dev.candycup.lifestealutils.features.baltop;
 
-import dev.candycup.lifestealutils.Config;
+import dev.candycup.configura.serial.SerialEntry;
+import dev.candycup.lifestealutils.config.configurables.ConfigurableBoolean;
+import dev.candycup.lifestealutils.config.configurables.RequiresGaia;
 import dev.candycup.lifestealutils.interapi.MessagingUtils;
 import net.minecraft.client.Minecraft;
 import org.slf4j.Logger;
@@ -14,8 +16,21 @@ public final class BaltopScrapeCoordinator {
 
    private static boolean pendingScrape = false;
 
+    @SerialEntry(comment = "Enable the custom baltop interface that replaces the server's /baltop GUI")
+    @RequiresGaia(forceStateWhenDenied = "false")
+    @ConfigurableBoolean(location = "qol.customuis.custombaltopinterfaceenabled")
+    private static boolean customBaltopInterfaceEnabled = true;
+
    private BaltopScrapeCoordinator() {
    }
+
+    public static boolean isCustomBaltopInterfaceEnabled() {
+        return customBaltopInterfaceEnabled;
+    }
+
+    public static void setCustomBaltopInterfaceEnabled(boolean enabled) {
+        customBaltopInterfaceEnabled = enabled;
+    }
 
    /**
     * queues the custom baltop interface to open once no other screen is active.
@@ -30,7 +45,7 @@ public final class BaltopScrapeCoordinator {
     * @param client the minecraft client
     */
    public static void handleBaltopCommand(Minecraft client) {
-      if (Config.isCustomBaltopInterfaceEnabled()) {
+       if (customBaltopInterfaceEnabled) {
          queueScrape();
          return;
       }

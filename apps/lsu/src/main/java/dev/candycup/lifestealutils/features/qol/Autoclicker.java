@@ -1,6 +1,6 @@
 package dev.candycup.lifestealutils.features.qol;
 
-import dev.candycup.lifestealutils.Config;
+import dev.candycup.lifestealutils.ConfigUtils;
 import dev.candycup.lifestealutils.api.LifestealAPI;
 import dev.candycup.lifestealutils.config.configurables.ConfigurableFloat;
 import dev.candycup.lifestealutils.interapi.MessagingUtils;
@@ -53,7 +53,7 @@ public final class Autoclicker {
 
     public static void setAutoclickerCps(float cps) {
         autoclickerCps = clampCps(cps);
-        Config.HANDLER.save();
+        ConfigUtils.HANDLER.save();
     }
 
     public static float getAutoclickerCps() {

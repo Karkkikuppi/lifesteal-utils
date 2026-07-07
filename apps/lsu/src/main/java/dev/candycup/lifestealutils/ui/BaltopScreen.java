@@ -1,6 +1,7 @@
 package dev.candycup.lifestealutils.ui;
 
-import dev.candycup.lifestealutils.Config;
+
+import dev.candycup.lifestealutils.gaia.GaiaConsentController;
 import dev.candycup.lifestealutils.api.LifestealAPI;
 import dev.candycup.lifestealutils.api.LifestealServerDetector;
 import dev.candycup.lifestealutils.features.baltop.BaltopScraper;
@@ -125,7 +126,7 @@ public class BaltopScreen extends Screen {
          return;
       }
 
-      if (!Config.isGaiaAdvancedFeaturesEnabled()) {
+      if (!GaiaConsentController.isGaiaAdvancedFeaturesEnabled()) {
          return;
       }
 
@@ -166,7 +167,7 @@ public class BaltopScreen extends Screen {
          return;
       }
 
-      if (!Config.isGaiaAdvancedFeaturesEnabled()) {
+      if (!GaiaConsentController.isGaiaAdvancedFeaturesEnabled()) {
          return;
       }
 
@@ -544,3 +545,5 @@ public class BaltopScreen extends Screen {
       }
    }
 }
+
+

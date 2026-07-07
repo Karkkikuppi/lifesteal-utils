@@ -1,11 +1,14 @@
 package dev.candycup.lifestealutils.features.qol;
 
-import dev.candycup.lifestealutils.Config;
+import dev.candycup.configura.serial.SerialEntry;
 import dev.candycup.lifestealutils.api.LifestealAPI;
+import dev.candycup.lifestealutils.config.configurables.ConfigurableBoolean;
 import dev.candycup.lifestealutils.event.LifestealUtilsEvents;
 import dev.candycup.lifestealutils.event.LifestealUtilsEvents.ClientTickEvent;
 import dev.candycup.lifestealutils.event.LifestealUtilsEvents.LifestealShardSwapEvent;
 import dev.candycup.lifestealutils.interapi.MessagingUtils;
+import lombok.Getter;
+import lombok.Setter;
 import net.minecraft.client.Minecraft;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,6 +32,12 @@ public class AutoJoinLifesteal {
    private boolean shouldAutoRejoin = false;
    private boolean pendingManualHubCommand = false;
    private boolean manualHubSwapActive = false;
+
+   @Getter
+   @Setter
+   @SerialEntry(comment = "Automatically join the Lifesteal gamemode when connecting to the lifesteal.net hub")
+   @ConfigurableBoolean(location = "qol.autojoin.autojoinlifestealonhub")
+   private static boolean autoJoinLifestealOnHub = false;
 
    public AutoJoinLifesteal() {
 
@@ -59,7 +68,7 @@ public class AutoJoinLifesteal {
    }
 
    public boolean isEnabled() {
-      return Config.isAutoJoinLifestealOnHub();
+      return autoJoinLifestealOnHub;
    }
 
    // tracks server changes

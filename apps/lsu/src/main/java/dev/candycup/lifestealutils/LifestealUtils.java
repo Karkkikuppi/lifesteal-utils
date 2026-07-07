@@ -130,7 +130,7 @@ public final class LifestealUtils implements ClientModInitializer {
    }
 
    public static void initializeGaiaIfAuthorized() {
-      if (Config.isGaiaAdvancedFeaturesEnabled()) {
+      if (GaiaConsentController.isGaiaAdvancedFeaturesEnabled()) {
          GaiaAuthClient.confirmHandshakeOnStartup(
                  Minecraft.getInstance().getUser().getName(),
                  Minecraft.getInstance().getUser().getProfileId()
@@ -486,3 +486,4 @@ public final class LifestealUtils implements ClientModInitializer {
    }
 
 }
+

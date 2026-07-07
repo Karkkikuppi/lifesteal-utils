@@ -1,6 +1,5 @@
 package dev.candycup.lifestealutils.config.providers;
 
-import dev.candycup.lifestealutils.Config;
 import dev.candycup.lifestealutils.LifestealUtils;
 import dev.candycup.configura.core.Configura;
 import dev.candycup.configura.core.ConfiguraDynamicEntryDefinition;
@@ -25,8 +24,8 @@ public final class BasicTimerConfigOptionProvider implements ConfigOptionProvide
          String toggleName = entry.definition().toggleOption() != null && !entry.definition().toggleOption().isBlank()
                  ? entry.definition().toggleOption()
                  : timerName;
-         Config.ensureBasicTimerKnown(id);
-         Config.ensureBasicTimerFormat(id, entry.definition().defaultFormat());
+         BasicTimerManager.ensureBasicTimerKnown(id);
+         BasicTimerManager.ensureBasicTimerFormat(id, entry.definition().defaultFormat());
 
          Configura.registerDynamicEntry(
                  ConfiguraDynamicEntryDefinition.create(
@@ -36,8 +35,8 @@ public final class BasicTimerConfigOptionProvider implements ConfigOptionProvide
                          false,
                          Boolean.class,
                          Boolean.class,
-                         () -> Config.isBasicTimerEnabled(id),
-                         value -> Config.setBasicTimerEnabled(id, value),
+                         () -> BasicTimerManager.isBasicTimerEnabled(id),
+                         value -> BasicTimerManager.setBasicTimerEnabled(id, value),
                          () -> false
                  )
          );
@@ -50,8 +49,8 @@ public final class BasicTimerConfigOptionProvider implements ConfigOptionProvide
                          false,
                          String.class,
                          String.class,
-                         () -> Config.getBasicTimerFormat(id, entry.definition().defaultFormat()),
-                         value -> Config.setBasicTimerFormat(id, value),
+                         () -> BasicTimerManager.getBasicTimerFormat(id, entry.definition().defaultFormat()),
+                         value -> BasicTimerManager.setBasicTimerFormat(id, value),
                          () -> entry.definition().defaultFormat()
                  )
          );
@@ -61,8 +60,8 @@ public final class BasicTimerConfigOptionProvider implements ConfigOptionProvide
                  "customenchanttimers",
                  id + "_enabled",
                  () -> false,
-                 () -> Config.isBasicTimerEnabled(id),
-                 value -> Config.setBasicTimerEnabled(id, value)
+                 () -> BasicTimerManager.isBasicTimerEnabled(id),
+                 value -> BasicTimerManager.setBasicTimerEnabled(id, value)
          ).hardTranslation(
                  toggleName,
                  "Enable or disable the %s timer overlay.".formatted(timerName)
@@ -73,8 +72,8 @@ public final class BasicTimerConfigOptionProvider implements ConfigOptionProvide
                  "customenchanttimers",
                  id + "_format",
                  () -> entry.definition().defaultFormat(),
-                 () -> Config.getBasicTimerFormat(id, entry.definition().defaultFormat()),
-                 value -> Config.setBasicTimerFormat(id, value)
+                 () -> BasicTimerManager.getBasicTimerFormat(id, entry.definition().defaultFormat()),
+                 value -> BasicTimerManager.setBasicTimerFormat(id, value)
          ).hardTranslation(
                  timerName + " Format",
                  "Customize how the %s timer is rendered. Use {{timer}} for the timer value.".formatted(timerName)

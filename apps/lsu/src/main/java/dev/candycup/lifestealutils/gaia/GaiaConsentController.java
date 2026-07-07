@@ -1,6 +1,7 @@
 package dev.candycup.lifestealutils.gaia;
 
-import dev.candycup.lifestealutils.Config;
+import dev.candycup.configura.serial.SerialEntry;
+import dev.candycup.lifestealutils.ConfigUtils;
 import dev.candycup.lifestealutils.LifestealUtils;
 import dev.candycup.lifestealutils.gaia.gateway.GaiaGatewayClient;
 import dev.candycup.lifestealutils.interapi.NetworkUtilsController;
@@ -19,6 +20,12 @@ public final class GaiaConsentController {
 
    private static final AtomicInteger CONTENT_VERSION = new AtomicInteger(0);
    private static volatile String consentMiniMessage;
+
+    @SerialEntry(comment = "Whether the Gaia consent screen has been shown")
+    private static boolean gaiaConsentSeen = false;
+
+    @SerialEntry(comment = "Whether advanced features are enabled after Gaia consent")
+    private static boolean gaiaAdvancedFeaturesEnabled = false;
 
    private GaiaConsentController() {
    }
@@ -65,7 +72,7 @@ public final class GaiaConsentController {
     * @return true if the user has not yet seen the consent screen
     */
    public static boolean shouldShowConsent() {
-      return !Config.isGaiaConsentSeen();
+       return !isGaiaConsentSeen();
    }
 
    /**
@@ -75,8 +82,8 @@ public final class GaiaConsentController {
     * @param enabled whether advanced features are enabled
     */
    public static void recordConsentDecision(boolean enabled) {
-      Config.setGaiaAdvancedFeaturesEnabled(enabled);
-      Config.setGaiaConsentSeen(true);
+       setGaiaAdvancedFeaturesEnabled(enabled);
+       setGaiaConsentSeen(true);
 
       GaiaGatewayClient client = LifestealUtils.getGaiaGatewayClient();
       if (client == null) {
@@ -93,4 +100,22 @@ public final class GaiaConsentController {
       LOGGER.info("Gaia consent revoked; disabling gateway immediately");
       client.disable();
    }
+
+    public static boolean isGaiaConsentSeen() {
+        return gaiaConsentSeen;
+    }
+
+    public static void setGaiaConsentSeen(boolean seen) {
+        gaiaConsentSeen = seen;
+        ConfigUtils.HANDLER.save();
+    }
+
+    public static boolean isGaiaAdvancedFeaturesEnabled() {
+        return gaiaAdvancedFeaturesEnabled;
+    }
+
+    public static void setGaiaAdvancedFeaturesEnabled(boolean enabled) {
+        gaiaAdvancedFeaturesEnabled = enabled;
+        ConfigUtils.HANDLER.save();
+    }
 }

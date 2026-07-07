@@ -1,9 +1,9 @@
 package dev.candycup.lifestealutils.mixin;
 
-import dev.candycup.lifestealutils.Config;
 import dev.candycup.lifestealutils.api.LifestealAPI;
 import dev.candycup.lifestealutils.api.PrestigeUtils;
 import dev.candycup.lifestealutils.api.SplashPotionTooltipContext;
+import dev.candycup.lifestealutils.features.qol.PotionDurationTooltip;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.component.DataComponentGetter;
 import net.minecraft.core.component.DataComponents;
@@ -36,7 +36,7 @@ public class PotionTooltipMixin {
            CallbackInfo ci
    ) {
       if (!Boolean.TRUE.equals(SplashPotionTooltipContext.IS_SPLASH_POTION.get())) return;
-      if (!Config.isShowActualPotionDuration()) return;
+      if (!PotionDurationTooltip.isShowActualPotionDuration()) return;
       if (!LifestealAPI.isOnLifestealNetwork()) return;
 
       float boostPercent = PrestigeUtils.getPotionDurationBoostPercent();
