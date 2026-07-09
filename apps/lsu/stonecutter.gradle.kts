@@ -48,7 +48,10 @@ stonecutter parameters {
             replace(".render(graphics,", ".extractRenderState(graphics,")
             replace("super.render(", "super.extractRenderState(")
             replace("drawCenteredString", "centeredText")
-            replace("drawString", "text")
+            replace("guiGraphics.drawString(", "guiGraphics.text(")
+            replace("graphics.drawString(", "graphics.text(")
+            replace("drawContext.drawString(", "drawContext.text(")
+            replace("context.graphics().drawString(", "context.graphics().text(")
             replace("net.fabricmc.fabric.api.client.command.v2.ClientCommandManager", "net.fabricmc.fabric.api.client.command.v2.ClientCommands")
             replace("ClientCommandManager", "ClientCommands")
             replace("net.fabricmc.fabric.api.client.keybinding.v1", "net.fabricmc.fabric.api.client.keymapping.v1")
@@ -61,6 +64,7 @@ stonecutter parameters {
             replace("net.minecraft.world.inventory.ClickType", "net.minecraft.world.inventory.ContainerInput")
             replace("ClickType.", "ContainerInput.")
             replace("guiGraphics.renderItem", "guiGraphics.item")
+            replace("graphics.renderItem", "graphics.item")
             replace("gameMode.handleInventoryMouseClick", "gameMode.handleContainerInput")
         }
     }

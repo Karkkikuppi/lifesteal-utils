@@ -1,6 +1,7 @@
 package dev.candycup.lifestealutils.api.observers;
 
 import dev.candycup.lifestealutils.api.LifestealAPI;
+import dev.candycup.lifestealutils.api.SidebarInfoUtils;
 import dev.candycup.lifestealutils.event.LifestealUtilsEvents;
 import net.minecraft.network.protocol.game.*;
 
@@ -14,6 +15,7 @@ public class ScoreboardObserver {
             if (teamPacket.getName().startsWith("§")) {
                teamPacket.getParameters().ifPresent(params -> {
                   String value = params.getPlayerPrefix().getString();
+                   SidebarInfoUtils.updateFromSidebarLine(value);
                   // value examples:
                   // • Gems: 6,681
                   // • Coins: 13,019
