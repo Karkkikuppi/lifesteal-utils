@@ -5,12 +5,12 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.serialization.DataResult;
 import com.mojang.serialization.DynamicOps;
 import dev.candycup.configura.serial.SerialEntry;
-import dev.candycup.lifestealutils.Config;
 import dev.candycup.lifestealutils.config.configurables.ConfigurableBoolean;
 import dev.candycup.lifestealutils.config.configurables.ConfigurableFloat;
 import dev.candycup.lifestealutils.event.LifestealUtilsEvents;
 import dev.candycup.lifestealutils.event.LifestealUtilsEvents.ItemRenderEvent;
-import dev.candycup.lifestealutils.interapi.MessagingUtils;
+import lombok.Getter;
+import lombok.Setter;
 import net.fabricmc.fabric.api.client.item.v1.ItemTooltipCallback;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
@@ -39,9 +39,24 @@ import java.util.Optional;
  */
 public final class RareItems {
 
+   @Getter
+   @Setter
    @SerialEntry(comment = "Hold drop key to confirm dropping")
    @ConfigurableBoolean(location = "qol.rareitems.drophold")
    public static boolean dropConfirmEnabled = true;
+
+   @Getter
+   @Setter
+   @SerialEntry(comment = "Enable increased scale for rare items such as neth and custom enchants.")
+   @ConfigurableBoolean(location = "qol.scaling.rareitemscaleenabled")
+   private static boolean rareItemScaleEnabled = true;
+
+   @Getter
+   @Setter
+   @SerialEntry(comment = "Increased scale of the rare items.")
+   @ConfigurableFloat(location = "qol.scaling.rareitemscale", min = 1.0f, max = 5.0f)
+   private static float rareItemScale = 2.0f;
+
    public static Float holdKeyProgress = 0f;
    public static ItemStack hoveredStack = ItemStack.EMPTY;
    public static ItemStack trackingStack = ItemStack.EMPTY;
@@ -49,7 +64,7 @@ public final class RareItems {
 
    public RareItems() {
       LifestealUtilsEvents.ITEM_RENDER.register(event -> {
-         if (!isEnabled()) {
+         if (!rareItemScaleEnabled) {
             return;
          }
          onItemRender(event);
@@ -58,15 +73,11 @@ public final class RareItems {
       ItemTooltipCallback.EVENT.register((stack, context, flag, lines) -> appendTooltip(lines, stack));
    }
 
-   public boolean isEnabled() {
-      return Config.isRareItemScaleEnabled();
-   }
-
    public void onItemRender(ItemRenderEvent event) {
       // only scale if the item is marked as rare by the mixin
       if (!event.isRare()) return;
 
-      float scale = Config.getRareItemScale();
+      float scale = rareItemScale;
       event.getPoseStack().scale(scale, scale, scale);
    }
 
