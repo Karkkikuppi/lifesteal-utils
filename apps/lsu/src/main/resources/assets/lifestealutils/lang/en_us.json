@@ -300,6 +300,10 @@
   "lsu.autoclicker.input_rejected": "<red>Autoclicker disabled: Minecraft rejected synthetic mouse input.</red>",
   "lsu.autoclicker.enabled": "Autoclicker enabled at <bold>%s</bold> clicks-per-second.",
   "lsu.autoclicker.disabled": "Autoclicker <red>disabled</red>.",
+  "lsu.config.qol.autoclicker.key": "Autoclicker Key",
+  "lsu.config.qol.autoclicker.key.desc": "Which mouse button should the autoclicker trigger?",
+  "lsu.config.qol.autoclicker.key.left": "Left Mouse Button",
+  "lsu.config.qol.autoclicker.key.right": "Right Mouse Button",
   "lsu.baltop.load_failed": "Failed to load baltop: %s",
   "lsu.alliances.readonly": "Read-only (subscription)"
   ,"lsu.auction.sidebar.claim_items": "Claim Items"
