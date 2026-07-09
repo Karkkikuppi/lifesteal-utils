@@ -2,10 +2,12 @@ package dev.candycup.lifestealutils.features.qol;
 
 import dev.candycup.lifestealutils.ConfigUtils;
 import dev.candycup.lifestealutils.api.LifestealAPI;
+import dev.candycup.lifestealutils.config.configurables.ConfigurableEnum;
 import dev.candycup.lifestealutils.config.configurables.ConfigurableFloat;
 import dev.candycup.lifestealutils.interapi.MessagingUtils;
 import dev.candycup.lifestealutils.mixin.MouseHandlerInvoker;
 import dev.candycup.configura.serial.SerialEntry;
+import lombok.Getter;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.input.MouseButtonInfo;
 import org.lwjgl.glfw.GLFW;
@@ -19,6 +21,10 @@ public final class Autoclicker {
     @SerialEntry(comment = "Autoclicker clicks per second")
     @ConfigurableFloat(location = "qol.autoclicker.cps", min = MIN_CPS, max = MAX_CPS)
     private static float autoclickerCps = 10.0f;
+
+    @SerialEntry(comment = "Autoclicker key")
+    @ConfigurableEnum(location = "qol.autoclicker.key")
+    private static Autoclicker.AutoclickerKey autoclickerKey = AutoclickerKey.LEFT_MOUSE_BUTTON;
 
     private static boolean inputErrorShown;
     private static volatile boolean enabled;
@@ -105,7 +111,7 @@ public final class Autoclicker {
 
         try {
             long window = client.getWindow().handle();
-            MouseButtonInfo button = new MouseButtonInfo(GLFW.GLFW_MOUSE_BUTTON_LEFT, 0);
+            MouseButtonInfo button = new MouseButtonInfo(autoclickerKey.getKey(), 0);
             MouseHandlerInvoker mouseHandler = (MouseHandlerInvoker) client.mouseHandler;
 
             mouseHandler.lifestealutils$onButton(window, button, GLFW.GLFW_PRESS);
@@ -150,6 +156,22 @@ public final class Autoclicker {
             MessagingUtils.showTranslated("lsu.autoclicker.enabled", MessagingUtils.arg(formatCps(getAutoclickerCps())));
         } else {
             MessagingUtils.showTranslated("lsu.autoclicker.disabled");
+        }
+    }
+
+    public enum AutoclickerKey {
+        LEFT_MOUSE_BUTTON("lsu.config.qol.autoclicker.key.left", GLFW.GLFW_MOUSE_BUTTON_LEFT),
+        RIGHT_MOUSE_BUTTON("lsu.config.qol.autoclicker.key.right", GLFW.GLFW_MOUSE_BUTTON_RIGHT);
+
+        @Getter
+        private final String translationKey;
+
+        @Getter
+        private final int key;
+
+        AutoclickerKey(String translationKey, int key) {
+            this.translationKey = translationKey;
+            this.key = key;
         }
     }
 }

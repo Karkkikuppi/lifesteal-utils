@@ -172,12 +172,12 @@
   "lsu.config.qol.titlescreen.quickjoinbuttonenabled.desc": "Quick Join button on the title screen",
   "lsu.config.qol.titlescreen.custompanoramaenabled": "Lobby Panorama",
   "lsu.config.qol.titlescreen.custompanoramaenabled.desc": "Custom panorama background on the title screen",
-  "lsu.config.qol.scaling": "Rare Item Scaling",
-  "lsu.config.qol.scaling.header_desc": "Highlight rare items on the ground by increasing their scale.",
-  "lsu.config.qol.scaling.rareitemscaleenabled": "Enable Rare Item Scale",
-  "lsu.config.qol.scaling.rareitemscaleenabled.desc": "Enable increased scale for rare items such as neth and custom enchants.",
-  "lsu.config.qol.scaling.rareitemscale": "Rare Item Scale",
-  "lsu.config.qol.scaling.rareitemscale.desc": "Increased scale of rare items. 1 is regular size.",
+  "lsu.config.qol.rareitems": "Rare Items",
+  "lsu.config.qol.rareitems.header_desc": "Qol features for rare items, including scaling and drop confirmation.",
+  "lsu.config.qol.rareitems.rareitemscaleenabled": "Enable Rare Item Scale",
+  "lsu.config.qol.rareitems.rareitemscaleenabled.desc": "Enable increased scale for rare items when dropped on the ground.",
+  "lsu.config.qol.rareitems.rareitemscale": "Rare Item Scale",
+  "lsu.config.qol.rareitems.rareitemscale.desc": "Increased scale of rare items. 1 is regular size.",
   "lsu.config.qol.desloppifychat": "De-sloppify Chat",
   "lsu.config.qol.desloppifychat.header_desc": "Set up words and phrases that should appear ghosted in chat.",
   "lsu.config.qol.desloppifychat.enabled": "Enable the De-sloppifier",
@@ -300,10 +300,17 @@
   "lsu.autoclicker.input_rejected": "<red>Autoclicker disabled: Minecraft rejected synthetic mouse input.</red>",
   "lsu.autoclicker.enabled": "Autoclicker enabled at <bold>%s</bold> clicks-per-second.",
   "lsu.autoclicker.disabled": "Autoclicker <red>disabled</red>.",
+  "lsu.config.qol.autoclicker.key": "Autoclicker Key",
+  "lsu.config.qol.autoclicker.key.desc": "Which mouse button should the autoclicker trigger?",
+  "lsu.config.qol.autoclicker.key.left": "Left Mouse Button",
+  "lsu.config.qol.autoclicker.key.right": "Right Mouse Button",
   "lsu.baltop.load_failed": "Failed to load baltop: %s",
-  "lsu.alliances.readonly": "Read-only (subscription)"
-  ,"lsu.auction.sidebar.claim_items": "Claim Items"
-  ,"lsu.auction.sidebar.your_listings": "Your Listings"
-  ,"lsu.auction.sidebar.claim_items.unavailable": "'Claim Items' is unavailable in this menu!"
-  ,"lsu.auction.sidebar.your_listings.unavailable": "'Your Listings' is unavailable in this menu!"
+  "lsu.alliances.readonly": "Read-only (subscription)",
+  "lsu.auction.sidebar.claim_items": "Claim Items",
+  "lsu.auction.sidebar.your_listings": "Your Listings",
+  "lsu.auction.sidebar.claim_items.unavailable": "'Claim Items' is unavailable in this menu!",
+  "lsu.auction.sidebar.your_listings.unavailable": "'Your Listings' is unavailable in this menu!",
+  "lsu.rareitem.drop.confirm": "Hold [%s] to Drop",
+  "lsu.config.qol.rareitems.drophold": "Hold to Drop",
+  "lsu.config.qol.rareitems.drophold.desc": "Hold your drop keybind to drop rare items. To Prevent accidental drops."
 }

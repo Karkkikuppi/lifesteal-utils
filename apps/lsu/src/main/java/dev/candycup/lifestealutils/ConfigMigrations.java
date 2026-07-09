@@ -66,6 +66,12 @@ public final class ConfigMigrations {
       markTouchedIfChanged(before, map);
    }
 
+   public static void applyMigration4(Map<String, Object> map) {
+      Map<String, Object> before = new LinkedHashMap<>(map);
+      ConfiguraMigration.rename(map, "qol.scaling", "qol.rareitems");
+      markTouchedIfChanged(before, map);
+   }
+
    private static void markTouchedIfChanged(Map<String, Object> before, Map<String, Object> after) {
       if (!before.equals(after)) {
          migrationTouched = true;
