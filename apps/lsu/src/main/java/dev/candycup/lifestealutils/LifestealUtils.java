@@ -3,11 +3,8 @@ package dev.candycup.lifestealutils;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.brigadier.arguments.DoubleArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
-import dev.candycup.lifestealutils.api.PersistentKnowledgeController;
 import dev.candycup.lifestealutils.api.observers.ScoreboardObserver;
 import dev.candycup.lifestealutils.api.observers.TablistObserver;
-import dev.candycup.lifestealutils.config.ConfigContainerRegistry;
-import dev.candycup.lifestealutils.config.ConfigDescriptorRegistry;
 import dev.candycup.lifestealutils.config.ConfigResolver;
 import dev.candycup.lifestealutils.event.LifestealUtilsEvents;
 import dev.candycup.lifestealutils.event.LifestealUtilsEvents.ClientTickEvent;
@@ -20,7 +17,7 @@ import dev.candycup.lifestealutils.features.alliances.AllianceSyncManager;
 import dev.candycup.lifestealutils.features.baltop.BaltopScrapeCoordinator;
 import dev.candycup.lifestealutils.features.combat.HeavenlyDurabilityCalculator;
 import dev.candycup.lifestealutils.features.gaia.GaiaConnectionToastListener;
-import dev.candycup.lifestealutils.features.items.RareItemHighlight;
+import dev.candycup.lifestealutils.features.items.RareItems;
 import dev.candycup.lifestealutils.features.messages.ChatTagRemover;
 import dev.candycup.lifestealutils.features.messages.GhostedChatMessageFilter;
 import dev.candycup.lifestealutils.features.messages.PrivateMessageFormatter;
@@ -29,7 +26,6 @@ import dev.candycup.lifestealutils.features.qol.Autoclicker;
 import dev.candycup.lifestealutils.features.qol.AutoJoinLifesteal;
 import dev.candycup.lifestealutils.features.titlescreen.CustomSplashes;
 import dev.candycup.lifestealutils.features.titlescreen.QuickJoinButton;
-import dev.candycup.lifestealutils.gaia.GaiaConsentController;
 import dev.candycup.lifestealutils.gaia.GaiaConsentScreen;
 import dev.candycup.lifestealutils.gaia.GaiaAuthClient;
 import dev.candycup.lifestealutils.gaia.gateway.GaiaGatewayClient;
@@ -43,6 +39,7 @@ import dev.candycup.lifestealutils.ui.HudElementEditor;
 import dev.candycup.lifestealutils.ui.RadarScreen;
 import dev.candycup.lifestealutils.ui.AllianceListScreen;
 import lombok.Getter;
+import net.fabricmc.fabric.api.client.item.v1.ItemTooltipCallback;
 import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
@@ -98,7 +95,7 @@ public final class LifestealUtils implements ClientModInitializer {
    private static PrivateMessageFormatter privateMessageFormatter;
    private static ChatTagRemover chatTagRemover;
    private static GhostedChatMessageFilter ghostedChatMessageFilter;
-   private static RareItemHighlight rareItemHighlight;
+   private static RareItems rareItems;
    private static QuickJoinButton quickJoinButton;
    private static CustomSplashes customSplashes;
    private static AutoJoinLifesteal autoJoinLifesteal;
@@ -168,7 +165,7 @@ public final class LifestealUtils implements ClientModInitializer {
 
       ghostedChatMessageFilter = new GhostedChatMessageFilter();
 
-      rareItemHighlight = new RareItemHighlight();
+      rareItems = new RareItems();
 
       quickJoinButton = new QuickJoinButton();
 

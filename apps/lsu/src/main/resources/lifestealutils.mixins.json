@@ -28,6 +28,7 @@
     "SplashManagerMixin",
     "TabListMixin",
     "TitleScreenMixin",
+    "ContainerDropMixin",
     "afk.GameRendererMixin",
     "afk.GuiMixin"
   ],

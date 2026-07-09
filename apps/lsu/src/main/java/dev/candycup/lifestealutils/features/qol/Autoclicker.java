@@ -4,7 +4,6 @@ import dev.candycup.lifestealutils.ConfigUtils;
 import dev.candycup.lifestealutils.api.LifestealAPI;
 import dev.candycup.lifestealutils.config.configurables.ConfigurableEnum;
 import dev.candycup.lifestealutils.config.configurables.ConfigurableFloat;
-import dev.candycup.lifestealutils.features.combat.HeavenlyDurabilityCalculator;
 import dev.candycup.lifestealutils.interapi.MessagingUtils;
 import dev.candycup.lifestealutils.mixin.MouseHandlerInvoker;
 import dev.candycup.configura.serial.SerialEntry;
