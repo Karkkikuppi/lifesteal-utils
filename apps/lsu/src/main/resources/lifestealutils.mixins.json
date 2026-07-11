@@ -15,6 +15,7 @@
     "ClientPacketListenerMixin",
     "DownloadedPackSourceMixin",
     "ConnectingScreenMixin",
+    "ContainerOverlayBackgroundMixin",
     "ItemClusterMixin",
     "ItemRendererMixin",
     "JoinMultiplayerScreenMixin",

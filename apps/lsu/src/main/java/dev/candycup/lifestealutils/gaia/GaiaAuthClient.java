@@ -13,6 +13,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.security.SecureRandom;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.concurrent.CompletableFuture;
 import java.util.UUID;
 
@@ -48,18 +50,18 @@ public final class GaiaAuthClient {
         String json = GSON.toJson(payload);
         NetworkUtilsController.HttpResult result = GaiaApiClient.getInstance().auth().confirmHandshake(json);
         if (!result.success()) {
-            LOGGER.debug("gaia auth confirm failed: {}", result.error());
+            LOGGER.warn("Gaia login failed while confirming the handshake with Gaia: {}", result.error());
             return false;
         }
 
         ConfirmHandshakeResponse response = parseConfirmHandshakeResponse(result.body());
         if (response == null || !response.success()) {
-            LOGGER.debug("gaia auth confirm failed: {}", response == null ? "invalid response" : response.error());
+            LOGGER.warn("Gaia login handshake was rejected: {}", response == null ? "invalid response" : response.error());
             return false;
         }
 
         if (response.token() == null || response.token().isBlank()) {
-            LOGGER.debug(TOKEN_MISSING_MESSAGE);
+            LOGGER.error("Gaia login failed: {}", TOKEN_MISSING_MESSAGE);
             return false;
         }
 
@@ -79,7 +81,7 @@ public final class GaiaAuthClient {
      * @return a future containing the confirmation result
      */
     public static CompletableFuture<Boolean> confirmHandshakeOnStartup(String username, UUID playerId) {
-        return CompletableFuture.supplyAsync(() -> {
+        CompletableFuture<Boolean> login = CompletableFuture.supplyAsync(() -> {
             if (GaiaAuthTokenStore.hasValidToken(username, playerId)) {
                 LOGGER.debug("gaia auth using cached token for {}", username);
                 return true;
@@ -104,6 +106,14 @@ public final class GaiaAuthClient {
             boolean result = confirmHandshake(serverId, username, playerId);
             LOGGER.info("gaia auth: confirmHandshake result: {}", result);
             return result;
+        });
+
+        // Async exceptions otherwise bypass the callers' thenAccept handlers and leave no
+        // evidence when another mixin breaks the vanilla authentication invoker at runtime.
+        return login.whenComplete((success, throwable) -> {
+            if (throwable != null) {
+                LOGGER.error("Gaia login failed with an unexpected error", throwable);
+            }
         });
     }
 
@@ -141,14 +151,14 @@ public final class GaiaAuthClient {
     private static boolean authenticateWithMojang(String serverId) {
         ClientHandshakePacketListenerImpl listener = createHandshakeListener();
         if (listener == null) {
-            LOGGER.debug("gaia auth failed to create handshake listener");
+            LOGGER.error("Gaia login failed because the vanilla handshake listener could not be created");
             return false;
         }
 
         ClientHandshakePacketListenerImplAuthInvoker invoker = (ClientHandshakePacketListenerImplAuthInvoker) listener;
         Component result = invoker.lifestealutils$authenticateServer(serverId);
         if (result != null) {
-            LOGGER.debug("gaia auth failed during mojang authentication");
+            LOGGER.warn("Gaia login was rejected by Mojang's session service: {}", result.getString());
             return false;
         }
 
@@ -168,6 +178,9 @@ public final class GaiaAuthClient {
         try {
             Minecraft minecraft = Minecraft.getInstance();
             Connection connection = new Connection(PacketFlow.CLIENTBOUND);
+            if (!prepareViaFabricPlusConnection(connection)) {
+                return null;
+            }
 
             //? if >1.21.8 {
             return ClientHandshakePacketListenerImplAuthInvoker.lifestealutils$create(
@@ -178,9 +191,38 @@ public final class GaiaAuthClient {
                  connection, minecraft, null, null, false, null, component -> {
                  }, null);
          *///?}
-        } catch (RuntimeException exception) {
-            LOGGER.warn("gaia auth failed to build handshake listener: {} - {}", exception.getClass().getSimpleName(), exception.getMessage());
+        } catch (RuntimeException | LinkageError exception) {
+            LOGGER.error("Gaia login failed while creating the vanilla handshake listener", exception);
             return null;
+        }
+    }
+
+    /**
+     * Gives ViaFabricPlus the protocol metadata it normally installs while opening a socket.
+     * Gaia's authentication connection never opens a socket, but ViaFabricPlus still reads
+     * this value from its authentication mixin and otherwise dereferences {@code null}.
+     */
+    private static boolean prepareViaFabricPlusConnection(Connection connection) {
+        if (!net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("viafabricplus")) {
+            return true;
+        }
+
+        try {
+            Class<?> connectionAccess = Class.forName("com.viaversion.viafabricplus.injection.access.core.IConnection");
+            Class<?> protocolTranslator = Class.forName("com.viaversion.viafabricplus.protocoltranslator.ProtocolTranslator");
+            Class<?> protocolVersion = Class.forName("com.viaversion.viaversion.api.protocol.version.ProtocolVersion");
+            Field nativeVersionField = protocolTranslator.getField("NATIVE_VERSION");
+            Object nativeVersion = nativeVersionField.get(null);
+            Method setTargetVersion = connectionAccess.getMethod(
+                    "viaFabricPlus$setTargetVersion",
+                    protocolVersion
+            );
+            setTargetVersion.invoke(connection, nativeVersion);
+            LOGGER.debug("Prepared Gaia authentication connection for ViaFabricPlus using its native protocol");
+            return true;
+        } catch (ReflectiveOperationException | RuntimeException exception) {
+            LOGGER.error("Gaia login could not initialize ViaFabricPlus compatibility metadata", exception);
+            return false;
         }
     }
 
@@ -194,7 +236,7 @@ public final class GaiaAuthClient {
         try {
             return GSON.fromJson(json, ConfirmHandshakeResponse.class);
         } catch (Exception e) {
-            LOGGER.debug("gaia auth response parse failed: {}", e.getMessage());
+            LOGGER.error("Gaia login failed to parse the handshake response", e);
             return null;
         }
     }

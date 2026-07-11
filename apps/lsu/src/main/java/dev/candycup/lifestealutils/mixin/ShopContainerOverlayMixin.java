@@ -1,6 +1,7 @@
 package dev.candycup.lifestealutils.mixin;
 
 import dev.candycup.lifestealutils.api.LifestealAPI;
+import dev.candycup.lifestealutils.features.ContainerOverlayBackgroundState;
 import dev.candycup.ui.lsu.SlotSnapshot;
 import dev.candycup.lifestealutils.features.shop.ShopOverlayRenderer;
 import dev.candycup.lifestealutils.features.shop.ShopParseResult;
@@ -40,7 +41,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Mixin(AbstractContainerScreen.class)
-public abstract class ShopContainerOverlayMixin<T extends AbstractContainerMenu> {
+public abstract class ShopContainerOverlayMixin<T extends AbstractContainerMenu> implements ContainerOverlayBackgroundState {
     @Unique
     private static final Logger LOGGER = LoggerFactory.getLogger("lifestealutils/shop-ui");
 
@@ -72,14 +73,21 @@ public abstract class ShopContainerOverlayMixin<T extends AbstractContainerMenu>
     @Unique
     private String lifestealutils$lastFallbackKey;
 
+    //? if <26.1 {
     @Inject(method = "renderBackground", at = @At("HEAD"), cancellable = true)
     private void lifestealutils$renderShopBackground(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
-        if (lifestealutils$getShopView() == null) {
+        if (!lifestealutils$shouldReplaceShopBackground()) {
             return;
         }
 
         ((ScreenAccessor) this).invokeRenderBlurredBackground(guiGraphics);
         ci.cancel();
+    }
+    //?}
+
+    @Unique
+    public boolean lifestealutils$shouldReplaceShopBackground() {
+        return lifestealutils$getShopView() != null;
     }
 
     @Inject(method = "render", at = @At("HEAD"), cancellable = true)

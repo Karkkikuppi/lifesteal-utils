@@ -1,6 +1,7 @@
 package dev.candycup.lifestealutils.mixin;
 
 import dev.candycup.lifestealutils.api.LifestealAPI;
+import dev.candycup.lifestealutils.features.ContainerOverlayBackgroundState;
 import dev.candycup.lifestealutils.features.ah.AhOverlayRenderer;
 import dev.candycup.lifestealutils.features.ah.AhOverlaySearchInput;
 import dev.candycup.lifestealutils.features.ah.AhOverlaySearchState;
@@ -47,7 +48,7 @@ import java.util.List;
 import java.util.Set;
 
 @Mixin(AbstractContainerScreen.class)
-public abstract class AuctionContainerOverlayMixin<T extends AbstractContainerMenu> implements AhOverlaySearchState, AhOverlaySearchInput {
+public abstract class AuctionContainerOverlayMixin<T extends AbstractContainerMenu> implements AhOverlaySearchState, AhOverlaySearchInput, ContainerOverlayBackgroundState {
     @Unique
     private static final Logger LOGGER = LoggerFactory.getLogger("lifestealutils/ah-overlay");
 
@@ -112,14 +113,21 @@ public abstract class AuctionContainerOverlayMixin<T extends AbstractContainerMe
     @Unique
     private int lifestealutils$lastPrevClickStateId = Integer.MIN_VALUE;
 
+    //? if <26.1 {
     @Inject(method = "renderBackground", at = @At("HEAD"), cancellable = true)
     private void lifestealutils$renderAuctionBackground(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
-        if (lifestealutils$getAhView() == null) {
+        if (!lifestealutils$shouldReplaceAuctionBackground()) {
             return;
         }
 
         ((ScreenAccessor) this).invokeRenderBlurredBackground(guiGraphics);
         ci.cancel();
+    }
+    //?}
+
+    @Unique
+    public boolean lifestealutils$shouldReplaceAuctionBackground() {
+        return lifestealutils$getAhView() != null;
     }
 
     @Inject(method = "render", at = @At("HEAD"), cancellable = true)
