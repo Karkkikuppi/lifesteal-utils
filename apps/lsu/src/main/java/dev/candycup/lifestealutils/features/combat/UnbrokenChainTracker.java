@@ -40,206 +40,206 @@ import java.util.concurrent.ConcurrentHashMap;
  * 3. player receives damage -> reset chain to 0
  */
 public final class UnbrokenChainTracker {
-   private static final Logger LOGGER = LoggerFactory.getLogger("lifestealutils/chain");
+    private static final Logger LOGGER = LoggerFactory.getLogger("lifestealutils/chain");
 
-   public static final String CONFIG_ID = "unbroken_chain";
-   public static final String DEFAULT_FORMAT = "<gray>Chain:</gray> <gold>{{count}}</gold> <gray>(+{{bonus}}% dmg)</gray>";
-   private static final long HIT_CONFIRMATION_TIMEOUT_MS = 500;
-   private static final int MAX_CHAIN = 12; // max tracked chain count (allows 50% bonus)
-   private static final int BONUS_START_CHAIN = 3;
-   private static final int BONUS_START_OFFSET = 2;
-   private static final int BONUS_PER_HIT = 5;
-   private static final long INACTIVE_RESET_MS = 5_000;
+    public static final String CONFIG_ID = "unbroken_chain";
+    public static final String DEFAULT_FORMAT = "<gray>Chain:</gray> <gold>{{count}}</gold> <gray>(+{{bonus}}% dmg)</gray>";
+    private static final long HIT_CONFIRMATION_TIMEOUT_MS = 500;
+    private static final int MAX_CHAIN = 12; // max tracked chain count (allows 50% bonus)
+    private static final int BONUS_START_CHAIN = 3;
+    private static final int BONUS_START_OFFSET = 2;
+    private static final int BONUS_PER_HIT = 5;
+    private static final long INACTIVE_RESET_MS = 5_000;
 
-   @Getter
-   @Setter
-   @SerialEntry(comment = "Whether to enable the unbroken chain counter HUD element")
-   @ConfigurableBoolean(location = "timers.chaincounter.enabled")
-   private static boolean chainCounterEnabled = false;
+    @Getter
+    @Setter
+    @SerialEntry(comment = "Whether to enable the unbroken chain counter HUD element")
+    @ConfigurableBoolean(location = "timers.chaincounter.enabled")
+    private static boolean chainCounterEnabled = false;
 
-   @Getter
-   @Setter
-   @SerialEntry(comment = "Custom format for the unbroken chain counter display")
-   @ConfigurableMinimessage(location = "timers.chaincounter.format")
-   private static String chainCounterFormat = DEFAULT_FORMAT;
+    @Getter
+    @Setter
+    @SerialEntry(comment = "Custom format for the unbroken chain counter display")
+    @ConfigurableMinimessage(location = "timers.chaincounter.format")
+    private static String chainCounterFormat = DEFAULT_FORMAT;
 
-   // pending hits awaiting server confirmation: entity id -> timestamp
-   private final Map<Integer, Long> pendingHits = new ConcurrentHashMap<>();
+    // pending hits awaiting server confirmation: entity id -> timestamp
+    private final Map<Integer, Long> pendingHits = new ConcurrentHashMap<>();
 
-   // current chain count
-   @Getter
-   private int chainCount = 0;
-   private long lastConfirmedHitTimeMs = 0L;
+    // current chain count
+    @Getter
+    private int chainCount = 0;
+    private long lastConfirmedHitTimeMs = 0L;
 
-   @Getter
-   private final HudElementDefinition hudDefinition;
+    @Getter
+    private final HudElementDefinition hudDefinition;
 
-   public UnbrokenChainTracker() {
-      this.hudDefinition = new HudElementDefinition(
-              Identifier.fromNamespaceAndPath("lifestealutils", CONFIG_ID + "_counter"),
-              "Unbroken Chain Counter",
-              this::getDisplayText,
-              HudPosition.clamp(0.5F, 0.25F, HudAnchor.CENTER)
-      );
+    public UnbrokenChainTracker() {
+        this.hudDefinition = new HudElementDefinition(
+                Identifier.fromNamespaceAndPath("lifestealutils", CONFIG_ID + "_counter"),
+                "Unbroken Chain Counter",
+                this::getDisplayText,
+                HudPosition.clamp(0.5F, 0.25F, HudAnchor.CENTER)
+        );
 
-      LifestealUtilsEvents.CLIENT_ATTACK.register(event -> {
-         if (!isEnabled()) {
+        LifestealUtilsEvents.CLIENT_ATTACK.register(event -> {
+            if (!isEnabled()) {
+                return;
+            }
+            onClientAttack(event);
+        });
+        LifestealUtilsEvents.PACKET_RECEIVED.register((packet, callbackInfo) -> {
+            if (!isEnabled()) {
+                return;
+            }
+            if (!(packet instanceof ClientboundDamageEventPacket damagePacket)) {
+                return;
+            }
+            onIncomingDamagePacket(damagePacket);
+        });
+        LifestealUtilsEvents.CLIENT_TICK.register(event -> {
+            if (!isEnabled()) {
+                return;
+            }
+            onClientTick(event);
+        });
+        LifestealUtilsEvents.SERVER_CHANGE.register(event -> {
+            if (!isEnabled()) {
+                return;
+            }
+            onServerChange(event);
+        });
+
+        LOGGER.info("[lsu-chain] unbroken chain tracker initialized");
+    }
+
+    public boolean isEnabled() {
+        return chainCounterEnabled;
+    }
+
+    public void onClientAttack(ClientAttackEvent event) {
+        Minecraft client = Minecraft.getInstance();
+        if (client.player == null) return;
+        if (!LifestealAPI.hasSpecificCustomEnchant(
+                client.player.getMainHandItem(),
+                "enchants:unbroken_chain")
+        ) {
             return;
-         }
-         onClientAttack(event);
-      });
-      LifestealUtilsEvents.PACKET_RECEIVED.register((packet, callbackInfo) -> {
-         if (!isEnabled()) {
+        }
+
+        long now = System.currentTimeMillis();
+        pendingHits.put(event.getTargetId(), now);
+        LOGGER.debug("[lsu-chain] pending hit registered for entity {}", event.getTargetId());
+    }
+
+    private void onIncomingDamagePacket(ClientboundDamageEventPacket packet) {
+        if (!LifestealAPI.isOnLifestealNetwork()) {
             return;
-         }
-         if (!(packet instanceof ClientboundDamageEventPacket damagePacket)) {
+        }
+
+        Minecraft client = Minecraft.getInstance();
+        if (client.player == null) {
             return;
-         }
-         onIncomingDamagePacket(damagePacket);
-      });
-      LifestealUtilsEvents.CLIENT_TICK.register(event -> {
-         if (!isEnabled()) {
+        }
+
+        int entityId = packet.entityId();
+        if (entityId == client.player.getId()) {
+            onPlayerDamaged();
             return;
-         }
-         onClientTick(event);
-      });
-      LifestealUtilsEvents.SERVER_CHANGE.register(event -> {
-         if (!isEnabled()) {
+        }
+
+        Entity entity = client.level != null ? client.level.getEntity(entityId) : null;
+        if (!(entity instanceof Player)) {
             return;
-         }
-         onServerChange(event);
-      });
+        }
 
-      LOGGER.info("[lsu-chain] unbroken chain tracker initialized");
-   }
+        Long hitTime = pendingHits.remove(entityId);
+        if (hitTime == null) {
+            return;
+        }
 
-   public boolean isEnabled() {
-      return chainCounterEnabled;
-   }
+        long elapsed = System.currentTimeMillis() - hitTime;
+        if (elapsed > HIT_CONFIRMATION_TIMEOUT_MS) {
+            LOGGER.debug("[lsu-chain] hit confirmation too slow ({}ms > {}ms)", elapsed, HIT_CONFIRMATION_TIMEOUT_MS);
+            return;
+        }
 
-   public void onClientAttack(ClientAttackEvent event) {
-      Minecraft client = Minecraft.getInstance();
-      if (client.player == null) return;
-      if (!LifestealAPI.hasSpecificCustomEnchant(
-              client.player.getMainHandItem(),
-              "enchants:unbroken_chain")
-      ) {
-         return;
-      }
+        chainCount = Math.min(chainCount + 1, MAX_CHAIN);
+        lastConfirmedHitTimeMs = System.currentTimeMillis();
+        LOGGER.debug("[lsu-chain] chain incremented to {}", chainCount);
+    }
 
-      long now = System.currentTimeMillis();
-      pendingHits.put(event.getTargetId(), now);
-      LOGGER.debug("[lsu-chain] pending hit registered for entity {}", event.getTargetId());
-   }
+    private void onPlayerDamaged() {
+        if (chainCount > 0) {
+            LOGGER.debug("[lsu-chain] chain reset from {} (player damaged)", chainCount);
+            chainCount = 0;
+        }
+        lastConfirmedHitTimeMs = 0L;
+        // also clear any pending hits since chain is broken
+        pendingHits.clear();
+    }
 
-   private void onIncomingDamagePacket(ClientboundDamageEventPacket packet) {
-      if (!LifestealAPI.isOnLifestealNetwork()) {
-         return;
-      }
+    public void onClientTick(ClientTickEvent event) {
+        long now = System.currentTimeMillis();
+        if (chainCount > 0 && lastConfirmedHitTimeMs > 0L && now - lastConfirmedHitTimeMs > INACTIVE_RESET_MS) {
+            LOGGER.debug("[lsu-chain] chain reset from {} (inactive for {}ms)", chainCount, INACTIVE_RESET_MS);
+            chainCount = 0;
+            lastConfirmedHitTimeMs = 0L;
+            pendingHits.clear();
+        }
+        pendingHits.entrySet().removeIf(entry ->
+                now - entry.getValue() > HIT_CONFIRMATION_TIMEOUT_MS
+        );
+    }
 
-      Minecraft client = Minecraft.getInstance();
-      if (client.player == null) {
-         return;
-      }
+    public void onServerChange(ServerChangeEvent event) {
+        if (event.isDisconnected()) {
+            reset();
+        }
+    }
 
-      int entityId = packet.entityId();
-      if (entityId == client.player.getId()) {
-         onPlayerDamaged();
-         return;
-      }
+    public int getBonusPercent() {
+        return getBonusPercentFor(chainCount);
+    }
 
-      Entity entity = client.level != null ? client.level.getEntity(entityId) : null;
-      if (!(entity instanceof Player)) {
-         return;
-      }
+    private int getBonusPercentFor(int count) {
+        if (count < BONUS_START_CHAIN) {
+            return 0;
+        }
+        int bonusHits = count - BONUS_START_OFFSET;
+        return Math.min(bonusHits * BONUS_PER_HIT, MAX_CHAIN * BONUS_PER_HIT);
+    }
 
-      Long hitTime = pendingHits.remove(entityId);
-      if (hitTime == null) {
-         return;
-      }
+    private String getDisplayText() {
+        int count = chainCount;
+        int bonus = getBonusPercent();
 
-      long elapsed = System.currentTimeMillis() - hitTime;
-      if (elapsed > HIT_CONFIRMATION_TIMEOUT_MS) {
-         LOGGER.debug("[lsu-chain] hit confirmation too slow ({}ms > {}ms)", elapsed, HIT_CONFIRMATION_TIMEOUT_MS);
-         return;
-      }
+        if (count == 0) {
+            if (Minecraft.getInstance().screen instanceof HudElementEditor) {
+                count = 3;
+                bonus = getBonusPercentFor(count);
+            } else {
+                return "";
+            }
+        }
 
-      chainCount = Math.min(chainCount + 1, MAX_CHAIN);
-      lastConfirmedHitTimeMs = System.currentTimeMillis();
-      LOGGER.debug("[lsu-chain] chain incremented to {}", chainCount);
-   }
+        String format = chainCounterFormat;
+        if (format == null || format.isBlank()) {
+            format = DEFAULT_FORMAT;
+        }
 
-   private void onPlayerDamaged() {
-      if (chainCount > 0) {
-         LOGGER.debug("[lsu-chain] chain reset from {} (player damaged)", chainCount);
-         chainCount = 0;
-      }
-      lastConfirmedHitTimeMs = 0L;
-      // also clear any pending hits since chain is broken
-      pendingHits.clear();
-   }
+        return format
+                .replace("{{count}}", String.valueOf(count))
+                .replace("{{bonus}}", String.valueOf(bonus));
+    }
 
-   public void onClientTick(ClientTickEvent event) {
-      long now = System.currentTimeMillis();
-      if (chainCount > 0 && lastConfirmedHitTimeMs > 0L && now - lastConfirmedHitTimeMs > INACTIVE_RESET_MS) {
-         LOGGER.debug("[lsu-chain] chain reset from {} (inactive for {}ms)", chainCount, INACTIVE_RESET_MS);
-         chainCount = 0;
-         lastConfirmedHitTimeMs = 0L;
-         pendingHits.clear();
-      }
-      pendingHits.entrySet().removeIf(entry ->
-              now - entry.getValue() > HIT_CONFIRMATION_TIMEOUT_MS
-      );
-   }
-
-   public void onServerChange(ServerChangeEvent event) {
-      if (event.isDisconnected()) {
-         reset();
-      }
-   }
-
-   public int getBonusPercent() {
-      return getBonusPercentFor(chainCount);
-   }
-
-   private int getBonusPercentFor(int count) {
-      if (count < BONUS_START_CHAIN) {
-         return 0;
-      }
-      int bonusHits = count - BONUS_START_OFFSET;
-      return Math.min(bonusHits * BONUS_PER_HIT, MAX_CHAIN * BONUS_PER_HIT);
-   }
-
-   private String getDisplayText() {
-      int count = chainCount;
-      int bonus = getBonusPercent();
-
-      if (count == 0) {
-         if (Minecraft.getInstance().screen instanceof HudElementEditor) {
-            count = 3;
-            bonus = getBonusPercentFor(count);
-         } else {
-            return "";
-         }
-      }
-
-      String format = chainCounterFormat;
-      if (format == null || format.isBlank()) {
-         format = DEFAULT_FORMAT;
-      }
-
-      return format
-              .replace("{{count}}", String.valueOf(count))
-              .replace("{{bonus}}", String.valueOf(bonus));
-   }
-
-   /**
-    * resets all state - useful for world/server changes.
-    */
-   public void reset() {
-      chainCount = 0;
-      lastConfirmedHitTimeMs = 0L;
-      pendingHits.clear();
-      LOGGER.debug("[lsu-chain] tracker reset");
-   }
+    /**
+     * resets all state - useful for world/server changes.
+     */
+    public void reset() {
+        chainCount = 0;
+        lastConfirmedHitTimeMs = 0L;
+        pendingHits.clear();
+        LOGGER.debug("[lsu-chain] tracker reset");
+    }
 }

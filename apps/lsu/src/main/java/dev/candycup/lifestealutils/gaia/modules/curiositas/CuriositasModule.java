@@ -17,127 +17,127 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 public final class CuriositasModule {
-   private static final Logger LOGGER = LoggerFactory.getLogger("lifestealutils/curiositas-baltop-snapshot");
-   private static final Gson GSON = new GsonBuilder().create();
-   private static final Duration API_TIMEOUT = Duration.ofSeconds(10);
-   private static final String CURIOSITAS_BASE_PATH = "/v1/curiositas";
-   private static final String BALTOP_PAST_SNAPSHOT_PATH = "/baltop-past-snapshot";
+    private static final Logger LOGGER = LoggerFactory.getLogger("lifestealutils/curiositas-baltop-snapshot");
+    private static final Gson GSON = new GsonBuilder().create();
+    private static final Duration API_TIMEOUT = Duration.ofSeconds(10);
+    private static final String CURIOSITAS_BASE_PATH = "/v1/curiositas";
+    private static final String BALTOP_PAST_SNAPSHOT_PATH = "/baltop-past-snapshot";
 
-   private final GaiaApiClient apiClient;
+    private final GaiaApiClient apiClient;
 
-   public CuriositasModule(GaiaApiClient apiClient) {
-      this.apiClient = apiClient;
-   }
+    public CuriositasModule(GaiaApiClient apiClient) {
+        this.apiClient = apiClient;
+    }
 
-   public CompletableFuture<CuriositasBaltopSnapshotClient.SnapshotResponse> fetchSnapshot(CuriositasBaltopSnapshotClient.SnapshotRange range) {
-      return CompletableFuture.supplyAsync(() -> {
-         NetworkUtilsController.HttpResult result = apiClient.getWithAuth(
-                 CURIOSITAS_BASE_PATH + BALTOP_PAST_SNAPSHOT_PATH + "?range=" + range.queryValue(),
-                 API_TIMEOUT,
-                 0
-         );
+    public CompletableFuture<CuriositasBaltopSnapshotClient.SnapshotResponse> fetchSnapshot(CuriositasBaltopSnapshotClient.SnapshotRange range) {
+        return CompletableFuture.supplyAsync(() -> {
+            NetworkUtilsController.HttpResult result = apiClient.getWithAuth(
+                    CURIOSITAS_BASE_PATH + BALTOP_PAST_SNAPSHOT_PATH + "?range=" + range.queryValue(),
+                    API_TIMEOUT,
+                    0
+            );
 
-         if (!result.success()) {
-            LOGGER.warn("failed to fetch curiositas baltop snapshot: {}", result.error());
+            if (!result.success()) {
+                LOGGER.warn("failed to fetch curiositas baltop snapshot: {}", result.error());
+                return null;
+            }
+
+            return parseSnapshotResponse(result.body(), range);
+        });
+    }
+
+    private static CuriositasBaltopSnapshotClient.SnapshotResponse parseSnapshotResponse(String body, CuriositasBaltopSnapshotClient.SnapshotRange fallbackRange) {
+        if (body == null || body.isBlank()) {
             return null;
-         }
+        }
 
-         return parseSnapshotResponse(result.body(), range);
-      });
-   }
+        try {
+            JsonObject root = GSON.fromJson(body, JsonObject.class);
+            if (!isSuccessfulResponse(root)) {
+                return null;
+            }
 
-   private static CuriositasBaltopSnapshotClient.SnapshotResponse parseSnapshotResponse(String body, CuriositasBaltopSnapshotClient.SnapshotRange fallbackRange) {
-      if (body == null || body.isBlank()) {
-         return null;
-      }
+            CuriositasBaltopSnapshotClient.SnapshotRange parsedRange = parseRange(root, fallbackRange);
+            List<CuriositasBaltopSnapshotClient.SnapshotEntry> entries = parseEntries(root);
 
-      try {
-         JsonObject root = GSON.fromJson(body, JsonObject.class);
-         if (!isSuccessfulResponse(root)) {
+            return new CuriositasBaltopSnapshotClient.SnapshotResponse(parsedRange, entries);
+        } catch (Exception exception) {
+            LOGGER.warn("failed to parse curiositas snapshot response: {}", exception.getMessage());
             return null;
-         }
+        }
+    }
 
-         CuriositasBaltopSnapshotClient.SnapshotRange parsedRange = parseRange(root, fallbackRange);
-         List<CuriositasBaltopSnapshotClient.SnapshotEntry> entries = parseEntries(root);
+    private static boolean isSuccessfulResponse(JsonObject root) {
+        return root != null && root.has("success") && root.get("success").getAsBoolean();
+    }
 
-         return new CuriositasBaltopSnapshotClient.SnapshotResponse(parsedRange, entries);
-      } catch (Exception exception) {
-         LOGGER.warn("failed to parse curiositas snapshot response: {}", exception.getMessage());
-         return null;
-      }
-   }
+    private static CuriositasBaltopSnapshotClient.SnapshotRange parseRange(
+            JsonObject root,
+            CuriositasBaltopSnapshotClient.SnapshotRange fallbackRange
+    ) {
+        if (!root.has("range") || !root.get("range").isJsonPrimitive()) {
+            return fallbackRange;
+        }
 
-   private static boolean isSuccessfulResponse(JsonObject root) {
-      return root != null && root.has("success") && root.get("success").getAsBoolean();
-   }
+        String value = root.get("range").getAsString();
+        if (CuriositasBaltopSnapshotClient.SnapshotRange.RANGE_24_HOURS.queryValue().equals(value)) {
+            return CuriositasBaltopSnapshotClient.SnapshotRange.RANGE_24_HOURS;
+        }
+        if (CuriositasBaltopSnapshotClient.SnapshotRange.RANGE_7_DAYS.queryValue().equals(value)) {
+            return CuriositasBaltopSnapshotClient.SnapshotRange.RANGE_7_DAYS;
+        }
+        return fallbackRange;
+    }
 
-   private static CuriositasBaltopSnapshotClient.SnapshotRange parseRange(
-           JsonObject root,
-           CuriositasBaltopSnapshotClient.SnapshotRange fallbackRange
-   ) {
-      if (!root.has("range") || !root.get("range").isJsonPrimitive()) {
-         return fallbackRange;
-      }
+    private static List<CuriositasBaltopSnapshotClient.SnapshotEntry> parseEntries(JsonObject root) {
+        JsonArray entriesArray = root.has("entries") && root.get("entries").isJsonArray()
+                ? root.getAsJsonArray("entries")
+                : new JsonArray();
 
-      String value = root.get("range").getAsString();
-      if (CuriositasBaltopSnapshotClient.SnapshotRange.RANGE_24_HOURS.queryValue().equals(value)) {
-         return CuriositasBaltopSnapshotClient.SnapshotRange.RANGE_24_HOURS;
-      }
-      if (CuriositasBaltopSnapshotClient.SnapshotRange.RANGE_7_DAYS.queryValue().equals(value)) {
-         return CuriositasBaltopSnapshotClient.SnapshotRange.RANGE_7_DAYS;
-      }
-      return fallbackRange;
-   }
+        List<CuriositasBaltopSnapshotClient.SnapshotEntry> entries = new ArrayList<>();
+        for (JsonElement element : entriesArray) {
+            CuriositasBaltopSnapshotClient.SnapshotEntry entry = parseEntry(element);
+            if (entry != null) {
+                entries.add(entry);
+            }
+        }
+        return entries;
+    }
 
-   private static List<CuriositasBaltopSnapshotClient.SnapshotEntry> parseEntries(JsonObject root) {
-      JsonArray entriesArray = root.has("entries") && root.get("entries").isJsonArray()
-              ? root.getAsJsonArray("entries")
-              : new JsonArray();
+    private static CuriositasBaltopSnapshotClient.SnapshotEntry parseEntry(JsonElement element) {
+        if (!element.isJsonObject()) {
+            return null;
+        }
 
-      List<CuriositasBaltopSnapshotClient.SnapshotEntry> entries = new ArrayList<>();
-      for (JsonElement element : entriesArray) {
-         CuriositasBaltopSnapshotClient.SnapshotEntry entry = parseEntry(element);
-         if (entry != null) {
-            entries.add(entry);
-         }
-      }
-      return entries;
-   }
+        JsonObject entryObject = element.getAsJsonObject();
+        if (!entryObject.has("username") || !entryObject.has("currentAmount")) {
+            return null;
+        }
 
-   private static CuriositasBaltopSnapshotClient.SnapshotEntry parseEntry(JsonElement element) {
-      if (!element.isJsonObject()) {
-         return null;
-      }
+        String username = entryObject.get("username").getAsString();
+        Long currentAmount = parseAmount(entryObject.get("currentAmount"));
+        if (currentAmount == null) {
+            return null;
+        }
 
-      JsonObject entryObject = element.getAsJsonObject();
-      if (!entryObject.has("username") || !entryObject.has("currentAmount")) {
-         return null;
-      }
+        Long pastAmount = null;
+        if (entryObject.has("pastAmount") && !entryObject.get("pastAmount").isJsonNull()) {
+            pastAmount = parseAmount(entryObject.get("pastAmount"));
+        }
 
-      String username = entryObject.get("username").getAsString();
-      Long currentAmount = parseAmount(entryObject.get("currentAmount"));
-      if (currentAmount == null) {
-         return null;
-      }
+        return new CuriositasBaltopSnapshotClient.SnapshotEntry(username, currentAmount, pastAmount);
+    }
 
-      Long pastAmount = null;
-      if (entryObject.has("pastAmount") && !entryObject.get("pastAmount").isJsonNull()) {
-         pastAmount = parseAmount(entryObject.get("pastAmount"));
-      }
+    private static Long parseAmount(JsonElement element) {
+        if (element == null || element.isJsonNull()) {
+            return null;
+        }
 
-      return new CuriositasBaltopSnapshotClient.SnapshotEntry(username, currentAmount, pastAmount);
-   }
-
-   private static Long parseAmount(JsonElement element) {
-      if (element == null || element.isJsonNull()) {
-         return null;
-      }
-
-      try {
-         String value = element.getAsString();
-         return Long.parseLong(value);
-      } catch (Exception exception) {
-         return null;
-      }
-   }
+        try {
+            String value = element.getAsString();
+            return Long.parseLong(value);
+        } catch (Exception exception) {
+            return null;
+        }
+    }
 }

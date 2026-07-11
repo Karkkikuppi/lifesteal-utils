@@ -19,103 +19,103 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(ChatComponent.class)
 public class MessageReceiver {
-   @Shadow
-   @Final
-   private static Logger LOGGER;
+    @Shadow
+    @Final
+    private static Logger LOGGER;
 
-   @Unique
-   private static final ThreadLocal<Boolean> lifestealutils$reentrant =
-           ThreadLocal.withInitial(() -> false);
+    @Unique
+    private static final ThreadLocal<Boolean> lifestealutils$reentrant =
+            ThreadLocal.withInitial(() -> false);
 
-   @Inject(at = @At("HEAD"),
-           //? if >1.21.11 {
-           /*method = "addClientSystemMessage(Lnet/minecraft/network/chat/Component;)V",
-           *///?} else {
-           method = "addMessage(Lnet/minecraft/network/chat/Component;)V",
-           //?}
-           cancellable = true)
-   private void addMessage(Component component, CallbackInfo ci) {
-      if (!LifestealAPI.isOnLifestealNetwork()) return;
-
-      Component modified = lifestealutils$filter(component);
-      if (modified == null) {
-         ci.cancel();
-         return;
-      }
-
-      if (modified != component) {
-         ci.cancel();
-         lifestealutils$reentrant.set(true);
-         try {
+    @Inject(at = @At("HEAD"),
             //? if >1.21.11 {
-            /*((ChatComponent) (Object) this).addClientSystemMessage(modified);
+            /*method = "addClientSystemMessage(Lnet/minecraft/network/chat/Component;)V",
             *///?} else {
-            ((ChatComponent) (Object) this).addMessage(modified);
+            method = "addMessage(Lnet/minecraft/network/chat/Component;)V",
             //?}
-         } finally {
-            lifestealutils$reentrant.set(false);
-         }
-      }
-   }
+            cancellable = true)
+    private void addMessage(Component component, CallbackInfo ci) {
+        if (!LifestealAPI.isOnLifestealNetwork()) return;
 
-   @Inject(
-           at = @At("HEAD"),
-           //? if >=26.1 {
-           /*method = "addPlayerMessage(Lnet/minecraft/network/chat/Component;Lnet/minecraft/network/chat/MessageSignature;Lnet/minecraft/client/multiplayer/chat/GuiMessageTag;)V",
-           *///?} else if >1.21.11 {
-           /*method = "addPlayerMessage(Lnet/minecraft/network/chat/Component;Lnet/minecraft/network/chat/MessageSignature;Lnet/minecraft/client/multiplayer/chat/GuiMessageTag;)V",
-           *///?} else {
-           method = "addMessage(Lnet/minecraft/network/chat/Component;Lnet/minecraft/network/chat/MessageSignature;Lnet/minecraft/client/GuiMessageTag;)V",
-           //?}
-           cancellable = true
-   )
-   private void addMessage(Component component, MessageSignature messageSignature, GuiMessageTag guiMessageTag, CallbackInfo ci) {
-      if (!LifestealAPI.isOnLifestealNetwork()) return;
+        Component modified = lifestealutils$filter(component);
+        if (modified == null) {
+            ci.cancel();
+            return;
+        }
 
-      Component modified = lifestealutils$filter(component);
-      if (modified == null) {
-         ci.cancel();
-         return;
-      }
+        if (modified != component) {
+            ci.cancel();
+            lifestealutils$reentrant.set(true);
+            try {
+                //? if >1.21.11 {
+                /*((ChatComponent) (Object) this).addClientSystemMessage(modified);
+                 *///?} else {
+                ((ChatComponent) (Object) this).addMessage(modified);
+                //?}
+            } finally {
+                lifestealutils$reentrant.set(false);
+            }
+        }
+    }
 
-      if (modified != component) {
-         ci.cancel();
-         lifestealutils$reentrant.set(true);
-         try {
-            //? if >1.21.11 {
-            /*((ChatComponent) (Object) this).addPlayerMessage(modified, messageSignature, guiMessageTag);
+    @Inject(
+            at = @At("HEAD"),
+            //? if >=26.1 {
+            /*method = "addPlayerMessage(Lnet/minecraft/network/chat/Component;Lnet/minecraft/network/chat/MessageSignature;Lnet/minecraft/client/multiplayer/chat/GuiMessageTag;)V",
+            *///?} else if >1.21.11 {
+            /*method = "addPlayerMessage(Lnet/minecraft/network/chat/Component;Lnet/minecraft/network/chat/MessageSignature;Lnet/minecraft/client/multiplayer/chat/GuiMessageTag;)V",
             *///?} else {
-            ((ChatComponent) (Object) this).addMessage(modified, messageSignature, guiMessageTag);
+            method = "addMessage(Lnet/minecraft/network/chat/Component;Lnet/minecraft/network/chat/MessageSignature;Lnet/minecraft/client/GuiMessageTag;)V",
             //?}
-         } finally {
-            lifestealutils$reentrant.set(false);
-         }
-      }
-   }
+            cancellable = true
+    )
+    private void addMessage(Component component, MessageSignature messageSignature, GuiMessageTag guiMessageTag, CallbackInfo ci) {
+        if (!LifestealAPI.isOnLifestealNetwork()) return;
 
-   @Unique
-   private Component lifestealutils$filter(Component component) {
-      if (lifestealutils$reentrant.get()) {
-         return component;
-      }
+        Component modified = lifestealutils$filter(component);
+        if (modified == null) {
+            ci.cancel();
+            return;
+        }
 
-      if (!LifestealAPI.isOnLifestealNetwork()) {
-         return component;
-      }
+        if (modified != component) {
+            ci.cancel();
+            lifestealutils$reentrant.set(true);
+            try {
+                //? if >1.21.11 {
+                /*((ChatComponent) (Object) this).addPlayerMessage(modified, messageSignature, guiMessageTag);
+                 *///?} else {
+                ((ChatComponent) (Object) this).addMessage(modified, messageSignature, guiMessageTag);
+                //?}
+            } finally {
+                lifestealutils$reentrant.set(false);
+            }
+        }
+    }
 
-      try {
-         ChatMessageReceivedEvent event = new ChatMessageReceivedEvent(component);
-         LifestealUtilsEvents.CHAT_MESSAGE_RECEIVED.invoker().onChatMessageReceived(event);
+    @Unique
+    private Component lifestealutils$filter(Component component) {
+        if (lifestealutils$reentrant.get()) {
+            return component;
+        }
 
-         if (event.isCancelled()) {
-            return null;
-         }
+        if (!LifestealAPI.isOnLifestealNetwork()) {
+            return component;
+        }
 
-         Component modified = event.getModifiedMessage();
-         return modified != null ? modified : component;
-      } catch (Exception exception) {
-         LOGGER.error("[lsu-chat] failed to process in-game chat MiniMessage logic for '{}'", component.getString(), exception);
-         return component;
-      }
-   }
+        try {
+            ChatMessageReceivedEvent event = new ChatMessageReceivedEvent(component);
+            LifestealUtilsEvents.CHAT_MESSAGE_RECEIVED.invoker().onChatMessageReceived(event);
+
+            if (event.isCancelled()) {
+                return null;
+            }
+
+            Component modified = event.getModifiedMessage();
+            return modified != null ? modified : component;
+        } catch (Exception exception) {
+            LOGGER.error("[lsu-chat] failed to process in-game chat MiniMessage logic for '{}'", component.getString(), exception);
+            return component;
+        }
+    }
 }

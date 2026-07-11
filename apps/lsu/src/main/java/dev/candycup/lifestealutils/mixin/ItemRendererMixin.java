@@ -12,7 +12,7 @@ import net.minecraft.client.renderer.entity.ItemEntityRenderer;
 import net.minecraft.client.renderer.entity.state.ItemEntityRenderState;
 //? if >=26.1 {
 /*import net.minecraft.client.renderer.state.level.CameraRenderState;
-*///?} else if > 1.21.8 {
+ *///?} else if > 1.21.8 {
 import net.minecraft.client.renderer.state.CameraRenderState;
 //?}
 import net.minecraft.world.entity.item.ItemEntity;
@@ -25,31 +25,31 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(ItemEntityRenderer.class)
 public class ItemRendererMixin {
-   //? if > 1.21.8 {
+    //? if > 1.21.8 {
 
-   @Inject(
-           //? if >=26.1 {
-           /*method = "submit(Lnet/minecraft/client/renderer/entity/state/ItemEntityRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;Lnet/minecraft/client/renderer/state/level/CameraRenderState;)V",
-           *///?} else {
-           method = "submit(Lnet/minecraft/client/renderer/entity/state/ItemEntityRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;Lnet/minecraft/client/renderer/state/CameraRenderState;)V",
-           //?}
-           at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/vertex/PoseStack;mulPose(Lorg/joml/Quaternionfc;)V"),
-           cancellable = true)
-   private void dispatchItemRenderEvent(ItemEntityRenderState state, PoseStack poseStack, SubmitNodeCollector collector, CameraRenderState cameraState, CallbackInfo ci) {
-      if (!LifestealAPI.isOnLifestealNetwork()) return;
+    @Inject(
+            //? if >=26.1 {
+            /*method = "submit(Lnet/minecraft/client/renderer/entity/state/ItemEntityRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;Lnet/minecraft/client/renderer/state/level/CameraRenderState;)V",
+            *///?} else {
+            method = "submit(Lnet/minecraft/client/renderer/entity/state/ItemEntityRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;Lnet/minecraft/client/renderer/state/CameraRenderState;)V",
+            //?}
+            at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/vertex/PoseStack;mulPose(Lorg/joml/Quaternionfc;)V"),
+            cancellable = true)
+    private void dispatchItemRenderEvent(ItemEntityRenderState state, PoseStack poseStack, SubmitNodeCollector collector, CameraRenderState cameraState, CallbackInfo ci) {
+        if (!LifestealAPI.isOnLifestealNetwork()) return;
 
-      ItemClusterRenderStateDuck duck = (ItemClusterRenderStateDuck) state;
-      ItemStack itemStack = duck.lifestealutils$getItemStack();
-      boolean isRare = duck.lifestealutils$isRare();
+        ItemClusterRenderStateDuck duck = (ItemClusterRenderStateDuck) state;
+        ItemStack itemStack = duck.lifestealutils$getItemStack();
+        boolean isRare = duck.lifestealutils$isRare();
 
-      ItemRenderEvent event = new ItemRenderEvent(itemStack, poseStack, isRare);
-      LifestealUtilsEvents.ITEM_RENDER.invoker().onItemRender(event);
-      if (event.isCancelled()) {
-         ci.cancel();
-      }
-   }
+        ItemRenderEvent event = new ItemRenderEvent(itemStack, poseStack, isRare);
+        LifestealUtilsEvents.ITEM_RENDER.invoker().onItemRender(event);
+        if (event.isCancelled()) {
+            ci.cancel();
+        }
+    }
 
-   //?} else {
+    //?} else {
    
    /*@Unique
    private ItemEntity entity;

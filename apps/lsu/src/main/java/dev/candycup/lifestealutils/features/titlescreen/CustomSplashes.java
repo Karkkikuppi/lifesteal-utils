@@ -17,9 +17,9 @@ import java.util.List;
  * reads splashes from the global feature flag payload.
  */
 public final class CustomSplashes {
-   private static final List<String> FALLBACK_SPLASHES = new ArrayList<>() {{
-      add("<yellow>uhoh...</yellow>");
-   }};
+    private static final List<String> FALLBACK_SPLASHES = new ArrayList<>() {{
+        add("<yellow>uhoh...</yellow>");
+    }};
 
     @Getter
     @Setter
@@ -27,27 +27,27 @@ public final class CustomSplashes {
     @ConfigurableBoolean(location = "customization.titlescreen.customSplashes")
     private static boolean customSplashesEnabled = true;
 
-   public CustomSplashes() {
-      LifestealUtilsEvents.SPLASH_TEXT_REQUEST.register(event -> {
-         if (!isEnabled()) {
-            return;
-         }
-         onSplashTextRequest(event);
-      });
-   }
+    public CustomSplashes() {
+        LifestealUtilsEvents.SPLASH_TEXT_REQUEST.register(event -> {
+            if (!isEnabled()) {
+                return;
+            }
+            onSplashTextRequest(event);
+        });
+    }
 
-   public boolean isEnabled() {
-       return customSplashesEnabled;
-   }
+    public boolean isEnabled() {
+        return customSplashesEnabled;
+    }
 
-   public void onSplashTextRequest(SplashTextRequestEvent event) {
-      List<String> splashes = FeatureFlagController.getSplashes();
-      if (splashes.isEmpty()) {
-         splashes = FALLBACK_SPLASHES;
-      }
-      String splash = splashes.get((int) (Math.random() * splashes.size()));
+    public void onSplashTextRequest(SplashTextRequestEvent event) {
+        List<String> splashes = FeatureFlagController.getSplashes();
+        if (splashes.isEmpty()) {
+            splashes = FALLBACK_SPLASHES;
+        }
+        String splash = splashes.get((int) (Math.random() * splashes.size()));
 
-      event.setSplashText(MessagingUtils.miniMessageToSplashSafe(splash));
-   }
+        event.setSplashText(MessagingUtils.miniMessageToSplashSafe(splash));
+    }
 }
 

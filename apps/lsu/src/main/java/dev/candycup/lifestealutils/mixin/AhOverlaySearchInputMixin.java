@@ -13,14 +13,14 @@ import org.spongepowered.asm.mixin.injection.Inject;
 
 @Mixin(KeyboardHandler.class)
 public abstract class AhOverlaySearchInputMixin {
-   //? if >1.21.8 {
-   @Inject(method = "charTyped", at = @At("HEAD"), cancellable = true)
-   private void lifestealutils$handleAhOverlayChar(long window, CharacterEvent characterEvent, CallbackInfo ci) {
-      if (Minecraft.getInstance().screen instanceof AhOverlaySearchInput input && input.lifestealutils$handleAhOverlayCharacter(characterEvent.codepoint())) {
-         ci.cancel();
-      }
-   }
-   //?} else {
+    //? if >1.21.8 {
+    @Inject(method = "charTyped", at = @At("HEAD"), cancellable = true)
+    private void lifestealutils$handleAhOverlayChar(long window, CharacterEvent characterEvent, CallbackInfo ci) {
+        if (Minecraft.getInstance().screen instanceof AhOverlaySearchInput input && input.lifestealutils$handleAhOverlayCharacter(characterEvent.codepoint())) {
+            ci.cancel();
+        }
+    }
+    //?} else {
    /*@Inject(method = "charTyped", at = @At("HEAD"), cancellable = true)
    private void lifestealutils$handleAhOverlayChar(long window, int codepoint, int modifiers, CallbackInfo ci) {
       if (Minecraft.getInstance().screen instanceof AhOverlaySearchInput input && input.lifestealutils$handleAhOverlayCharacter(codepoint)) {

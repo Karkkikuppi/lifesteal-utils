@@ -18,7 +18,7 @@ import java.util.regex.Matcher;
  * replaces "(MSG From/To Username) message" with a customizable format.
  */
 public class PrivateMessageFormatter {
-   private static final Logger LOGGER = LoggerFactory.getLogger("lifestealutils/pm");
+    private static final Logger LOGGER = LoggerFactory.getLogger("lifestealutils/pm");
     public static final String DEFAULT_FORMAT = "<light_purple><bold>{{direction}}</bold> {{sender}}</light_purple> <white>\u27A1 {{message}}</white>";
 
     @Getter
@@ -33,48 +33,48 @@ public class PrivateMessageFormatter {
     @ConfigurableMinimessage(location = "customization.messages.pmformat")
     private static String pmFormat = DEFAULT_FORMAT;
 
-   public PrivateMessageFormatter() {
-      LifestealUtilsEvents.CHAT_MESSAGE_RECEIVED.register(event -> {
-         if (!isEnabled()) {
+    public PrivateMessageFormatter() {
+        LifestealUtilsEvents.CHAT_MESSAGE_RECEIVED.register(event -> {
+            if (!isEnabled()) {
+                return;
+            }
+            onChatMessageReceived(event);
+        });
+    }
+
+    public boolean isEnabled() {
+        return enablePmFormat;
+    }
+
+    public void onChatMessageReceived(ChatMessageReceivedEvent event) {
+        String rawMessage = event.getMessage().getString();
+        Matcher matcher = MessagePatterns.PRIVATE_MESSAGE_PATTERN.matcher(rawMessage);
+
+        if (!matcher.find()) {
             return;
-         }
-         onChatMessageReceived(event);
-      });
-   }
+        }
 
-   public boolean isEnabled() {
-       return enablePmFormat;
-   }
+        String direction = capitalizeFirst(matcher.group(1));
+        String sender = MessagingUtils.escapeMiniMessageTags(matcher.group(2));
+        String message = MessagingUtils.escapeMiniMessageTags(matcher.group(3));
 
-   public void onChatMessageReceived(ChatMessageReceivedEvent event) {
-      String rawMessage = event.getMessage().getString();
-      Matcher matcher = MessagePatterns.PRIVATE_MESSAGE_PATTERN.matcher(rawMessage);
+        String format = pmFormat != null && !pmFormat.isBlank() ? pmFormat : DEFAULT_FORMAT;
 
-      if (!matcher.find()) {
-         return;
-      }
+        String formatted = format
+                .replace("{{direction}}", direction)
+                .replace("{{sender}}", sender)
+                .replace("{{message}}", message);
 
-      String direction = capitalizeFirst(matcher.group(1));
-      String sender = MessagingUtils.escapeMiniMessageTags(matcher.group(2));
-      String message = MessagingUtils.escapeMiniMessageTags(matcher.group(3));
+        MessagingUtils.showMiniMessage(formatted);
+        event.setCancelled(true); // prevent original message from showing
 
-       String format = pmFormat != null && !pmFormat.isBlank() ? pmFormat : DEFAULT_FORMAT;
+        LOGGER.debug("[lsu-pm] formatted PM: {} -> {}", direction, sender);
+    }
 
-      String formatted = format
-              .replace("{{direction}}", direction)
-              .replace("{{sender}}", sender)
-              .replace("{{message}}", message);
-
-      MessagingUtils.showMiniMessage(formatted);
-      event.setCancelled(true); // prevent original message from showing
-
-      LOGGER.debug("[lsu-pm] formatted PM: {} -> {}", direction, sender);
-   }
-
-   private String capitalizeFirst(String value) {
-      if (value == null || value.isEmpty()) {
-         return value;
-      }
-      return Character.toUpperCase(value.charAt(0)) + value.substring(1);
-   }
+    private String capitalizeFirst(String value) {
+        if (value == null || value.isEmpty()) {
+            return value;
+        }
+        return Character.toUpperCase(value.charAt(0)) + value.substring(1);
+    }
 }

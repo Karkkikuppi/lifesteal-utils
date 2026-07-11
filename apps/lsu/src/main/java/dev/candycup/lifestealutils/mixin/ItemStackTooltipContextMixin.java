@@ -11,13 +11,13 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(ItemStack.class)
 public class ItemStackTooltipContextMixin {
 
-   @Inject(method = "addDetailsToTooltip", at = @At("HEAD"))
-   private void lifestealutils$markSplashPotion(CallbackInfo ci) {
-      SplashPotionTooltipContext.IS_SPLASH_POTION.set(((ItemStack) (Object) this).getItem() == Items.SPLASH_POTION);
-   }
+    @Inject(method = "addDetailsToTooltip", at = @At("HEAD"))
+    private void lifestealutils$markSplashPotion(CallbackInfo ci) {
+        SplashPotionTooltipContext.IS_SPLASH_POTION.set(((ItemStack) (Object) this).getItem() == Items.SPLASH_POTION);
+    }
 
-   @Inject(method = "addDetailsToTooltip", at = @At("RETURN"))
-   private void lifestealutils$clearSplashPotion(CallbackInfo ci) {
-      SplashPotionTooltipContext.IS_SPLASH_POTION.set(false);
-   }
+    @Inject(method = "addDetailsToTooltip", at = @At("RETURN"))
+    private void lifestealutils$clearSplashPotion(CallbackInfo ci) {
+        SplashPotionTooltipContext.IS_SPLASH_POTION.set(false);
+    }
 }

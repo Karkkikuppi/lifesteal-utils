@@ -19,102 +19,102 @@ import java.util.List;
  * example: "[LEGEND+] [No-Life] Player: msg" -> "[LEGEND+] Player: msg"
  */
 public class ChatTagRemover {
-   private static final Logger LOGGER = LoggerFactory.getLogger("lifestealutils/chattag");
+    private static final Logger LOGGER = LoggerFactory.getLogger("lifestealutils/chattag");
 
-   @Getter
-   @Setter
-   @SerialEntry(comment = "Disables chat tags, such as [No-Life] from appearing in messages for visual simplicity.")
-   @ConfigurableBoolean(location = "customization.messages.disablechattags")
-   private static boolean disableChatTags = false;
+    @Getter
+    @Setter
+    @SerialEntry(comment = "Disables chat tags, such as [No-Life] from appearing in messages for visual simplicity.")
+    @ConfigurableBoolean(location = "customization.messages.disablechattags")
+    private static boolean disableChatTags = false;
 
-   public ChatTagRemover() {
-      LifestealUtilsEvents.CHAT_MESSAGE_RECEIVED.register(event -> {
-         if (!isEnabled()) {
-            return;
-         }
-         onChatMessageReceived(event);
-      });
-   }
+    public ChatTagRemover() {
+        LifestealUtilsEvents.CHAT_MESSAGE_RECEIVED.register(event -> {
+            if (!isEnabled()) {
+                return;
+            }
+            onChatMessageReceived(event);
+        });
+    }
 
-   public boolean isEnabled() {
-      return disableChatTags;
-   }
+    public boolean isEnabled() {
+        return disableChatTags;
+    }
 
-   public void onChatMessageReceived(ChatMessageReceivedEvent event) {
-      Component original = event.getModifiedMessage();
-      String serialized = MessagingUtils.serializeMiniMessage(original);
+    public void onChatMessageReceived(ChatMessageReceivedEvent event) {
+        Component original = event.getModifiedMessage();
+        String serialized = MessagingUtils.serializeMiniMessage(original);
 
-      String filtered = removeChatTag(serialized);
+        String filtered = removeChatTag(serialized);
 
-      if (!filtered.equals(serialized)) {
-         Component modified = MessagingUtils.miniMessage(filtered);
-         event.setModifiedMessage(modified);
-         LOGGER.debug("[lsu-chattag] removed chat tag from message");
-      }
-   }
+        if (!filtered.equals(serialized)) {
+            Component modified = MessagingUtils.miniMessage(filtered);
+            event.setModifiedMessage(modified);
+            LOGGER.debug("[lsu-chattag] removed chat tag from message");
+        }
+    }
 
-   /**
-    * remove the chat tag (second bracket) from messages.
-    */
-   private String removeChatTag(String message) {
-      if (message == null || message.isEmpty()) {
-         return message;
-      }
+    /**
+     * remove the chat tag (second bracket) from messages.
+     */
+    private String removeChatTag(String message) {
+        if (message == null || message.isEmpty()) {
+            return message;
+        }
 
-      StringBuilder visible = new StringBuilder();
-      List<BracketSpan> spans = new ArrayList<>();
+        StringBuilder visible = new StringBuilder();
+        List<BracketSpan> spans = new ArrayList<>();
 
-      boolean inTag = false;
-      int bracketStartVisible = -1;
-      int bracketStartRaw = -1;
+        boolean inTag = false;
+        int bracketStartVisible = -1;
+        int bracketStartRaw = -1;
 
-      for (int i = 0; i < message.length(); i++) {
-         char c = message.charAt(i);
-         if (inTag) {
-            if (c == '>') inTag = false;
-            continue;
-         }
+        for (int i = 0; i < message.length(); i++) {
+            char c = message.charAt(i);
+            if (inTag) {
+                if (c == '>') inTag = false;
+                continue;
+            }
 
-         if (c == '<') {
-            inTag = true;
-            continue;
-         }
+            if (c == '<') {
+                inTag = true;
+                continue;
+            }
 
-         int visibleIndex = visible.length();
-         visible.append(c);
+            int visibleIndex = visible.length();
+            visible.append(c);
 
-         if (c == '[') {
-            bracketStartVisible = visibleIndex;
-            bracketStartRaw = i;
-         } else if (c == ']' && bracketStartVisible >= 0) {
-            spans.add(new BracketSpan(bracketStartVisible, visibleIndex + 1, bracketStartRaw, i + 1));
-            bracketStartVisible = -1;
-            bracketStartRaw = -1;
-         }
-      }
+            if (c == '[') {
+                bracketStartVisible = visibleIndex;
+                bracketStartRaw = i;
+            } else if (c == ']' && bracketStartVisible >= 0) {
+                spans.add(new BracketSpan(bracketStartVisible, visibleIndex + 1, bracketStartRaw, i + 1));
+                bracketStartVisible = -1;
+                bracketStartRaw = -1;
+            }
+        }
 
-      String visibleString = visible.toString();
-      if (spans.size() < 2) {
-         return message;
-      }
+        String visibleString = visible.toString();
+        if (spans.size() < 2) {
+            return message;
+        }
 
-      int colonIndex = visibleString.indexOf(':', spans.get(1).visibleEnd);
-      if (colonIndex < 0 || colonIndex - spans.get(1).visibleEnd > 50) {
-         return message;
-      }
+        int colonIndex = visibleString.indexOf(':', spans.get(1).visibleEnd);
+        if (colonIndex < 0 || colonIndex - spans.get(1).visibleEnd > 50) {
+            return message;
+        }
 
-      BracketSpan secondBracket = spans.get(1);
-      String result = message.substring(0, secondBracket.rawStart)
-              + message.substring(secondBracket.rawEnd);
+        BracketSpan secondBracket = spans.get(1);
+        String result = message.substring(0, secondBracket.rawStart)
+                + message.substring(secondBracket.rawEnd);
 
-      // normalize whitespace
-      result = result.replaceAll("(<dark_gray>\\]</dark_gray>)\\s+", "$1 ");
-      result = result.replaceAll("\\]\\s+", "] ");
-      result = result.replaceAll("[\\s\\u00A0]+", " ").trim();
+        // normalize whitespace
+        result = result.replaceAll("(<dark_gray>\\]</dark_gray>)\\s+", "$1 ");
+        result = result.replaceAll("\\]\\s+", "] ");
+        result = result.replaceAll("[\\s\\u00A0]+", " ").trim();
 
-      return result;
-   }
+        return result;
+    }
 
-   private record BracketSpan(int visibleStart, int visibleEnd, int rawStart, int rawEnd) {
-   }
+    private record BracketSpan(int visibleStart, int visibleEnd, int rawStart, int rawEnd) {
+    }
 }

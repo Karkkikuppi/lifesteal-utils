@@ -11,45 +11,45 @@ import java.util.List;
 import java.util.Set;
 
 public final class ConfigContainerRegistry {
-   private static final Logger LOGGER = LoggerFactory.getLogger("lifestealutils");
-   private static final Set<Class<?>> REGISTERED_CONTAINERS = new LinkedHashSet<>();
-   private static final String GENERATED_INDEX_CLASS = "dev.candycup.lifestealutils.config.generated.GeneratedConfigContainerIndex";
-   private static boolean initialized;
+    private static final Logger LOGGER = LoggerFactory.getLogger("lifestealutils");
+    private static final Set<Class<?>> REGISTERED_CONTAINERS = new LinkedHashSet<>();
+    private static final String GENERATED_INDEX_CLASS = "dev.candycup.lifestealutils.config.generated.GeneratedConfigContainerIndex";
+    private static boolean initialized;
 
-   private ConfigContainerRegistry() {
-   }
+    private ConfigContainerRegistry() {
+    }
 
-   public static synchronized void initializeGeneratedIndex() {
-      if (initialized) {
-         return;
-      }
+    public static synchronized void initializeGeneratedIndex() {
+        if (initialized) {
+            return;
+        }
 
-      clear();
-      try {
-         Class<?> generatedClass = Class.forName(GENERATED_INDEX_CLASS);
-         Method registerAll = generatedClass.getMethod("registerAll");
-         registerAll.invoke(null);
-      } catch (Exception exception) {
-         LOGGER.warn("failed to load generated config container index, falling back to ConfigUtils.class", exception);
-         registerContainer(ConfigUtils.class);
-      }
+        clear();
+        try {
+            Class<?> generatedClass = Class.forName(GENERATED_INDEX_CLASS);
+            Method registerAll = generatedClass.getMethod("registerAll");
+            registerAll.invoke(null);
+        } catch (Exception exception) {
+            LOGGER.warn("failed to load generated config container index, falling back to ConfigUtils.class", exception);
+            registerContainer(ConfigUtils.class);
+        }
 
-      if (REGISTERED_CONTAINERS.isEmpty()) {
-         registerContainer(ConfigUtils.class);
-      }
+        if (REGISTERED_CONTAINERS.isEmpty()) {
+            registerContainer(ConfigUtils.class);
+        }
 
-      initialized = true;
-   }
+        initialized = true;
+    }
 
-   public static synchronized void clear() {
-      REGISTERED_CONTAINERS.clear();
-   }
+    public static synchronized void clear() {
+        REGISTERED_CONTAINERS.clear();
+    }
 
-   public static synchronized void registerContainer(Class<?> containerClass) {
-      REGISTERED_CONTAINERS.add(containerClass);
-   }
+    public static synchronized void registerContainer(Class<?> containerClass) {
+        REGISTERED_CONTAINERS.add(containerClass);
+    }
 
-   public static synchronized List<Class<?>> getRegisteredContainers() {
-      return new ArrayList<>(REGISTERED_CONTAINERS);
-   }
+    public static synchronized List<Class<?>> getRegisteredContainers() {
+        return new ArrayList<>(REGISTERED_CONTAINERS);
+    }
 }

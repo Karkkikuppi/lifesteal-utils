@@ -18,9 +18,9 @@ public class ContainerDropMixin {
     // KeyEvent replaced the separate key code and scan code arguments in 1.21.9.
     //? if >1.21.8 {
     @ModifyExpressionValue(method = "keyPressed", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/KeyMapping;matches(Lnet/minecraft/client/input/KeyEvent;)Z", ordinal = 2))
-    //?} else {
+            //?} else {
     /*@ModifyExpressionValue(method = "keyPressed", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/KeyMapping;matches(II)Z", ordinal = 2))
-    *///?}
+     *///?}
     private boolean keyPressed(boolean original) {
         if (hoveredSlot == null) return original;
 

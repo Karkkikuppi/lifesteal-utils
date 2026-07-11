@@ -23,22 +23,22 @@ import java.util.function.Consumer;
  */
 @Mixin(ClientHandshakePacketListenerImpl.class)
 public interface ClientHandshakePacketListenerImplAuthInvoker {
-   //? if >1.21.8 {
-   @Invoker("<init>")
-   static ClientHandshakePacketListenerImpl lifestealutils$create(
-           Connection connection,
-           Minecraft minecraft,
-           ServerData serverData,
-           Screen screen,
-           boolean quickPlay,
-           Duration worldLoadDuration,
-           Consumer<Component> updateStatus,
-           LevelLoadTracker levelLoadTracker,
-           TransferState transferState
-   ) {
-      throw new AssertionError();
-   }
-   //?} else {
+    //? if >1.21.8 {
+    @Invoker("<init>")
+    static ClientHandshakePacketListenerImpl lifestealutils$create(
+            Connection connection,
+            Minecraft minecraft,
+            ServerData serverData,
+            Screen screen,
+            boolean quickPlay,
+            Duration worldLoadDuration,
+            Consumer<Component> updateStatus,
+            LevelLoadTracker levelLoadTracker,
+            TransferState transferState
+    ) {
+        throw new AssertionError();
+    }
+    //?} else {
    /*@Invoker("<init>")
    static ClientHandshakePacketListenerImpl lifestealutils$create(
            Connection connection,
@@ -54,12 +54,12 @@ public interface ClientHandshakePacketListenerImplAuthInvoker {
    }
    *///?}
 
-   /**
-    * Invokes the vanilla server authentication method.
-    *
-    * @param serverId the server id hash to authenticate
-    * @return a disconnect component on failure, or null on success
-    */
-   @Invoker("authenticateServer")
-   Component lifestealutils$authenticateServer(String serverId);
+    /**
+     * Invokes the vanilla server authentication method.
+     *
+     * @param serverId the server id hash to authenticate
+     * @return a disconnect component on failure, or null on success
+     */
+    @Invoker("authenticateServer")
+    Component lifestealutils$authenticateServer(String serverId);
 }

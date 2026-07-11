@@ -17,38 +17,38 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(ItemClusterRenderState.class)
 public class ItemClusterMixin implements ItemClusterRenderStateDuck {
 
-   @Unique
-   private boolean lifestealutils$isRare = false;
-   @Unique
-   private ItemStack lifestealutils$itemStack = ItemStack.EMPTY;
+    @Unique
+    private boolean lifestealutils$isRare = false;
+    @Unique
+    private ItemStack lifestealutils$itemStack = ItemStack.EMPTY;
 
-   @Inject(method = "extractItemGroupRenderState", at = @At("HEAD"))
+    @Inject(method = "extractItemGroupRenderState", at = @At("HEAD"))
 
-   private void lifestealutils$captureRare(Entity entity, ItemStack stack, ItemModelResolver resolver, CallbackInfo ci) {
-      if (!LifestealAPI.isOnLifestealNetwork()) return;
-      lifestealutils$setItemStack(stack.copy());
+    private void lifestealutils$captureRare(Entity entity, ItemStack stack, ItemModelResolver resolver, CallbackInfo ci) {
+        if (!LifestealAPI.isOnLifestealNetwork()) return;
+        lifestealutils$setItemStack(stack.copy());
 
-      if (stack.isEmpty()) return;
-      lifestealutils$setRare(RareItems.isRare(stack));
-   }
+        if (stack.isEmpty()) return;
+        lifestealutils$setRare(RareItems.isRare(stack));
+    }
 
-   @Override
-   public boolean lifestealutils$isRare() {
-      return lifestealutils$isRare;
-   }
+    @Override
+    public boolean lifestealutils$isRare() {
+        return lifestealutils$isRare;
+    }
 
-   @Override
-   public void lifestealutils$setRare(boolean rare) {
-      this.lifestealutils$isRare = rare;
-   }
+    @Override
+    public void lifestealutils$setRare(boolean rare) {
+        this.lifestealutils$isRare = rare;
+    }
 
-   @Override
-   public ItemStack lifestealutils$getItemStack() {
-      return lifestealutils$itemStack;
-   }
+    @Override
+    public ItemStack lifestealutils$getItemStack() {
+        return lifestealutils$itemStack;
+    }
 
-   @Override
-   public void lifestealutils$setItemStack(ItemStack stack) {
-      this.lifestealutils$itemStack = stack;
-   }
+    @Override
+    public void lifestealutils$setItemStack(ItemStack stack) {
+        this.lifestealutils$itemStack = stack;
+    }
 }

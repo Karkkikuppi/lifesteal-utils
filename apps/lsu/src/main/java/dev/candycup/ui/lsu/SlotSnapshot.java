@@ -16,17 +16,17 @@ public record SlotSnapshot(
         boolean barrier,
         boolean redstoneTorch
 ) {
-   public SlotSnapshot visualCopy() {
-      return new SlotSnapshot(
-              slotIndex,
-              stack == null ? null : stack.copy(),
-              displayName,
-              plainName,
-              List.copyOf(lore),
-              empty,
-              grayStainedGlassPane,
-              barrier,
-              redstoneTorch
-      );
-   }
+    public SlotSnapshot visualCopy() {
+        return new SlotSnapshot(
+                slotIndex,
+                stack == null ? null : stack.copy(),
+                displayName,
+                plainName,
+                List.copyOf(lore),
+                empty,
+                grayStainedGlassPane,
+                barrier,
+                redstoneTorch
+        );
+    }
 }
