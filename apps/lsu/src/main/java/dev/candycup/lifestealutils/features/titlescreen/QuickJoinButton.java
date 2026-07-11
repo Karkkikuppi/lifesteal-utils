@@ -22,73 +22,73 @@ import net.minecraft.resources.Identifier;
  * adds a quick join button to the title screen for connecting to lifesteal network.
  */
 public final class QuickJoinButton {
-   private static int pendingQuickJoinTicks = -1;
-   private static Screen pendingLastScreen;
+    private static int pendingQuickJoinTicks = -1;
+    private static Screen pendingLastScreen;
 
-   @Getter
-   @Setter
-   @SerialEntry(comment = "Quick Join button on the title screen")
-   @ConfigurableBoolean(location = "qol.titlescreen.quickjoinbuttonenabled")
-   private static boolean quickJoinButtonEnabled = true;
+    @Getter
+    @Setter
+    @SerialEntry(comment = "Quick Join button on the title screen")
+    @ConfigurableBoolean(location = "qol.titlescreen.quickjoinbuttonenabled")
+    private static boolean quickJoinButtonEnabled = true;
 
-   public QuickJoinButton() {
-      LifestealUtilsEvents.CLIENT_TICK.register(event -> {
-         Minecraft mc = event.getClient();
-         if (pendingQuickJoinTicks < 0) {
-            return;
-         }
-         if (pendingQuickJoinTicks > 0) {
-            pendingQuickJoinTicks--;
-            return;
-         }
+    public QuickJoinButton() {
+        LifestealUtilsEvents.CLIENT_TICK.register(event -> {
+            Minecraft mc = event.getClient();
+            if (pendingQuickJoinTicks < 0) {
+                return;
+            }
+            if (pendingQuickJoinTicks > 0) {
+                pendingQuickJoinTicks--;
+                return;
+            }
 
-         Screen lastScreen = pendingLastScreen;
-         pendingQuickJoinTicks = -1;
-         pendingLastScreen = null;
+            Screen lastScreen = pendingLastScreen;
+            pendingQuickJoinTicks = -1;
+            pendingLastScreen = null;
 
-         if (lastScreen == null) {
-            return;
-         }
-         if (GaiaConsentController.shouldShowConsent()) {
-            mc.setScreen(new GaiaConsentScreen(lastScreen, true));
-            return;
-         }
+            if (lastScreen == null) {
+                return;
+            }
+            if (GaiaConsentController.shouldShowConsent()) {
+                mc.setScreen(new GaiaConsentScreen(lastScreen, true));
+                return;
+            }
 
-         JoinMultiplayerScreen join = new JoinMultiplayerScreen(lastScreen);
-         mc.setScreen(join);
-         ConnectScreen.startConnecting(
-                 join,
-                 mc,
-                 ServerAddress.parseString("lifesteal.net"),
-                 new ServerData(
-                         "Lifesteal Network",
-                         "lifesteal.net",
-                         ServerData.Type.OTHER
-                 ),
-                 true,
-                 null
-         );
-      });
+            JoinMultiplayerScreen join = new JoinMultiplayerScreen(lastScreen);
+            mc.setScreen(join);
+            ConnectScreen.startConnecting(
+                    join,
+                    mc,
+                    ServerAddress.parseString("lifesteal.net"),
+                    new ServerData(
+                            "Lifesteal Network",
+                            "lifesteal.net",
+                            ServerData.Type.OTHER
+                    ),
+                    true,
+                    null
+            );
+        });
 
-      LifestealUtilsEvents.TITLE_SCREEN_INIT.register((screen) -> {
-         if (!quickJoinButtonEnabled) return;
+        LifestealUtilsEvents.TITLE_SCREEN_INIT.register((screen) -> {
+            if (!quickJoinButtonEnabled) return;
 
-         int l = screen.height / 4 + 48;
-         SpriteIconButton button = ((ScreenAccessor) screen).invokeAddRenderableWidget(
-                 SpriteIconButton.builder(
-                         Component.translatable("menu.options"),
-                         (buttonWidget) -> {
-                            pendingLastScreen = screen;
-                            pendingQuickJoinTicks = 1;
-                         },
-                         true
-                 ).width(20).sprite(
-                         Identifier.fromNamespaceAndPath("lifestealutils", "icon/lsn"),
-                         18,
-                         18
-                 ).build()
-         );
-         button.setPosition(screen.width / 2 + 104, l);
-      });
-   }
+            int l = screen.height / 4 + 48;
+            SpriteIconButton button = ((ScreenAccessor) screen).invokeAddRenderableWidget(
+                    SpriteIconButton.builder(
+                            Component.translatable("menu.options"),
+                            (buttonWidget) -> {
+                                pendingLastScreen = screen;
+                                pendingQuickJoinTicks = 1;
+                            },
+                            true
+                    ).width(20).sprite(
+                            Identifier.fromNamespaceAndPath("lifestealutils", "icon/lsn"),
+                            18,
+                            18
+                    ).build()
+            );
+            button.setPosition(screen.width / 2 + 104, l);
+        });
+    }
 }

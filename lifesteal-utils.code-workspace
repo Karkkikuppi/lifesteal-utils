@@ -1,0 +1,89 @@
+{
+  "folders": [
+    {
+      "name": "/",
+      "path": "."
+    },
+    {
+      "name": "Lifesteal Utils",
+      "path": "apps/lsu"
+    },
+    {
+      "name": "Gaia",
+      "path": "apps/gaia"
+    }
+  ],
+  "tasks": {
+    "version": "2.0.0",
+    "tasks": [
+      {
+        "label": "Lifesteal Utils: runClient 1.21.8",
+        "type": "shell",
+        "command": ".\\gradlew.bat",
+        "args": [
+          ":1.21.8:runClient"
+        ],
+        "options": {
+          "cwd": "${workspaceFolder:Lifesteal Utils}"
+        },
+        "group": "build",
+        "problemMatcher": []
+      },
+      {
+        "label": "Lifesteal Utils: runClient 1.21.9",
+        "type": "shell",
+        "command": ".\\gradlew.bat",
+        "args": [
+          ":1.21.9:runClient"
+        ],
+        "options": {
+          "cwd": "${workspaceFolder:Lifesteal Utils}"
+        },
+        "group": "build",
+        "problemMatcher": []
+      },
+      {
+        "label": "Lifesteal Utils: runClient 1.21.10",
+        "type": "shell",
+        "command": ".\\gradlew.bat",
+        "args": [
+          ":1.21.10:runClient"
+        ],
+        "options": {
+          "cwd": "${workspaceFolder:Lifesteal Utils}"
+        },
+        "group": "build",
+        "problemMatcher": []
+      },
+      {
+        "label": "Lifesteal Utils: runClient 1.21.11",
+        "type": "shell",
+        "command": ".\\gradlew.bat",
+        "args": [
+          ":1.21.11:runClient"
+        ],
+        "options": {
+          "cwd": "${workspaceFolder:Lifesteal Utils}"
+        },
+        "group": {
+          "kind": "build",
+          "isDefault": true
+        },
+        "problemMatcher": []
+      },
+      {
+        "label": "Lifesteal Utils: runClient 26.1",
+        "type": "shell",
+        "command": ".\\gradlew.bat",
+        "args": [
+          ":26.1:runClient"
+        ],
+        "options": {
+          "cwd": "${workspaceFolder:Lifesteal Utils}"
+        },
+        "group": "build",
+        "problemMatcher": []
+      }
+    ]
+  }
+}

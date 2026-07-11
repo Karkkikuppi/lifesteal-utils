@@ -1,0 +1,141 @@
+name: Publish Lifesteal Utils
+
+on:
+  push:
+    branches:
+      - main
+      - beta
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-lsu-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build all Minecraft versions
+    runs-on: ubuntu-latest
+    outputs:
+      artifact-version: ${{ steps.release.outputs.artifact_version }}
+      release-version: ${{ steps.release.outputs.version }}
+      channel: ${{ steps.release.outputs.channel }}
+
+    defaults:
+      run:
+        working-directory: apps/lsu
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: gradle
+          cache-dependency-path: apps/lsu/gradle/wrapper/gradle-wrapper.properties
+
+      - name: Determine release metadata
+        id: release
+        shell: bash
+        run: |
+          base_version="$(sed -n 's/^version = "\([^"]*\)"/\1/p' stonecutter.properties.toml | head -n 1)"
+          if [[ -z "$base_version" ]]; then
+            echo "Unable to read mod.version from stonecutter.properties.toml" >&2
+            exit 1
+          fi
+
+          if [[ "${GITHUB_REF_NAME}" == "beta" ]]; then
+            version="${base_version}-beta.${GITHUB_RUN_NUMBER}"
+            channel="beta"
+          else
+            version="$base_version"
+            channel="release"
+          fi
+
+          echo "artifact_version=$base_version" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "channel=$channel" >> "$GITHUB_OUTPUT"
+
+      - name: Build and collect release jars
+        run: ./gradlew buildAndCollect --stacktrace
+
+      - name: Upload release jars
+        uses: actions/upload-artifact@v4
+        with:
+          name: lifesteal-utils-${{ steps.release.outputs.version }}
+          path: apps/lsu/build/libs/${{ steps.release.outputs.artifact_version }}/*.jar
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: Publish for Minecraft ${{ matrix.minecraft }}
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - minecraft: "1.21.8"
+            game_versions: "1.21.8"
+          - minecraft: "1.21.9"
+            game_versions: |-
+              1.21.9
+              1.21.10
+          - minecraft: "1.21.11"
+            game_versions: "1.21.11"
+          - minecraft: "26.1"
+            game_versions: |-
+              26.1
+              26.1.1
+              26.1.2
+
+    steps:
+      - name: Download release jars
+        uses: actions/download-artifact@v4
+        with:
+          name: lifesteal-utils-${{ needs.build.outputs.release-version }}
+          path: release
+
+      - name: Locate Minecraft version artifacts
+        id: artifacts
+        shell: bash
+        env:
+          MC_VERSION: ${{ matrix.minecraft }}
+        run: |
+          shopt -s nullglob
+          primary=(release/*+"${MC_VERSION}".jar)
+          sources=(release/*+"${MC_VERSION}"-sources.jar)
+
+          if [[ ${#primary[@]} -ne 1 || ${#sources[@]} -ne 1 ]]; then
+            echo "Expected exactly one primary jar and one sources jar for Minecraft ${MC_VERSION}." >&2
+            find release -maxdepth 1 -type f -print >&2
+            exit 1
+          fi
+
+          echo "primary=${primary[0]}" >> "$GITHUB_OUTPUT"
+          echo "primary_name=$(basename "${primary[0]}")" >> "$GITHUB_OUTPUT"
+          echo "sources=${sources[0]}" >> "$GITHUB_OUTPUT"
+          echo "sources_name=$(basename "${sources[0]}")" >> "$GITHUB_OUTPUT"
+
+      - name: Publish to Modrinth
+        uses: cloudnode-pro/modrinth-publish@v2.5.0
+        with:
+          token: ${{ secrets.MODRINTH_TOKEN }}
+          project: gkfOQk9U
+          name: Lifesteal Utils ${{ needs.build.outputs.release-version }} for Minecraft ${{ matrix.minecraft }}
+          version: ${{ needs.build.outputs.release-version }}+${{ matrix.minecraft }}
+          channel: ${{ needs.build.outputs.channel }}
+          changelog: ${{ github.event.head_commit.message }}
+          loaders: fabric
+          game-versions: ${{ matrix.game_versions }}
+          environment: client_only
+          files: |-
+            ${{ steps.artifacts.outputs.primary }}
+            ${{ steps.artifacts.outputs.sources }}
+          primary-file: ${{ steps.artifacts.outputs.primary_name }}
+          file-types: ${{ steps.artifacts.outputs.sources_name }}=sources-jar
+          dependencies: '[{"project_id":"P7dR8mSH","dependency_type":"required"},{"project_id":"mOgUt4GM","dependency_type":"optional"},{"project_id":"O5VsIpQY","dependency_type":"embedded"}]'

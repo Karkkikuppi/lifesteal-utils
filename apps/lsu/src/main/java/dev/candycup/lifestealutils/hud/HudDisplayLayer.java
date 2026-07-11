@@ -7,26 +7,26 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.resources.Identifier;
 
 public final class HudDisplayLayer {
-   public static final Identifier LSU_HUD_LAYER_ID = Identifier.fromNamespaceAndPath("lifestealutils", "lsu_hud_layer");
+    public static final Identifier LSU_HUD_LAYER_ID = Identifier.fromNamespaceAndPath("lifestealutils", "lsu_hud_layer");
 
-   private HudDisplayLayer() {
-   }
+    private HudDisplayLayer() {
+    }
 
-   public static HudElement lsuHudLayer() {
-      return (drawContext, tickCounter) -> {
-         Minecraft minecraft = Minecraft.getInstance();
-         if (!LifestealAPI.isOnLifestealNetwork()) {
-            return;
-         }
-         if (minecraft.screen instanceof HudElementEditor) {
-            return;
-         }
-         int guiWidth = minecraft.getWindow().getGuiScaledWidth();
-         int guiHeight = minecraft.getWindow().getGuiScaledHeight();
+    public static HudElement lsuHudLayer() {
+        return (drawContext, tickCounter) -> {
+            Minecraft minecraft = Minecraft.getInstance();
+            if (!LifestealAPI.isOnLifestealNetwork()) {
+                return;
+            }
+            if (minecraft.screen instanceof HudElementEditor) {
+                return;
+            }
+            int guiWidth = minecraft.getWindow().getGuiScaledWidth();
+            int guiHeight = minecraft.getWindow().getGuiScaledHeight();
 
-         for (HudElementManager.RenderedHudElement element : HudElementManager.renderables(minecraft.font, guiWidth, guiHeight)) {
-            drawContext.drawString(minecraft.font, element.component(), element.x(), element.y(), 0xFFFFFFFF, true);
-         }
-      };
-   }
+            for (HudElementManager.RenderedHudElement element : HudElementManager.renderables(minecraft.font, guiWidth, guiHeight)) {
+                drawContext.drawString(minecraft.font, element.component(), element.x(), element.y(), 0xFFFFFFFF, true);
+            }
+        };
+    }
 }

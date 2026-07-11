@@ -30,12 +30,12 @@
   },
   "mixins": [
     "lifestealutils.mixins.json",
-    "tiertagger-fairplay.mixins.json"
+    "${tiertaggerMixins}"
   ],
   "depends": {
     "fabricloader": ">=0.18.3",
     "minecraft": "${minecraft}",
-    "java": ">=21",
+    "java": ">=${java}",
     "fabric-api": "*"
   },
   "custom": {

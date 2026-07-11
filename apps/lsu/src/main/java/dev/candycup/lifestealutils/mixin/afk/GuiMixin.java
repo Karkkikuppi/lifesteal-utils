@@ -12,11 +12,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(Gui.class)
 public class GuiMixin {
-   @Inject(method = "render", at = @At("HEAD"), cancellable = true)
-   public void lifestealutils$onRenderLevel(GuiGraphics guiGraphics, DeltaTracker deltaTracker, CallbackInfo ci) {
-      if (!AfkMode.isEnabled()) {
-         return;
-      }
-      ci.cancel();
-   }
+    @Inject(method = "render", at = @At("HEAD"), cancellable = true)
+    public void lifestealutils$onRenderLevel(GuiGraphics guiGraphics, DeltaTracker deltaTracker, CallbackInfo ci) {
+        if (!AfkMode.isEnabled()) {
+            return;
+        }
+        ci.cancel();
+    }
 }

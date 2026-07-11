@@ -20,36 +20,36 @@ import java.util.stream.Collectors;
 
 @Mixin(PlayerArgumentType.class)
 public class UkuLibFairplayMixin {
-   @Inject(method = "listSuggestions", at = @At("HEAD"), cancellable = true)
-   public <S> void listSuggestions(
-           CommandContext<S> context,
-           SuggestionsBuilder builder,
-           CallbackInfoReturnable<CompletableFuture<Suggestions>> cir
-   ) {
-      cir.setReturnValue(
-              Objects.requireNonNull(Minecraft.getInstance().getConnection())
-                      .getOnlinePlayers()
-                      .stream()
-                      .filter((playerInfo) -> SharedSuggestionProvider.matchesSubStr(
-                              builder.getRemaining().toLowerCase(Locale.ROOT),
-                              //? if > 1.21.8 {
-                              playerInfo.getProfile().name().toLowerCase(Locale.ROOT)
-                              //?} else {
-                              /*playerInfo.getProfile().getName().toLowerCase(Locale.ROOT)
-                               *///?}
-                      ))
-                      //? if > 1.21.8 {
-                      .map(playerInfo -> playerInfo.getProfile().name())
-                      //?} else {
-                      /*.map(playerInfo -> playerInfo.getProfile().getName())
-                       *///?}
-                      .filter(name -> Pattern.compile("^[a-zA-Z0-9_]{3,16}$").matcher(name).matches())
-                      .collect(Collectors.collectingAndThen(Collectors.toList(), list -> {
-                         Collections.sort(list);
-                         SuggestionsBuilder suggestionsBuilder = builder.createOffset(builder.getStart());
-                         list.forEach(suggestionsBuilder::suggest);
-                         return suggestionsBuilder.buildFuture();
-                      }))
-      );
-   }
+    @Inject(method = "listSuggestions", at = @At("HEAD"), cancellable = true)
+    public <S> void listSuggestions(
+            CommandContext<S> context,
+            SuggestionsBuilder builder,
+            CallbackInfoReturnable<CompletableFuture<Suggestions>> cir
+    ) {
+        cir.setReturnValue(
+                Objects.requireNonNull(Minecraft.getInstance().getConnection())
+                        .getOnlinePlayers()
+                        .stream()
+                        .filter((playerInfo) -> SharedSuggestionProvider.matchesSubStr(
+                                builder.getRemaining().toLowerCase(Locale.ROOT),
+                                //? if > 1.21.8 {
+                                playerInfo.getProfile().name().toLowerCase(Locale.ROOT)
+                                //?} else {
+                                /*playerInfo.getProfile().getName().toLowerCase(Locale.ROOT)
+                                 *///?}
+                        ))
+                        //? if > 1.21.8 {
+                        .map(playerInfo -> playerInfo.getProfile().name())
+                        //?} else {
+                        /*.map(playerInfo -> playerInfo.getProfile().getName())
+                         *///?}
+                        .filter(name -> Pattern.compile("^[a-zA-Z0-9_]{3,16}$").matcher(name).matches())
+                        .collect(Collectors.collectingAndThen(Collectors.toList(), list -> {
+                            Collections.sort(list);
+                            SuggestionsBuilder suggestionsBuilder = builder.createOffset(builder.getStart());
+                            list.forEach(suggestionsBuilder::suggest);
+                            return suggestionsBuilder.buildFuture();
+                        }))
+        );
+    }
 }

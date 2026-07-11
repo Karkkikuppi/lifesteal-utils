@@ -7,19 +7,19 @@ import dev.candycup.lifestealutils.event.LifestealUtilsEvents.ServerChangeEvent;
 import net.minecraft.network.protocol.game.ClientboundTabListPacket;
 
 public class TablistObserver {
-   public TablistObserver() {
-      LifestealUtilsEvents.PACKET_RECEIVED.register((packet, ci) -> {
-         if (packet instanceof ClientboundTabListPacket tabListPacket) {
-            if (LifestealAPI.isOnLifestealNetwork()) {
-               TablistDataController.updateFromFooter(tabListPacket.footer());
+    public TablistObserver() {
+        LifestealUtilsEvents.PACKET_RECEIVED.register((packet, ci) -> {
+            if (packet instanceof ClientboundTabListPacket tabListPacket) {
+                if (LifestealAPI.isOnLifestealNetwork()) {
+                    TablistDataController.updateFromFooter(tabListPacket.footer());
+                }
             }
-         }
-      });
+        });
 
-      LifestealUtilsEvents.SERVER_CHANGE.register(event -> {
-         if (event.getType() == ServerChangeEvent.Type.DISCONNECTED) {
-            TablistDataController.reset();
-         }
-      });
-   }
+        LifestealUtilsEvents.SERVER_CHANGE.register(event -> {
+            if (event.getType() == ServerChangeEvent.Type.DISCONNECTED) {
+                TablistDataController.reset();
+            }
+        });
+    }
 }
