@@ -9,7 +9,9 @@ import dev.candycup.lifestealutils.mixin.MouseHandlerInvoker;
 import dev.candycup.configura.serial.SerialEntry;
 import lombok.Getter;
 import net.minecraft.client.Minecraft;
+//? if >1.21.8 {
 import net.minecraft.client.input.MouseButtonInfo;
+//?}
 import org.lwjgl.glfw.GLFW;
 
 import java.util.Locale;
@@ -111,11 +113,16 @@ public final class Autoclicker {
 
         try {
             long window = client.getWindow().handle();
-            MouseButtonInfo button = new MouseButtonInfo(autoclickerKey.getKey(), 0);
             MouseHandlerInvoker mouseHandler = (MouseHandlerInvoker) client.mouseHandler;
+            //? if >1.21.8 {
+            MouseButtonInfo button = new MouseButtonInfo(autoclickerKey.getKey(), 0);
 
             mouseHandler.lifestealutils$onButton(window, button, GLFW.GLFW_PRESS);
             mouseHandler.lifestealutils$onButton(window, button, GLFW.GLFW_RELEASE);
+            //?} else {
+            /*mouseHandler.lifestealutils$onButton(window, autoclickerKey.getKey(), GLFW.GLFW_PRESS, 0);
+            mouseHandler.lifestealutils$onButton(window, autoclickerKey.getKey(), GLFW.GLFW_RELEASE, 0);
+            *///?}
         } catch (RuntimeException exception) {
             enabled = false;
             stopClickThread();

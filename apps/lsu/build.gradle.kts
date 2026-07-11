@@ -85,9 +85,9 @@ dependencies {
     testRuntimeOnly("org.junit.platform:junit-platform-launcher:6.0.3")
 
     // mod integrations
-    add(modApiConfiguration, fletchingTable.modrinth("modmenu", property("mod.mc_dep") as String, "fabric"))
+    add(modApiConfiguration, fletchingTable.modrinth("modmenu", sc.current.version, "fabric"))
     if (!isNonRemappingMinecraft) {
-        add(modApiConfiguration, fletchingTable.modrinth("tiertagger", property("mod.mc_dep") as String, "fabric"))
+        add(modApiConfiguration, fletchingTable.modrinth("tiertagger", sc.current.version, "fabric"))
     }
 }
 

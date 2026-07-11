@@ -157,7 +157,14 @@ public final class RareItems {
          return;
       }
 
-      boolean down = InputConstants.isKeyDown(Minecraft.getInstance().getWindow(), KeyBindingHelper.getBoundKeyOf(Minecraft.getInstance().options.keyDrop).getValue());
+      boolean down = InputConstants.isKeyDown(
+              //? if >1.21.8 {
+              Minecraft.getInstance().getWindow(),
+              //?} else {
+              /*Minecraft.getInstance().getWindow().handle(),
+              *///?}
+              KeyBindingHelper.getBoundKeyOf(Minecraft.getInstance().options.keyDrop).getValue()
+      );
       float delta = 0.08f;
       if (down) {
          holdKeyProgress = Math.min(1.0f, holdKeyProgress + delta);
