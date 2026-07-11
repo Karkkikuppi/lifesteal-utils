@@ -60,6 +60,9 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "channel=$channel" >> "$GITHUB_OUTPUT"
 
+      - name: Make Gradle wrapper executable
+        run: chmod +x gradlew
+
       - name: Build and collect release jars
         run: ./gradlew buildAndCollect --stacktrace
 
