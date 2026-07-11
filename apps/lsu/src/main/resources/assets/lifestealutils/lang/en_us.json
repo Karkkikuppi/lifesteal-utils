@@ -194,7 +194,7 @@
   "lsu.config.qol.autoclicker.cps.desc": "How many clicks per second should the autoclicker trigger? Capped at 10 for safety (why would you need more anyways?)",
   "lsu.config.qol.customuis": "Custom UIs",
   "lsu.config.qol.customuis.header_desc": "Enable or disable replacement interfaces provided by Lifesteal Utils.",
-  "lsu.config.qol.customuis.custombaltopinterfaceenabled": "Custom Baltop Interface",
+  "lsu.config.qol.customuis.custombaltopinterfaceenabled": "Baltop",
   "lsu.config.qol.customuis.custombaltopinterfaceenabled.desc": "Replaces /baltop with the Lifesteal Utils interface.",
   "lsu.config.qol.potions": "Potions",
   "lsu.config.qol.potions.header_desc": "Tools for viewing accurate potion information factoring in your prestige perks.",
@@ -202,8 +202,8 @@
   "lsu.config.qol.potions.showactualpotionduration.desc": "Show the actual potion duration in the tooltip (potion duration + your prestige perk boost)",
   "lsu.config.experiments": "🧪 Experiments",
   "lsu.config.experiments.auctionui": "Auction UI",
-  "lsu.config.experiments.auctionui.experimentalauctionui": "Experimental Auction UI",
-  "lsu.config.experiments.auctionui.experimentalauctionui.desc": "Replaces the auction UI with an entirely custom view. Very experimental. Feedback is welcome. Contact @candycup on discord :p",
+  "lsu.config.qol.customuis.auctionui": "Auctions",
+  "lsu.config.qol.customuis.auctionui.desc": "Replaces the auction UI with an entirely custom view.",
   "lsu.config.timers": "☀ Overlays",
   "lsu.config.timers.chaincounter": "Unbroken Chain",
   "lsu.config.timers.chaincounter.header_desc": "Track how charged up your UC is, just by looking at your HUD!",
@@ -312,5 +312,7 @@
   "lsu.auction.sidebar.your_listings.unavailable": "'Your Listings' is unavailable in this menu!",
   "lsu.rareitem.drop.confirm": "Hold [%s] to Drop",
   "lsu.config.qol.rareitems.drophold": "Hold to Drop",
-  "lsu.config.qol.rareitems.drophold.desc": "Hold your drop keybind to drop rare items. To Prevent accidental drops."
+  "lsu.config.qol.rareitems.drophold.desc": "Hold your drop keybind to drop rare items, to prevent accidental drops.",
+  "lsu.config.qol.customuis.customshopinterfaceenabled": "NPC Shops",
+  "lsu.config.qol.customuis.customshopinterfaceenabled.desc": "Replaces the shop interface with a custom view."
 }

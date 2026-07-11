@@ -48,13 +48,13 @@ public final class RareItems {
    @Getter
    @Setter
    @SerialEntry(comment = "Enable increased scale for rare items such as neth and custom enchants.")
-   @ConfigurableBoolean(location = "qol.scaling.rareitemscaleenabled")
+   @ConfigurableBoolean(location = "qol.rareitems.rareitemscaleenabled")
    private static boolean rareItemScaleEnabled = true;
 
    @Getter
    @Setter
    @SerialEntry(comment = "Increased scale of the rare items.")
-   @ConfigurableFloat(location = "qol.scaling.rareitemscale", min = 1.0f, max = 5.0f)
+   @ConfigurableFloat(location = "qol.rareitems.rareitemscale", min = 1.0f, max = 5.0f)
    private static float rareItemScale = 2.0f;
 
    public static Float holdKeyProgress = 0f;

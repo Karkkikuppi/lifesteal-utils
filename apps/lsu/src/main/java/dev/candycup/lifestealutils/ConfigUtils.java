@@ -29,6 +29,7 @@ public class ConfigUtils {
                 .migration(2, ConfigMigrations::applyMigration2)
                 .migration(3, ConfigMigrations::applyMigration3)
                 .migration(4, ConfigMigrations::applyMigration4)
+                .migration(5, ConfigMigrations::applyMigration5)
                 .build();
         HANDLER.load();
         if (ConfigMigrations.consumeTouched()) {

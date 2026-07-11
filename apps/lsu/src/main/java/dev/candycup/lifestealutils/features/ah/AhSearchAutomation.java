@@ -9,7 +9,7 @@ public final class AhSearchAutomation {
    @Getter
    @SerialEntry(comment = "Enable the custom auction house interface overlay GUI")
    @RequiresGaia(forceStateWhenDenied = "false")
-   @ConfigurableBoolean(location = "experiments.auctionui.experimentalauctionui", icon = "gold_ingot")
+   @ConfigurableBoolean(location = "qol.customuis.auctionui", icon = "gold_ingot")
    private static boolean customAhInterfaceEnabled = false;
 
    private static String pendingQuery;

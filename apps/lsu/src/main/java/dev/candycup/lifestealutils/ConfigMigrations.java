@@ -72,6 +72,12 @@ public final class ConfigMigrations {
       markTouchedIfChanged(before, map);
    }
 
+   public static void applyMigration5(Map<String, Object> map) {
+      Map<String, Object> before = new LinkedHashMap<>(map);
+      ConfiguraMigration.rename(map, "experiments.auctionui.experimentalauctionui", "qol.customuis.auctionui");
+      markTouchedIfChanged(before, map);
+   }
+
    private static void markTouchedIfChanged(Map<String, Object> before, Map<String, Object> after) {
       if (!before.equals(after)) {
          migrationTouched = true;

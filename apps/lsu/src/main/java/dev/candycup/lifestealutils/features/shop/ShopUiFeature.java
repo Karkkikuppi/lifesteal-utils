@@ -6,7 +6,7 @@ import dev.candycup.lifestealutils.config.configurables.ConfigurableBoolean;
 public final class ShopUiFeature {
    @SerialEntry(comment = "Enable the custom Lifesteal shop interface wrapper")
    @ConfigurableBoolean(location = "qol.customuis.customshopinterfaceenabled", icon = "emerald")
-   private static boolean customShopInterfaceEnabled = true;
+   private static boolean customShopInterfaceEnabled = false;
 
    private ShopUiFeature() {
    }
