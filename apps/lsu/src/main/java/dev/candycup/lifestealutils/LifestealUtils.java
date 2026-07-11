@@ -26,6 +26,7 @@ import dev.candycup.lifestealutils.features.qol.Autoclicker;
 import dev.candycup.lifestealutils.features.qol.AutoJoinLifesteal;
 import dev.candycup.lifestealutils.features.titlescreen.CustomSplashes;
 import dev.candycup.lifestealutils.features.titlescreen.QuickJoinButton;
+import dev.candycup.lifestealutils.gaia.GaiaConsentController;
 import dev.candycup.lifestealutils.gaia.GaiaConsentScreen;
 import dev.candycup.lifestealutils.gaia.GaiaAuthClient;
 import dev.candycup.lifestealutils.gaia.gateway.GaiaGatewayClient;
