@@ -19,6 +19,7 @@
     "ItemClusterMixin",
     "ItemRendererMixin",
     "JoinMultiplayerScreenMixin",
+    "LocalPlayerDropMixin",
     "MessageReceiver",
     "MouseHandlerInvoker",
     "ItemStackTooltipContextMixin",

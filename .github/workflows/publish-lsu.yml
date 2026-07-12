@@ -129,7 +129,7 @@ jobs:
         with:
           token: ${{ secrets.MODRINTH_TOKEN }}
           project: gkfOQk9U
-          name: Lifesteal Utils ${{ needs.build.outputs.release-version }} for Minecraft ${{ matrix.minecraft }}
+          name: ${{ needs.build.outputs.artifact-version }}
           version: ${{ needs.build.outputs.release-version }}+${{ matrix.minecraft }}
           channel: ${{ needs.build.outputs.channel }}
           changelog: ${{ github.event.head_commit.message }}

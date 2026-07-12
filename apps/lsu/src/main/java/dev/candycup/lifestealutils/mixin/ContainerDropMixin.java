@@ -23,13 +23,6 @@ public class ContainerDropMixin {
      *///?}
     private boolean keyPressed(boolean original) {
         if (hoveredSlot == null) return original;
-
-        if (RareItems.isRare(hoveredSlot.getItem()) && RareItems.dropConfirmEnabled) {
-            if (RareItems.holdKeyProgress >= 1f) {
-                return original;
-            }
-            return false;
-        }
-        return original;
+        return original && !RareItems.shouldBlockInventoryDrop(hoveredSlot.getItem());
     }
 }

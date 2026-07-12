@@ -1,6 +1,5 @@
 package dev.candycup.lifestealutils.features.items;
 
-import com.google.common.base.Strings;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.serialization.DataResult;
 import com.mojang.serialization.DynamicOps;
@@ -38,6 +37,7 @@ import java.util.Optional;
  * is done in the mixin to avoid overhead in the event system hot path.
  */
 public final class RareItems {
+    private static final float HOLD_PROGRESS_PER_TICK = 0.08f;
 
     @Getter
     @Setter
@@ -57,10 +57,12 @@ public final class RareItems {
     @ConfigurableFloat(location = "qol.rareitems.rareitemscale", min = 1.0f, max = 5.0f)
     private static float rareItemScale = 2.0f;
 
-    public static Float holdKeyProgress = 0f;
-    public static ItemStack hoveredStack = ItemStack.EMPTY;
-    public static ItemStack trackingStack = ItemStack.EMPTY;
-    public static boolean deferTick = false;
+    private static float inventoryHoldProgress = 0f;
+    private static float worldHoldProgress = 0f;
+    private static ItemStack trackingStack = ItemStack.EMPTY;
+    private static ItemStack worldTrackingStack = ItemStack.EMPTY;
+    private static boolean deferTooltipTick = false;
+    private static boolean worldProgressBarVisible = false;
 
     public RareItems() {
         LifestealUtilsEvents.ITEM_RENDER.register(event -> {
@@ -73,7 +75,7 @@ public final class RareItems {
         ItemTooltipCallback.EVENT.register((stack, context, flag, lines) -> appendTooltip(lines, stack));
     }
 
-    public void onItemRender(ItemRenderEvent event) {
+    private void onItemRender(ItemRenderEvent event) {
         // only scale if the item is marked as rare by the mixin
         if (!event.isRare()) return;
 
@@ -142,65 +144,137 @@ public final class RareItems {
         return (CompoundTag) nbtElement;
     }
 
-    public static void tick() {
+    private static void tick() {
         // Called on client tick; defer processing to render thread during tooltip render
-        deferTick = true;
+        deferTooltipTick = true;
+        if (Minecraft.getInstance().screen == null) {
+            resetInventoryDropConfirmation();
+        }
+        tickWorldDropConfirmation();
     }
 
-    public static void deferredTick() {
-        deferTick = false;
-        if (!RenderSystem.isOnRenderThread()) return;
-
-        if (hoveredStack.isEmpty() || trackingStack.isEmpty()) {
-            trackingStack = ItemStack.EMPTY;
-            holdKeyProgress = 0f;
+    private static void tickWorldDropConfirmation() {
+        Minecraft client = Minecraft.getInstance();
+        if (!dropConfirmEnabled || client.player == null || client.screen != null) {
+            resetWorldDropConfirmation();
             return;
         }
 
-        boolean down = InputConstants.isKeyDown(
-                //? if >1.21.8 {
-                Minecraft.getInstance().getWindow(),
-                //?} else {
-                /*Minecraft.getInstance().getWindow().handle(),
-                 *///?}
-                KeyBindingHelper.getBoundKeyOf(Minecraft.getInstance().options.keyDrop).getValue()
-        );
-        float delta = 0.08f;
-        if (down) {
-            holdKeyProgress = Math.min(1.0f, holdKeyProgress + delta);
-        } else {
-            holdKeyProgress = Math.max(0.0f, holdKeyProgress - delta);
+        ItemStack selectedStack = client.player.getMainHandItem();
+        if (selectedStack.isEmpty() || !isRare(selectedStack)) {
+            resetWorldDropConfirmation();
+            return;
         }
 
-        hoveredStack = ItemStack.EMPTY;
+        if (!ItemStack.isSameItemSameComponents(worldTrackingStack, selectedStack)) {
+            worldHoldProgress = 0f;
+            worldTrackingStack = selectedStack.copy();
+        }
+
+        if (!isDropKeyDown()) {
+            worldHoldProgress = 0f;
+            clearWorldProgressBar(client);
+            return;
+        }
+
+        worldHoldProgress = advanceProgress(worldHoldProgress);
+        worldProgressBarVisible = true;
+        //? if >=26.1 {
+        /*client.player.sendOverlayMessage(makeProgressBar(worldHoldProgress));
+         *///?} else {
+        client.player.displayClientMessage(makeProgressBar(worldHoldProgress), true);
+        //?}
     }
 
-    public void appendTooltip(List<Component> toolTip, ItemStack stack) {
+    private static void resetWorldDropConfirmation() {
+        worldTrackingStack = ItemStack.EMPTY;
+        worldHoldProgress = 0f;
+        clearWorldProgressBar(Minecraft.getInstance());
+    }
+
+    private static void clearWorldProgressBar(Minecraft client) {
+        if (!worldProgressBarVisible) return;
+        worldProgressBarVisible = false;
+        if (client.player == null) return;
+        //? if >=26.1 {
+        /*client.player.sendOverlayMessage(Component.empty());
+         *///?} else {
+        client.player.displayClientMessage(Component.empty(), true);
+        //?}
+    }
+
+    private static void resetInventoryDropConfirmation() {
+        trackingStack = ItemStack.EMPTY;
+        inventoryHoldProgress = 0f;
+    }
+
+    public static boolean shouldBlockWorldDrop(ItemStack stack) {
+        return shouldBlockDrop(stack, worldHoldProgress);
+    }
+
+    public static boolean shouldBlockInventoryDrop(ItemStack stack) {
+        return shouldBlockDrop(stack, inventoryHoldProgress);
+    }
+
+    private static boolean shouldBlockDrop(ItemStack stack, float progress) {
+        return dropConfirmEnabled && progress < 1f && isRare(stack);
+    }
+
+    private static float advanceProgress(float progress) {
+        return Math.min(1f, progress + HOLD_PROGRESS_PER_TICK);
+    }
+
+    private static boolean isDropKeyDown() {
+        Minecraft client = Minecraft.getInstance();
+        return InputConstants.isKeyDown(
+                //? if >1.21.8 {
+                client.getWindow(),
+                //?} else {
+                /*client.getWindow().handle(),
+                 *///?}
+                KeyBindingHelper.getBoundKeyOf(client.options.keyDrop).getValue()
+        );
+    }
+
+    private static void deferredTick() {
+        deferTooltipTick = false;
+        if (!RenderSystem.isOnRenderThread()) return;
+
+        if (isDropKeyDown()) {
+            inventoryHoldProgress = advanceProgress(inventoryHoldProgress);
+        } else {
+            inventoryHoldProgress = Math.max(0f, inventoryHoldProgress - HOLD_PROGRESS_PER_TICK);
+        }
+
+    }
+
+    private void appendTooltip(List<Component> toolTip, ItemStack stack) {
         if (!dropConfirmEnabled) return;
-        if (!isRare(stack)) return;
+        if (!isRare(stack)) {
+            resetInventoryDropConfirmation();
+            return;
+        }
         updateHovered(stack);
-        if (deferTick)
+        if (deferTooltipTick)
             deferredTick();
 
-        Component component = makeProgressBar(holdKeyProgress);
+        Component component = makeProgressBar(inventoryHoldProgress);
         toolTip.add(toolTip.size() < 2 ? toolTip.size() : 1, component);
     }
 
     private static void updateHovered(ItemStack stack) {
         ItemStack prev = trackingStack;
-        hoveredStack = ItemStack.EMPTY;
 
         if (stack.isEmpty()) return;
 
-        if (!prev.equals(stack)) {
-            holdKeyProgress = 0f;
+        if (!ItemStack.isSameItemSameComponents(prev, stack)) {
+            inventoryHoldProgress = 0f;
         }
 
-        hoveredStack = stack;
-        trackingStack = stack;
+        trackingStack = stack.copy();
     }
 
-    private Component makeProgressBar(Float progress) {
+    private static Component makeProgressBar(float progress) {
         Component key = Minecraft.getInstance().options.keyDrop.getTranslatedKeyMessage().copy().withStyle(ChatFormatting.GRAY);
         MutableComponent holdMessage = Component.translatable("lsu.rareitem.drop.confirm", key).withStyle(ChatFormatting.DARK_GRAY);
         Font fontRenderer = Minecraft.getInstance().font;
@@ -215,10 +289,10 @@ public final class RareItems {
 
         if (progress > 0f) {
             StringBuilder progressBar = new StringBuilder();
-            progressBar.append(ChatFormatting.GRAY).append(Strings.repeat(barChar, current));
+            progressBar.append(ChatFormatting.GRAY).append(barChar.repeat(current));
 
             if (progress < 1f) {
-                progressBar.append(ChatFormatting.DARK_GRAY).append(Strings.repeat(barChar, total - current));
+                progressBar.append(ChatFormatting.DARK_GRAY).append(barChar.repeat(total - current));
             }
 
             return Component.literal(progressBar.toString());
