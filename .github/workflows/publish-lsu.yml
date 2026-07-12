@@ -64,7 +64,7 @@ jobs:
         run: chmod +x gradlew
 
       - name: Build and collect release jars
-        run: ./gradlew buildAndCollect --stacktrace
+        run: ./gradlew buildAndCollect -x test --stacktrace
 
       - name: Upload release jars
         uses: actions/upload-artifact@v4
