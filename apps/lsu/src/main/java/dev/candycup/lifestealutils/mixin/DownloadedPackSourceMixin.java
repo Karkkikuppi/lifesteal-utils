@@ -24,41 +24,41 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  */
 @Mixin(DownloadedPackSource.class)
 public class DownloadedPackSourceMixin {
-   private static final Logger LOGGER = LogUtils.getLogger();
-   private static final String LIFESTEAL_ASSETS_HOST = "assets.lifesteal.net";
-   private static final Set<UUID> ELIGIBLE_PACK_IDS = ConcurrentHashMap.newKeySet();
+    private static final Logger LOGGER = LogUtils.getLogger();
+    private static final String LIFESTEAL_ASSETS_HOST = "assets.lifesteal.net";
+    private static final Set<UUID> ELIGIBLE_PACK_IDS = ConcurrentHashMap.newKeySet();
 
-   @Inject(method = "pushPack", at = @At("HEAD"))
-   private void onPushPack(UUID packId, URL url, String hash, CallbackInfo ci) {
-      if (isEligibleLifestealAssetsUrl(url)) {
-         ELIGIBLE_PACK_IDS.add(packId);
-      } else {
-         ELIGIBLE_PACK_IDS.remove(packId);
-      }
-   }
+    @Inject(method = "pushPack", at = @At("HEAD"))
+    private void onPushPack(UUID packId, URL url, String hash, CallbackInfo ci) {
+        if (isEligibleLifestealAssetsUrl(url)) {
+            ELIGIBLE_PACK_IDS.add(packId);
+        } else {
+            ELIGIBLE_PACK_IDS.remove(packId);
+        }
+    }
 
-   @Inject(method = "popPack", at = @At("HEAD"))
-   private void onPopPack(UUID packId, CallbackInfo ci) {
-      ELIGIBLE_PACK_IDS.remove(packId);
-   }
+    @Inject(method = "popPack", at = @At("HEAD"))
+    private void onPopPack(UUID packId, CallbackInfo ci) {
+        ELIGIBLE_PACK_IDS.remove(packId);
+    }
 
-   @Inject(method = "popAll", at = @At("HEAD"))
-   private void onPopAll(CallbackInfo ci) {
-      ELIGIBLE_PACK_IDS.clear();
-   }
+    @Inject(method = "popAll", at = @At("HEAD"))
+    private void onPopAll(CallbackInfo ci) {
+        ELIGIBLE_PACK_IDS.clear();
+    }
 
-   @Inject(method = "loadRequestedPacks", at = @At("HEAD"))
-   private void onLoadRequestedPacks(List<PackReloadConfig.IdAndPath> list, CallbackInfoReturnable<List<Pack>> cir) {
-      for (PackReloadConfig.IdAndPath idAndPath : list) {
-         if (!ELIGIBLE_PACK_IDS.contains(idAndPath.id())) {
-            continue;
-         }
+    @Inject(method = "loadRequestedPacks", at = @At("HEAD"))
+    private void onLoadRequestedPacks(List<PackReloadConfig.IdAndPath> list, CallbackInfoReturnable<List<Pack>> cir) {
+        for (PackReloadConfig.IdAndPath idAndPath : list) {
+            if (!ELIGIBLE_PACK_IDS.contains(idAndPath.id())) {
+                continue;
+            }
 
-         ResourcePackZipEditor.applyConfiguredOverrides(idAndPath.path(), LOGGER);
-      }
-   }
+            ResourcePackZipEditor.applyConfiguredOverrides(idAndPath.path(), LOGGER);
+        }
+    }
 
-   private static boolean isEligibleLifestealAssetsUrl(URL url) {
-      return "https".equalsIgnoreCase(url.getProtocol()) && LIFESTEAL_ASSETS_HOST.equalsIgnoreCase(url.getHost());
-   }
+    private static boolean isEligibleLifestealAssetsUrl(URL url) {
+        return "https".equalsIgnoreCase(url.getProtocol()) && LIFESTEAL_ASSETS_HOST.equalsIgnoreCase(url.getHost());
+    }
 }
