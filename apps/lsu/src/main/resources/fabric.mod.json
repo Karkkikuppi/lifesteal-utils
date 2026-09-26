@@ -5,7 +5,8 @@
   "name": "${name}",
   "description": "Utilities for the Lifesteal Network",
   "authors": [
-    "Candycup"
+    "Candycup",
+    "Jonnite"
   ],
   "contributors": [
     "Jonnite (Code Contributions <3)",
