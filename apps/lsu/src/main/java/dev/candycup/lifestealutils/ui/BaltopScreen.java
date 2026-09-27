@@ -256,8 +256,12 @@ public class BaltopScreen extends Screen {
         if (this.tabNavigationBar == null) {
             return;
         }
+        //? if >=26.2 {
+        /*this.tabNavigationBar.arrangeElements(this.width);
+        *///?} else {
         this.tabNavigationBar.setWidth(this.width);
         this.tabNavigationBar.arrangeElements();
+        //?}
 
         int tabBottom = this.tabNavigationBar.getRectangle().bottom();
         ScreenRectangle tabArea = new ScreenRectangle(0, tabBottom, this.width, this.height - this.layout.getFooterHeight() - tabBottom);

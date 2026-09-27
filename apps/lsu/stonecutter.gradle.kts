@@ -67,5 +67,23 @@ stonecutter parameters {
             replace("graphics.renderItem", "graphics.item")
             replace("gameMode.handleInventoryMouseClick", "gameMode.handleContainerInput")
         }
+        string(current.parsed >= "26.2") {
+            // Minecraft.screen/setScreen moved onto Minecraft.gui
+            replace(".setScreen(", ".gui.setScreen(")
+            replace("client.screen", "client.gui.screen()")
+            replace("minecraft.screen", "minecraft.gui.screen()")
+            replace("Minecraft.getInstance().screen", "Minecraft.getInstance().gui.screen()")
+            // the chat component moved onto the new Gui.hud; the toast manager moved onto Gui
+            replace("gui.getChat()", "gui.hud.getChat()")
+            replace("minecraft.getToastManager()", "minecraft.gui.toastManager()")
+            // TabNavigationBar's single-width builder moved to its MenuTabBar subclass
+            replace("TabNavigationBar.builder(", "net.minecraft.client.gui.components.tabs.MenuTabBar.builder(")
+            // ClientboundSetPlayerTeamPacket.Parameters became a record
+            replace("params.getPlayerPrefix()", "params.playerPrefix()")
+            replace("params.getPlayerSuffix()", "params.playerSuffix()")
+            replace("params.getDisplayName()", "params.displayName()")
+            // per-color items were folded into ColorCollections
+            replace("Items.GRAY_STAINED_GLASS_PANE", "Items.STAINED_GLASS_PANE.gray()")
+        }
     }
 }

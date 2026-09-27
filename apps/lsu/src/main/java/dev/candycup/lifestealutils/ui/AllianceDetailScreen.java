@@ -219,8 +219,12 @@ public class AllianceDetailScreen extends Screen {
         if (this.tabNavigationBar == null) {
             return;
         }
+        //? if >=26.2 {
+        /*this.tabNavigationBar.arrangeElements(this.width);
+        *///?} else {
         this.tabNavigationBar.setWidth(this.width);
         this.tabNavigationBar.arrangeElements();
+        //?}
         int tabBottom = this.tabNavigationBar.getRectangle().bottom();
         int contentBottom = this.height - this.layout.getFooterHeight() - INFO_EDITOR_RESERVED_SPACE;
         int contentHeight = Math.max(40, contentBottom - tabBottom);

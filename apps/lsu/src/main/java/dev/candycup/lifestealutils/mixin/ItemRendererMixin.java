@@ -7,6 +7,7 @@ import dev.candycup.lifestealutils.event.LifestealUtilsEvents;
 import dev.candycup.lifestealutils.event.LifestealUtilsEvents.ItemRenderEvent;
 //? if > 1.21.8
 import net.minecraft.client.renderer.SubmitNodeCollector;
+//? if <26.2
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.entity.ItemEntityRenderer;
 import net.minecraft.client.renderer.entity.state.ItemEntityRenderState;
