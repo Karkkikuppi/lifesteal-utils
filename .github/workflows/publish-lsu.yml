@@ -95,7 +95,10 @@ jobs:
               26.1
               26.1.1
               26.1.2
-
+          - minecraft: "26.2"
+            game_versions: |-
+              26.2
+    
     steps:
       - name: Download release jars
         uses: actions/download-artifact@v4
