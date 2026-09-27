@@ -3,6 +3,7 @@ package dev.candycup.lifestealutils.features.qol;
 import dev.candycup.configura.serial.SerialEntry;
 import dev.candycup.lifestealutils.api.LifestealAPI;
 import dev.candycup.lifestealutils.config.configurables.ConfigurableBoolean;
+import dev.candycup.lifestealutils.config.configurables.ConfigurableEnum;
 import dev.candycup.lifestealutils.event.LifestealUtilsEvents;
 import dev.candycup.lifestealutils.event.LifestealUtilsEvents.ClientTickEvent;
 import dev.candycup.lifestealutils.event.LifestealUtilsEvents.LifestealShardSwapEvent;
@@ -10,6 +11,8 @@ import dev.candycup.lifestealutils.interapi.MessagingUtils;
 import lombok.Getter;
 import lombok.Setter;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.resources.language.I18n;
+import org.lwjgl.glfw.GLFW;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -35,9 +38,13 @@ public class AutoJoinLifesteal {
 
     @Getter
     @Setter
-    @SerialEntry(comment = "Automatically join the Lifesteal gamemode when connecting to the lifesteal.net hub")
+    @SerialEntry(comment = "Automatically join the selected gamemode when connecting to the lifesteal.net hub")
     @ConfigurableBoolean(location = "qol.autojoin.autojoinlifestealonhub")
     private static boolean autoJoinLifestealOnHub = false;
+
+    @SerialEntry(comment = "LSN Gamemode to connect to")
+    @ConfigurableEnum(location = "qol.autojoin.gamemode")
+    private static AutoJoinLifesteal.LifestealGamemode lsnGamemode = LifestealGamemode.LIFESTEAL;
 
     public AutoJoinLifesteal() {
 
@@ -126,7 +133,7 @@ public class AutoJoinLifesteal {
         }
 
         // if the player is in a lifesteal- shard  it resets the tracking
-        if (shardName.startsWith("lifesteal-")) {
+        if (shardName.startsWith(lsnGamemode.getShard())) {
             shouldAutoRejoin = false;
             previousShard = shardName;
             return;
@@ -134,7 +141,7 @@ public class AutoJoinLifesteal {
 
         // checks if you joined the first time or if you were on a lifesteal- shard before
         if (shardName.startsWith("hub-")) {
-            boolean wasOnLifesteal = previousShard != null && previousShard.startsWith("lifesteal-");
+            boolean wasOnLifesteal = previousShard != null && previousShard.startsWith(lsnGamemode.getShard());
             boolean isFirstJoin = previousShard == null;
 
             if (wasOnLifesteal) {
@@ -221,7 +228,7 @@ public class AutoJoinLifesteal {
 
         if (currentShard != null && currentShard.startsWith("hub-")) {
             if (shouldAutoRejoin) {
-                LOGGER.debug("[lsu-autojoin] periodic retry: still in hub shard '{}', executing /joinlifesteal", currentShard);
+                LOGGER.debug("[lsu-autojoin] periodic retry: still in hub shard '{}', executing join command", currentShard);
                 executeJoinCommand();
             }
         }
@@ -230,14 +237,34 @@ public class AutoJoinLifesteal {
     private void executeJoinCommand() {
         Minecraft client = Minecraft.getInstance();
         if (client.player != null) {
-            client.player.connection.sendCommand("joinlifesteal");
-            MessagingUtils.showTranslated("lsu.autojoin.forwarding");
-            LOGGER.info("[lsu-autojoin] executed /joinlifesteal command");
+            client.player.connection.sendCommand(lsnGamemode.getCommand());
+            MessagingUtils.showTranslated("lsu.autojoin.forwarding", MessagingUtils.arg(I18n.get(lsnGamemode.getTranslationKey())));
+            LOGGER.info("[lsu-autojoin] executed {} command", lsnGamemode.getCommand());
             joinCooldownTicks = JOIN_COOLDOWN;
         }
     }
 
     private static boolean isHubShard(String shardName) {
         return shardName != null && shardName.startsWith("hub");
+    }
+
+    public enum LifestealGamemode {
+        LIFESTEAL("lsu.config.qol.autojoin.gamemode.lifesteal", "joinlifesteal", "lifesteal-"),
+        DUELS("lsu.config.qol.autojoin.gamemode.duels", "joinduels", "duels-"),
+        REALMS("lsu.config.qol.autojoin.gamemode.realms", "joinlifestealrealms", "realms-");
+
+        @Getter
+        private final String translationKey;
+
+        @Getter
+        private final String command;
+        @Getter
+        private final String shard;
+
+        LifestealGamemode(String translationKey, String command, String shard) {
+            this.translationKey = translationKey;
+            this.command = command;
+            this.shard = shard;
+        }
     }
 }
