@@ -11,12 +11,12 @@ plugins {
     id("dev.kikugie.fletching-table.fabric") version "0.1.0-alpha.22"
 }
 
-apply(plugin = if (sc.current.version == "26.1") "net.fabricmc.fabric-loom" else "net.fabricmc.fabric-loom-remap")
+apply(plugin = if (sc.current.parsed >= "26.1") "net.fabricmc.fabric-loom" else "net.fabricmc.fabric-loom-remap")
 
 version = "${property("mod.version")}+${sc.current.version}"
 base.archivesName = property("mod.id") as String
 
-val isNonRemappingMinecraft = sc.current.version == "26.1"
+val isNonRemappingMinecraft = sc.current.parsed >= "26.1"
 val loomExtension = extensions.getByName("loom")
 val requiredJava = when {
     isNonRemappingMinecraft -> JavaVersion.VERSION_25
