@@ -44,3 +44,13 @@ deps.ukulib="2.0.0+26.1-fabric"
 mod.mc_dep="26.1"
 mod.mc_title="26.1"
 mod.mc_targets="26.1 26.1.1 26.1.2"
+
+["26.2"]
+deps.fabric_loader="0.19.5"
+deps.fabric_api="0.161.0+26.2"
+deps.modmenu="20.0.3"
+deps.adventure="7.1.1"
+deps.ukulib="2.1.1+26.2"
+mod.mc_dep="26.2"
+mod.mc_title="26.2"
+mod.mc_targets="26.2"
