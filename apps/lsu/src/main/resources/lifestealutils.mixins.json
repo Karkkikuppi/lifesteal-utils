@@ -16,6 +16,7 @@
     "DownloadedPackSourceMixin",
     "ConnectingScreenMixin",
     "ContainerOverlayBackgroundMixin",
+    "DialogAutofocusMixin",
     "ItemClusterMixin",
     "ItemRendererMixin",
     "JoinMultiplayerScreenMixin",
