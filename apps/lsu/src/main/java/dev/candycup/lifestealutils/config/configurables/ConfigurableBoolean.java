@@ -8,10 +8,10 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.FIELD, ElementType.TYPE})
 public @interface ConfigurableBoolean {
-   /**
-    * The full path to this entry, separated by dots. Goes in this order: category.group.entry
-    */
-   String location();
+    /**
+     * The full path to this entry, separated by dots. Goes in this order: category.group.entry
+     */
+    String location();
 
-   String icon() default "";
+    String icon() default "";
 }

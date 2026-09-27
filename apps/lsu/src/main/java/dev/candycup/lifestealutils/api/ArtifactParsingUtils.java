@@ -13,49 +13,49 @@ import net.minecraft.world.item.ItemStack;
 import java.util.Optional;
 
 public final class ArtifactParsingUtils {
-   private ArtifactParsingUtils() {
-   }
+    private ArtifactParsingUtils() {
+    }
 
-   static String getArtifactName(ItemStack stack) {
-      if (stack == null || stack.isEmpty()) {
-         return null;
-      }
+    static String getArtifactName(ItemStack stack) {
+        if (stack == null || stack.isEmpty()) {
+            return null;
+        }
 
-      Minecraft minecraft = Minecraft.getInstance();
-      if (minecraft.player == null) {
-         return null;
-      }
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.player == null) {
+            return null;
+        }
 
-      Tag tag = encodeStack(stack, minecraft.player.registryAccess().createSerializationContext(NbtOps.INSTANCE));
-      if (!(tag instanceof CompoundTag nbt)) {
-         return null;
-      }
+        Tag tag = encodeStack(stack, minecraft.player.registryAccess().createSerializationContext(NbtOps.INSTANCE));
+        if (!(tag instanceof CompoundTag nbt)) {
+            return null;
+        }
 
-      Optional<CompoundTag> customData = nbt.getCompound("minecraft:custom_data");
-      if (customData.isEmpty()) {
-         return null;
-      }
+        Optional<CompoundTag> customData = nbt.getCompound("minecraft:custom_data");
+        if (customData.isEmpty()) {
+            return null;
+        }
 
-      Optional<CompoundTag> pbv = customData.get().getCompound("PublicBukkitValues");
-      if (pbv.isEmpty()) {
-         return null;
-      }
+        Optional<CompoundTag> pbv = customData.get().getCompound("PublicBukkitValues");
+        if (pbv.isEmpty()) {
+            return null;
+        }
 
-      Tag artifactTag = pbv.get().get("lifesteal:artifact");
-      if (!(artifactTag instanceof StringTag(String value))) {
-         return null;
-      }
+        Tag artifactTag = pbv.get().get("lifesteal:artifact");
+        if (!(artifactTag instanceof StringTag(String value))) {
+            return null;
+        }
 
-      return value != null && !value.isBlank() ? value : null;
-   }
+        return value != null && !value.isBlank() ? value : null;
+    }
 
-   static boolean hasArtifact(ItemStack stack) {
-      return getArtifactName(stack) != null;
-   }
+    static boolean hasArtifact(ItemStack stack) {
+        return getArtifactName(stack) != null;
+    }
 
-   private static CompoundTag encodeStack(ItemStack stack, DynamicOps<Tag> ops) {
-      DataResult<Tag> result = DataComponentPatch.CODEC.encodeStart(ops, stack.getComponentsPatch());
-      Tag nbtElement = result.getOrThrow();
-      return (CompoundTag) nbtElement;
-   }
+    private static CompoundTag encodeStack(ItemStack stack, DynamicOps<Tag> ops) {
+        DataResult<Tag> result = DataComponentPatch.CODEC.encodeStart(ops, stack.getComponentsPatch());
+        Tag nbtElement = result.getOrThrow();
+        return (CompoundTag) nbtElement;
+    }
 }

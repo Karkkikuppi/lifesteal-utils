@@ -12,17 +12,17 @@ import java.util.List;
  * base interface for drawable ui components.
  */
 public interface Drawable {
-   void layout(UiLayoutContext layoutContext);
+    void layout(UiLayoutContext layoutContext);
 
-   void render(UiContext context);
+    void render(UiContext context);
 
-   void handleInput(UiInputState input);
+    void handleInput(UiInputState input);
 
-   UiBounds bounds();
+    UiBounds bounds();
 
-   UiSize preferredSize(UiLayoutContext layoutContext);
+    UiSize preferredSize(UiLayoutContext layoutContext);
 
-   default List<Drawable> children() {
-      return List.of();
-   }
+    default List<Drawable> children() {
+        return List.of();
+    }
 }

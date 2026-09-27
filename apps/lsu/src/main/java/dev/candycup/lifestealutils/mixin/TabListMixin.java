@@ -15,22 +15,22 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(PlayerTabOverlay.class)
 public abstract class TabListMixin {
-   @Inject(method = "decorateName", at = @At("HEAD"), cancellable = true)
-   private void decorateNameHead(PlayerInfo playerInfo, MutableComponent mutableComponent, CallbackInfoReturnable<Component> cir) {
-      if (!LifestealAPI.isOnLifestealNetwork()) return;
-      Component result = mutableComponent;
+    @Inject(method = "decorateName", at = @At("HEAD"), cancellable = true)
+    private void decorateNameHead(PlayerInfo playerInfo, MutableComponent mutableComponent, CallbackInfoReturnable<Component> cir) {
+        if (!LifestealAPI.isOnLifestealNetwork()) return;
+        Component result = mutableComponent;
 
-      //? if > 1.21.8 {
-      String plainName = playerInfo.getProfile().name();
-      //?} else {
-      /*String plainName = playerInfo.getProfile().getName();
-       *///?}
-      if (plainName != null && !plainName.isBlank()) {
-         PlayerNameRenderEvent event = new PlayerNameRenderEvent(plainName, PlayerNameRenderEvent.RenderContext.TABLIST, result);
-         LifestealUtilsEvents.PLAYER_NAME_RENDER.invoker().onPlayerNameRender(event);
-         result = event.getModifiedDisplayName();
-      }
+        //? if > 1.21.8 {
+        String plainName = playerInfo.getProfile().name();
+        //?} else {
+        /*String plainName = playerInfo.getProfile().getName();
+         *///?}
+        if (plainName != null && !plainName.isBlank()) {
+            PlayerNameRenderEvent event = new PlayerNameRenderEvent(plainName, PlayerNameRenderEvent.RenderContext.TABLIST, result);
+            LifestealUtilsEvents.PLAYER_NAME_RENDER.invoker().onPlayerNameRender(event);
+            result = event.getModifiedDisplayName();
+        }
 
-      cir.setReturnValue(result);
-   }
+        cir.setReturnValue(result);
+    }
 }

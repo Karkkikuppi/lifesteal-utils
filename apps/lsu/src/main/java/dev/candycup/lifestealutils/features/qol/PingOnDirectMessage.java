@@ -9,17 +9,17 @@ import java.util.regex.Matcher;
 import static dev.candycup.lifestealutils.features.messages.MessageCustomizer.PRIVATE_MESSAGE_PATTERN;
 
 public class PingOnDirectMessage {
-   public static boolean tryHandle(String messageContents) {
-      Matcher matcher = PRIVATE_MESSAGE_PATTERN.matcher(messageContents);
+    public static boolean tryHandle(String messageContents) {
+        Matcher matcher = PRIVATE_MESSAGE_PATTERN.matcher(messageContents);
 
-      if (!matcher.find()) {
-         return false;
-      }
+        if (!matcher.find()) {
+            return false;
+        }
 
-      assert Minecraft.getInstance().player != null;
-      Minecraft.getInstance().getSoundManager().play(SimpleSoundInstance.forUI(
-              SoundEvents.EXPERIENCE_ORB_PICKUP, 1.0f
-      ));
-      return true;
-   }
+        assert Minecraft.getInstance().player != null;
+        Minecraft.getInstance().getSoundManager().play(SimpleSoundInstance.forUI(
+                SoundEvents.EXPERIENCE_ORB_PICKUP, 1.0f
+        ));
+        return true;
+    }
 }

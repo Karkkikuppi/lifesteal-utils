@@ -9,13 +9,13 @@ import java.util.concurrent.CompletableFuture;
  * compatibility wrapper for collectivum Gaia APIs.
  */
 public final class CollectivumBaltopClient {
-   private CollectivumBaltopClient() {
-   }
+    private CollectivumBaltopClient() {
+    }
 
-   public record BaltopEntryPayload(String username, long amount) {
-   }
+    public record BaltopEntryPayload(String username, long amount) {
+    }
 
-   public static CompletableFuture<Boolean> submitBaltopEntries(List<BaltopEntryPayload> entries) {
-      return GaiaApiClient.getInstance().collectivum().submitBaltopEntries(entries);
-   }
+    public static CompletableFuture<Boolean> submitBaltopEntries(List<BaltopEntryPayload> entries) {
+        return GaiaApiClient.getInstance().collectivum().submitBaltopEntries(entries);
+    }
 }

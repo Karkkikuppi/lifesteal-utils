@@ -1,5 +1,5 @@
 package dev.candycup.lifestealutils.config;
 
 public interface ConfigOptionProvider {
-   void registerOptions(ConfigOptionCollector collector);
+    void registerOptions(ConfigOptionCollector collector);
 }

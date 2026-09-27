@@ -12,21 +12,21 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(SplashManager.class)
 public class SplashManagerMixin {
-   @Inject(method = "getSplash", at = @At("HEAD"), cancellable = true)
-   private void getSplashHead(CallbackInfoReturnable<SplashRenderer> cir) {
-      SplashTextRequestEvent event = new SplashTextRequestEvent();
-      LifestealUtilsEvents.SPLASH_TEXT_REQUEST.invoker().onSplashTextRequest(event);
+    @Inject(method = "getSplash", at = @At("HEAD"), cancellable = true)
+    private void getSplashHead(CallbackInfoReturnable<SplashRenderer> cir) {
+        SplashTextRequestEvent event = new SplashTextRequestEvent();
+        LifestealUtilsEvents.SPLASH_TEXT_REQUEST.invoker().onSplashTextRequest(event);
 
-      if (event.getSplashText() != null) {
-         cir.setReturnValue(new SplashRenderer(
-                 //? if > 1.21.10 {
-                 MessagingUtils.miniMessage(
-                         "<yellow>" + event.getSplashText() + "</yellow>"
-                 )
-                 //? } else {
-                 /*event.getSplashText()
-                  *///? }
-         ));
-      }
-   }
+        if (event.getSplashText() != null) {
+            cir.setReturnValue(new SplashRenderer(
+                    //? if > 1.21.10 {
+                    MessagingUtils.miniMessage(
+                            "<yellow>" + event.getSplashText() + "</yellow>"
+                    )
+                    //? } else {
+                    /*event.getSplashText()
+                     *///? }
+            ));
+        }
+    }
 }

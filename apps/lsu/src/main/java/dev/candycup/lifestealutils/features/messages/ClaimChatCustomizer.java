@@ -1,6 +1,5 @@
 package dev.candycup.lifestealutils.features.messages;
 
-import dev.candycup.lifestealutils.Config;
 import dev.candycup.lifestealutils.interapi.MessagingUtils;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 
@@ -38,7 +37,7 @@ public final class ClaimChatCustomizer {
 
    private static String getFormat() {
       try {
-         return Config.claimChatFormat;
+         return ConfigUtils.claimChatFormat;
       } catch (Exception e) {
          return "<gold><bold>{{claim}}</bold></gold> <dark_gray>|</dark_gray> <aqua>{{username}}</aqua><gray>:</gray> <white>{{message}}</white>";
       }

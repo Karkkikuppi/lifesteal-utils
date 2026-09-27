@@ -1,6 +1,7 @@
 package dev.candycup.lifestealutils.gaia;
 
-import dev.candycup.lifestealutils.Config;
+import dev.candycup.configura.serial.SerialEntry;
+import dev.candycup.lifestealutils.ConfigUtils;
 import dev.candycup.lifestealutils.LifestealUtils;
 import dev.candycup.lifestealutils.gaia.gateway.GaiaGatewayClient;
 import dev.candycup.lifestealutils.interapi.NetworkUtilsController;
@@ -13,84 +14,108 @@ import java.util.concurrent.atomic.AtomicInteger;
  * Manages Gaia consent state and remote notice content.
  */
 public final class GaiaConsentController {
-   private static final Logger LOGGER = LoggerFactory.getLogger("lifestealutils/gaia");
-   private static final String CONSENT_URL = "https://karkkikuppi.github.io/lifesteal-utils/registry/Gaia%20Notice.md";
-   private static final String CACHE_BUSTER_PARAM = "?v=";
+    private static final Logger LOGGER = LoggerFactory.getLogger("lifestealutils/gaia");
+    private static final String CONSENT_URL = "https://karkkikuppi.github.io/lifesteal-utils/registry/Gaia%20Notice.md";
+    private static final String CACHE_BUSTER_PARAM = "?v=";
 
-   private static final AtomicInteger CONTENT_VERSION = new AtomicInteger(0);
-   private static volatile String consentMiniMessage;
+    private static final AtomicInteger CONTENT_VERSION = new AtomicInteger(0);
+    private static volatile String consentMiniMessage;
 
-   private GaiaConsentController() {
-   }
+    @SerialEntry(comment = "Whether the Gaia consent screen has been shown")
+    private static boolean gaiaConsentSeen = false;
 
-   /**
-    * Initializes the Gaia consent system by fetching the remote notice content.
-    */
-   public static void initialize() {
-      NetworkUtilsController.getAsync(withCacheBuster(CONSENT_URL)).thenAccept(result -> {
-         if (result.success() && result.body() != null && !result.body().isBlank()) {
-            consentMiniMessage = result.body();
-            CONTENT_VERSION.incrementAndGet();
+    @SerialEntry(comment = "Whether advanced features are enabled after Gaia consent")
+    private static boolean gaiaAdvancedFeaturesEnabled = false;
+
+    private GaiaConsentController() {
+    }
+
+    /**
+     * Initializes the Gaia consent system by fetching the remote notice content.
+     */
+    public static void initialize() {
+        NetworkUtilsController.getAsync(withCacheBuster(CONSENT_URL)).thenAccept(result -> {
+            if (result.success() && result.body() != null && !result.body().isBlank()) {
+                consentMiniMessage = result.body();
+                CONTENT_VERSION.incrementAndGet();
+                return;
+            }
+            LOGGER.debug("failed to fetch gaia consent notice: {}", result.error());
+        });
+    }
+
+    private static String withCacheBuster(String url) {
+        return url + CACHE_BUSTER_PARAM + System.currentTimeMillis();
+    }
+
+    /**
+     * Returns the current consent notice content version.
+     *
+     * @return the content version counter
+     */
+    public static int getConsentContentVersion() {
+        return CONTENT_VERSION.get();
+    }
+
+    /**
+     * Returns the current consent notice as a MiniMessage string.
+     *
+     * @return the MiniMessage content, or null if not loaded yet
+     */
+    public static String getConsentMiniMessage() {
+        return consentMiniMessage;
+    }
+
+    /**
+     * Checks if the consent screen should be shown.
+     *
+     * @return true if the user has not yet seen the consent screen
+     */
+    public static boolean shouldShowConsent() {
+        return !isGaiaConsentSeen();
+    }
+
+    /**
+     * Records the user's consent decision and persists it.
+     * Applies runtime gateway state immediately after persistence.
+     *
+     * @param enabled whether advanced features are enabled
+     */
+    public static void recordConsentDecision(boolean enabled) {
+        setGaiaAdvancedFeaturesEnabled(enabled);
+        setGaiaConsentSeen(true);
+
+        GaiaGatewayClient client = LifestealUtils.getGaiaGatewayClient();
+        if (client == null) {
+            LOGGER.debug("Gaia gateway client not available yet; consent decision persisted only");
             return;
-         }
-         LOGGER.debug("failed to fetch gaia consent notice: {}", result.error());
-      });
-   }
+        }
 
-   private static String withCacheBuster(String url) {
-      return url + CACHE_BUSTER_PARAM + System.currentTimeMillis();
-   }
+        if (enabled) {
+            LOGGER.info("Gaia consent granted; requesting immediate gateway connect");
+            client.connectIfEligibleNow();
+            return;
+        }
 
-   /**
-    * Returns the current consent notice content version.
-    *
-    * @return the content version counter
-    */
-   public static int getConsentContentVersion() {
-      return CONTENT_VERSION.get();
-   }
+        LOGGER.info("Gaia consent revoked; disabling gateway immediately");
+        client.disable();
+    }
 
-   /**
-    * Returns the current consent notice as a MiniMessage string.
-    *
-    * @return the MiniMessage content, or null if not loaded yet
-    */
-   public static String getConsentMiniMessage() {
-      return consentMiniMessage;
-   }
+    public static boolean isGaiaConsentSeen() {
+        return gaiaConsentSeen;
+    }
 
-   /**
-    * Checks if the consent screen should be shown.
-    *
-    * @return true if the user has not yet seen the consent screen
-    */
-   public static boolean shouldShowConsent() {
-      return !Config.isGaiaConsentSeen();
-   }
+    public static void setGaiaConsentSeen(boolean seen) {
+        gaiaConsentSeen = seen;
+        ConfigUtils.HANDLER.save();
+    }
 
-   /**
-    * Records the user's consent decision and persists it.
-    * Applies runtime gateway state immediately after persistence.
-    *
-    * @param enabled whether advanced features are enabled
-    */
-   public static void recordConsentDecision(boolean enabled) {
-      Config.setGaiaAdvancedFeaturesEnabled(enabled);
-      Config.setGaiaConsentSeen(true);
+    public static boolean isGaiaAdvancedFeaturesEnabled() {
+        return gaiaAdvancedFeaturesEnabled;
+    }
 
-      GaiaGatewayClient client = LifestealUtils.getGaiaGatewayClient();
-      if (client == null) {
-         LOGGER.debug("Gaia gateway client not available yet; consent decision persisted only");
-         return;
-      }
-
-      if (enabled) {
-         LOGGER.info("Gaia consent granted; requesting immediate gateway connect");
-         client.connectIfEligibleNow();
-         return;
-      }
-
-      LOGGER.info("Gaia consent revoked; disabling gateway immediately");
-      client.disable();
-   }
+    public static void setGaiaAdvancedFeaturesEnabled(boolean enabled) {
+        gaiaAdvancedFeaturesEnabled = enabled;
+        ConfigUtils.HANDLER.save();
+    }
 }

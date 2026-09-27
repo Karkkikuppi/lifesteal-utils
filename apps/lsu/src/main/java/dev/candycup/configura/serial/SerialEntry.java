@@ -8,11 +8,11 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.FIELD, ElementType.TYPE})
 public @interface SerialEntry {
-   String value() default "";
+    String value() default "";
 
-   String comment() default "";
+    String comment() default "";
 
-   boolean required() default false;
+    boolean required() default false;
 
-   boolean nullable() default false;
+    boolean nullable() default false;
 }

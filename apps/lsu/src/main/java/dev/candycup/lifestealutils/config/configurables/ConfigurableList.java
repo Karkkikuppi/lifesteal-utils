@@ -8,10 +8,10 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.FIELD, ElementType.TYPE})
 public @interface ConfigurableList {
-   /**
-    * The full path to this entry, separated by dots. Goes in this order: category.group
-    */
-   String location();
+    /**
+     * The full path to this entry, separated by dots. Goes in this order: category.group
+     */
+    String location();
 
-   String icon() default "";
+    String icon() default "";
 }

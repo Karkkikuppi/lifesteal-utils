@@ -3,11 +3,11 @@ package dev.candycup.lifestealutils;
 import net.minecraft.world.item.ItemStack;
 
 public interface ItemClusterRenderStateDuck {
-   boolean lifestealutils$isRare();
+    boolean lifestealutils$isRare();
 
-   void lifestealutils$setRare(boolean rare);
+    void lifestealutils$setRare(boolean rare);
 
-   ItemStack lifestealutils$getItemStack();
+    ItemStack lifestealutils$getItemStack();
 
-   void lifestealutils$setItemStack(ItemStack stack);
+    void lifestealutils$setItemStack(ItemStack stack);
 }

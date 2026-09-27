@@ -10,11 +10,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(GameRenderer.class)
 public class GameRendererMixin {
-   @Inject(method = "renderLevel", at = @At("HEAD"), cancellable = true)
-   public void lifestealutils$onRenderLevel(DeltaTracker deltaTracker, CallbackInfo ci) {
-      if (!AfkMode.isEnabled()) {
-         return;
-      }
-      ci.cancel();
-   }
+    @Inject(method = "renderLevel", at = @At("HEAD"), cancellable = true)
+    public void lifestealutils$onRenderLevel(DeltaTracker deltaTracker, CallbackInfo ci) {
+        if (!AfkMode.isEnabled()) {
+            return;
+        }
+        ci.cancel();
+    }
 }

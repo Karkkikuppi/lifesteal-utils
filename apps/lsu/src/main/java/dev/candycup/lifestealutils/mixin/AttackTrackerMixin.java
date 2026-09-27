@@ -18,22 +18,22 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(MultiPlayerGameMode.class)
 public abstract class AttackTrackerMixin {
 
-   @Shadow
-   @Final
-   private Minecraft minecraft;
+    @Shadow
+    @Final
+    private Minecraft minecraft;
 
-   @Inject(method = "attack", at = @At("HEAD"), cancellable = true)
-   private void onAttack(Player player, Entity target, CallbackInfo ci) {
-      if (!LifestealAPI.isOnLifestealNetwork()) return;
-      if (minecraft.player == null) return;
-      if (player != minecraft.player) return;
-      if (!(target instanceof Player)) return;
+    @Inject(method = "attack", at = @At("HEAD"), cancellable = true)
+    private void onAttack(Player player, Entity target, CallbackInfo ci) {
+        if (!LifestealAPI.isOnLifestealNetwork()) return;
+        if (minecraft.player == null) return;
+        if (player != minecraft.player) return;
+        if (!(target instanceof Player)) return;
 
-      ClientAttackEvent event = new ClientAttackEvent(target, System.currentTimeMillis());
-      LifestealUtilsEvents.CLIENT_ATTACK.invoker().onClientAttack(event);
+        ClientAttackEvent event = new ClientAttackEvent(target, System.currentTimeMillis());
+        LifestealUtilsEvents.CLIENT_ATTACK.invoker().onClientAttack(event);
 
-      if (event.isCancelled()) {
-         ci.cancel();
-      }
-   }
+        if (event.isCancelled()) {
+            ci.cancel();
+        }
+    }
 }

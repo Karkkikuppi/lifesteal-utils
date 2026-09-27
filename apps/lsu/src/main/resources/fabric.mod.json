@@ -5,13 +5,15 @@
   "name": "${name}",
   "description": "Utilities for the Lifesteal Network",
   "authors": [
-    "Candycup"
+    "Candycup",
+    "Jonnite"
   ],
   "contributors": [
     "Jonnite (Code Contributions <3)",
     "_milkmc (Early Feedback & Feature Ideas)",
     "bitmc (Code Contributions <3)",
-    "linnyflower (Contributing Custom Enchantments for Testing)"
+    "linnyflower (Contributing Custom Enchantments for Testing)",
+    "winter (Code Contributions <3)"
   ],
   "contact": {
     "homepage": "https://discord.gg/qmWYNtRzEg",
@@ -30,12 +32,12 @@
   },
   "mixins": [
     "lifestealutils.mixins.json",
-    "tiertagger-fairplay.mixins.json"
+    "${tiertaggerMixins}"
   ],
   "depends": {
     "fabricloader": ">=0.18.3",
     "minecraft": "${minecraft}",
-    "java": ">=21",
+    "java": ">=${java}",
     "fabric-api": "*"
   },
   "custom": {

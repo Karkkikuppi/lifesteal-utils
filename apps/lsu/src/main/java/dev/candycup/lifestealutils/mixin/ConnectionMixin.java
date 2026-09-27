@@ -12,9 +12,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(Connection.class)
 public class ConnectionMixin {
-   @Inject(at = @At("HEAD"), method = "channelRead0(Lio/netty/channel/ChannelHandlerContext;Lnet/minecraft/network/protocol/Packet;)V", cancellable = true)
-   public void channelRead(ChannelHandlerContext channelHandlerContext, Packet<?> packet, CallbackInfo ci) {
-      if (!LifestealAPI.isOnLifestealNetwork()) return;
-      LifestealUtilsEvents.PACKET_RECEIVED.invoker().onPacketReceived(packet, ci);
-   }
+    @Inject(at = @At("HEAD"), method = "channelRead0(Lio/netty/channel/ChannelHandlerContext;Lnet/minecraft/network/protocol/Packet;)V", cancellable = true)
+    public void channelRead(ChannelHandlerContext channelHandlerContext, Packet<?> packet, CallbackInfo ci) {
+        if (!LifestealAPI.isOnLifestealNetwork()) return;
+        LifestealUtilsEvents.PACKET_RECEIVED.invoker().onPacketReceived(packet, ci);
+    }
 }
